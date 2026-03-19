@@ -1,14 +1,19 @@
 
-import './App.css'
-import LoginPage from './components/loginPage/LoginPage';
-
+import './index.css';
+// import LoginPage from './components/loginPage/LoginPage';
+import Header from './components/Header';
+import ProfileForm from './StudentPanel/pages/ProfileForm';
 
 function App() {
 
   return (
     <>
-      <LoginPage />
-      
+    < Header />
+    <ProfileForm />
+
+
+
+      {/* <LoginPage /> */}
     </>
   )
 }
