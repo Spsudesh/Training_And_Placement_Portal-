@@ -1,4 +1,4 @@
-import { useReducer } from "react";
+import { useReducer, useState } from "react";
 import CertificationsSection from "../components/CertificationsSection";
 import ConsentSection from "../components/ConsentSection";
 import EducationalDetailsSection from "../components/EducationalDetailsSection";
@@ -8,7 +8,15 @@ import PersonalDetailsSection from "../components/PersonalDetailsSection";
 import ProjectsSection from "../components/ProjectsSection";
 import StepIndicator from "../components/StepIndicator";
 import TechnicalSkillsSection from "../components/TechnicalSkillsSection";
-import useIndiaLocations from "../hooks/useIndiaLocations";
+import {
+  saveActivitiesDetails,
+  saveCertificationDetails,
+  saveEducationDetails,
+  saveExperienceDetails,
+  savePersonalDetails,
+  saveProjectsDetails,
+  saveSkillsDetails,
+} from "../services/studentFormApi";
 
 const steps = [
   "Personal",
@@ -62,12 +70,9 @@ const initialState = {
       email: "",
       mobile: "",
       address: "",
-      stateId: "",
-      state: "",
       country: "",
-      districtId: "",
+      state: "",
       district: "",
-      cityId: "",
       city: "",
       pincode: "",
       dob: "",
@@ -102,10 +107,10 @@ const initialState = {
     experience: [createExperience()],
     projects: [createProject()],
     skills: {
-      languages: "",
-      tools: "",
-      frameworks: "",
-      otherSkills: "",
+      languages: [],
+      tools: [],
+      frameworks: [],
+      otherSkills: [],
     },
     certifications: [createCertification()],
     activities: [createActivity()],
@@ -116,7 +121,7 @@ const initialState = {
 };
 
 function removeCompletedStep(completedSteps, stepIndex) {
-  return completedSteps.filter((step) => step !== stepIndex);
+  return completedSteps;
 }
 
 function revokeFileUrl(fileValue) {
@@ -213,14 +218,11 @@ function reducer(state, action) {
   }
 }
 
-function ProfileForm() {
+function ProfileForm({ onComplete }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [isSaving, setIsSaving] = useState(false);
   const { currentStep, completedSteps, formData } = state;
   const isCurrentStepSaved = completedSteps.includes(currentStep);
-  const locationData = useIndiaLocations(
-    formData.personal.stateId,
-    formData.personal.districtId
-  );
 
   const updateSectionField = (section, stepIndex) => (event) => {
     const { name, value } = event.target;
@@ -228,75 +230,6 @@ function ProfileForm() {
       type: "UPDATE_SECTION_FIELD",
       section,
       stepIndex,
-      name,
-      value,
-    });
-  };
-
-  const updatePersonalLocation = (event) => {
-    const { name, value } = event.target;
-
-    if (name === "stateId") {
-      const selectedState = locationData.states.find(
-        (item) => String(item.id) === value
-      );
-
-      dispatch({
-        type: "UPDATE_SECTION_FIELDS",
-        section: "personal",
-        stepIndex: 0,
-        updates: {
-          stateId: value,
-          state: selectedState?.name ?? "",
-          district: "",
-          districtId: "",
-          city: "",
-          cityId: "",
-        },
-      });
-      return;
-    }
-
-    if (name === "districtId") {
-      const selectedDistrict = locationData.districts.find(
-        (item) => String(item.id) === value
-      );
-
-      dispatch({
-        type: "UPDATE_SECTION_FIELDS",
-        section: "personal",
-        stepIndex: 0,
-        updates: {
-          districtId: value,
-          district: selectedDistrict?.name ?? "",
-          city: "",
-          cityId: "",
-        },
-      });
-      return;
-    }
-
-    if (name === "cityId") {
-      const selectedCity = locationData.cities.find(
-        (item) => String(item.id) === value
-      );
-
-      dispatch({
-        type: "UPDATE_SECTION_FIELDS",
-        section: "personal",
-        stepIndex: 0,
-        updates: {
-          cityId: value,
-          city: selectedCity?.name ?? "",
-        },
-      });
-      return;
-    }
-
-    dispatch({
-      type: "UPDATE_SECTION_FIELD",
-      section: "personal",
-      stepIndex: 0,
       name,
       value,
     });
@@ -315,11 +248,22 @@ function ProfileForm() {
       name,
       value: file
         ? {
+            file,
             name: file.name,
             type: file.type,
             url: URL.createObjectURL(file),
           }
         : "",
+    });
+  };
+
+  const updateSkills = (skillType, values) => {
+    dispatch({
+      type: "UPDATE_SECTION_FIELD",
+      section: "skills",
+      stepIndex: 4,
+      name: skillType,
+      value: values,
     });
   };
 
@@ -349,6 +293,7 @@ function ProfileForm() {
       name,
       value: file
         ? {
+            file,
             name: file.name,
             type: file.type,
             url: URL.createObjectURL(file),
@@ -379,8 +324,14 @@ function ProfileForm() {
     });
   };
 
-  const saveStep = (stepIndex) => {
+  const saveStep = async (stepIndex) => {
     const stepLabel = steps[stepIndex];
+
+    if (completedSteps.includes(stepIndex)) {
+      window.alert(`${stepLabel} details have already been submitted.`);
+      return;
+    }
+
     const confirmed = window.confirm(
       `Do you want to save the ${stepLabel} section? Please confirm before continuing.`
     );
@@ -389,7 +340,57 @@ function ProfileForm() {
       return;
     }
 
-    dispatch({ type: "SAVE_STEP", stepIndex });
+    if (stepIndex !== 0 && !formData.personal.prn) {
+      window.alert("Please fill and save PRN in Personal Details first.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      switch (stepIndex) {
+        case 0:
+          await savePersonalDetails(formData.personal);
+          break;
+        case 1:
+          await saveEducationDetails(formData.personal.prn, formData.education);
+          break;
+        case 2:
+          await saveExperienceDetails(formData.personal.prn, formData.experience);
+          break;
+        case 3:
+          await saveProjectsDetails(formData.personal.prn, formData.projects);
+          break;
+        case 4:
+          await saveSkillsDetails(formData.personal.prn, formData.skills);
+          break;
+        case 5:
+          await saveCertificationDetails(formData.personal.prn, formData.certifications);
+          break;
+        case 6:
+          await saveActivitiesDetails(formData.personal.prn, formData.activities);
+          break;
+        case 7:
+          dispatch({ type: "SAVE_STEP", stepIndex });
+          window.alert("Final submission completed successfully.");
+          onComplete?.();
+          return;
+        default:
+          return;
+      }
+
+      dispatch({ type: "SAVE_STEP", stepIndex });
+      window.alert(`${stepLabel} details saved successfully.`);
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        `Failed to save ${stepLabel.toLowerCase()} details.`;
+      window.alert(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleNext = () => {
@@ -425,11 +426,9 @@ function ProfileForm() {
           <PersonalDetailsSection
             data={formData.personal}
             onFieldChange={updateSectionField("personal", 0)}
-            onLocationChange={updatePersonalLocation}
             onFileChange={updateSectionFile("personal", 0)}
             onSave={() => saveStep(0)}
-            isSaved={completedSteps.includes(0)}
-            locationData={locationData}
+            isSaved={completedSteps.includes(0) && !isSaving}
           />
         );
       case 1:
@@ -439,7 +438,7 @@ function ProfileForm() {
             onFieldChange={updateSectionField("education", 1)}
             onFileChange={updateSectionFile("education", 1)}
             onSave={() => saveStep(1)}
-            isSaved={completedSteps.includes(1)}
+            isSaved={completedSteps.includes(1) && !isSaving}
           />
         );
       case 2:
@@ -451,7 +450,7 @@ function ProfileForm() {
             onAddEntry={addListItem("experience", 2, createExperience)}
             onRemoveEntry={removeListItem("experience", 2)}
             onSave={() => saveStep(2)}
-            isSaved={completedSteps.includes(2)}
+            isSaved={completedSteps.includes(2) && !isSaving}
           />
         );
       case 3:
@@ -462,16 +461,16 @@ function ProfileForm() {
             onAddEntry={addListItem("projects", 3, createProject)}
             onRemoveEntry={removeListItem("projects", 3)}
             onSave={() => saveStep(3)}
-            isSaved={completedSteps.includes(3)}
+            isSaved={completedSteps.includes(3) && !isSaving}
           />
         );
       case 4:
         return (
           <TechnicalSkillsSection
             data={formData.skills}
-            onFieldChange={updateSectionField("skills", 4)}
+            onSkillsChange={updateSkills}
             onSave={() => saveStep(4)}
-            isSaved={completedSteps.includes(4)}
+            isSaved={completedSteps.includes(4) && !isSaving}
           />
         );
       case 5:
@@ -483,7 +482,7 @@ function ProfileForm() {
             onAddEntry={addListItem("certifications", 5, createCertification)}
             onRemoveEntry={removeListItem("certifications", 5)}
             onSave={() => saveStep(5)}
-            isSaved={completedSteps.includes(5)}
+            isSaved={completedSteps.includes(5) && !isSaving}
           />
         );
       case 6:
@@ -494,7 +493,7 @@ function ProfileForm() {
             onAddEntry={addListItem("activities", 6, createActivity)}
             onRemoveEntry={removeListItem("activities", 6)}
             onSave={() => saveStep(6)}
-            isSaved={completedSteps.includes(6)}
+            isSaved={completedSteps.includes(6) && !isSaving}
           />
         );
       case 7:
@@ -511,7 +510,7 @@ function ProfileForm() {
               })
             }
             onSave={() => saveStep(7)}
-            isSaved={completedSteps.includes(7)}
+            isSaved={completedSteps.includes(7) && !isSaving}
           />
         );
       default:
@@ -520,7 +519,7 @@ function ProfileForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#eef4ff_0%,#f8fafc_35%,#edf3f9_100%)] px-4 py-8 sm:px-6 lg:px-10">
+    <div className="w-full">
       <div className="mx-auto w-full max-w-[90rem]">
         <div className="mb-6 rounded-3xl border border-slate-200 bg-white/90 px-6 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -588,12 +587,14 @@ function ProfileForm() {
           <div className="text-sm text-slate-500">
             {isCurrentStepSaved
               ? "This section is saved. You can move ahead."
+              : isSaving
+              ? "Saving your section data..."
               : "Save this section to unlock the next step."}
           </div>
 
           <button
             type="button"
-            disabled={!isCurrentStepSaved || currentStep === steps.length - 1}
+            disabled={isSaving || !isCurrentStepSaved || currentStep === steps.length - 1}
             onClick={handleNext}
             className="inline-flex items-center justify-center rounded-xl bg-blue-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
           >

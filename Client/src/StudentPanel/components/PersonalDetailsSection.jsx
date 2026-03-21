@@ -10,42 +10,14 @@ import {
 const genderOptions = ["Male", "Female", "Other"];
 const categoryOptions = ["Open", "OBC", "SC", "ST", "EWS", "NT", "SBC"];
 const handicapOptions = ["No", "Yes"];
-const countryOptions = ["India"];
 
 function PersonalDetailsSection({
   data,
   onFieldChange,
-  onLocationChange,
   onFileChange,
   onSave,
   isSaved,
-  locationData,
 }) {
-  const {
-    states,
-    districts,
-    cities,
-    loadingStates,
-    loadingDistricts,
-    loadingCities,
-    error,
-  } = locationData;
-
-  const stateOptions = states.map((state) => ({
-    value: String(state.id),
-    label: state.name,
-  }));
-
-  const districtOptions = districts.map((district) => ({
-    value: String(district.id),
-    label: district.name,
-  }));
-
-  const cityOptions = cities.map((city) => ({
-    value: String(city.id),
-    label: city.name,
-  }));
-
   return (
     <SectionCard
       title="Personal Details"
@@ -115,60 +87,35 @@ function PersonalDetailsSection({
       />
 
       <FieldGrid columns={4}>
-        <SelectInput
-          label="State"
-          name="stateId"
-          value={data.stateId}
-          onChange={onLocationChange}
-          options={stateOptions}
-          placeholder={loadingStates ? "Loading states..." : "Select state"}
-          disabled={loadingStates}
-        />
-        <SelectInput
+        <TextInput
           label="Country"
           name="country"
           value={data.country}
           onChange={onFieldChange}
-          options={countryOptions}
-          placeholder="Select country"
+          placeholder="Country"
         />
-        <SelectInput
+        <TextInput
+          label="State"
+          name="state"
+          value={data.state}
+          onChange={onFieldChange}
+          placeholder="State"
+        />
+        <TextInput
           label="District"
-          name="districtId"
-          value={data.districtId}
-          onChange={onLocationChange}
-          options={districtOptions}
-          disabled={!data.stateId || loadingDistricts}
-          placeholder={
-            !data.stateId
-              ? "Choose state first"
-              : loadingDistricts
-              ? "Loading districts..."
-              : "Select district"
-          }
+          name="district"
+          value={data.district}
+          onChange={onFieldChange}
+          placeholder="District"
         />
-        <SelectInput
+        <TextInput
           label="City"
-          name="cityId"
-          value={data.cityId}
-          onChange={onLocationChange}
-          options={cityOptions}
-          disabled={!data.districtId || loadingCities}
-          placeholder={
-            !data.districtId
-              ? "Choose district first"
-              : loadingCities
-              ? "Loading cities..."
-              : "Select city"
-          }
+          name="city"
+          value={data.city}
+          onChange={onFieldChange}
+          placeholder="City"
         />
       </FieldGrid>
-
-      {error ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {error}
-        </div>
-      ) : null}
 
       <TextInput
         label="Pincode"
