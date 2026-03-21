@@ -1,39 +1,14 @@
-import "./index.css";
-import { BrowserRouter as Router, Route, Routes, useLocation } from "react-router-dom";
-import Header from "./components/Header";
-import ProfileForm from "./StudentPanel/pages/ProfileForm";
-import Dashboard from "./TPO/pages/Dashboard";
-
-function AppShell() {
-  const location = useLocation();
-  const isTpoRoute = location.pathname.startsWith("/tpo-dashboard");
-
-  return (
-    <>
-      {!isTpoRoute && <Header />}
-
-      <Routes>
-        <Route path="/" element={<ProfileForm />} />
-        <Route path="/tpo-dashboard" element={<Dashboard />} />
-      </Routes>
-    </>
-  );
-}
-
-function App() {
-  return (
-    <Router>
-      <AppShell />
-    </Router>
 import { useEffect, useState } from "react";
+import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 import "./index.css";
+import Dashboard from "./TPO/pages/Dashboard";
 import PortalLayout from "./components/loginPage/PortalLayout";
 import ProfileForm from "./StudentPanel/pages/ProfileForm";
 import StudentHome from "./StudentPanel/pages/StudentHome";
 
 const ONBOARDING_STORAGE_KEY = "student-panel-onboarding-complete";
 
-function App() {
+function StudentApp() {
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
 
   useEffect(() => {
@@ -58,6 +33,18 @@ function App() {
     <PortalLayout pageTitle="Home" activePage="Home">
       <StudentHome />
     </PortalLayout>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<StudentApp />} />
+        <Route path="/tpo-dashboard" element={<Dashboard />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
   );
 }
 
