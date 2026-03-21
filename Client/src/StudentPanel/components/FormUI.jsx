@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 function SectionCard({ title, description, children, actions }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
@@ -45,6 +47,77 @@ function FieldShell({ label, required = false, hint, children }) {
 
 function inputClasses() {
   return "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100";
+}
+
+function isImageFile(fileName, fileType = "") {
+  const normalizedType = String(fileType).toLowerCase();
+  const normalizedName = String(fileName || "").toLowerCase();
+
+  return (
+    normalizedType.startsWith("image/") ||
+    [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"].some((extension) =>
+      normalizedName.endsWith(extension)
+    )
+  );
+}
+
+function FilePreviewModal({ fileUrl, fileLabel, fileType, onClose }) {
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
+
+  const imagePreview = isImageFile(fileLabel, fileType);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4">
+      <div className="relative flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-2xl font-semibold text-slate-700 shadow-lg transition hover:bg-slate-100"
+          aria-label="Close preview"
+        >
+          ×
+        </button>
+
+        <div className="border-b border-slate-200 px-6 py-4 pr-20">
+          <p className="text-sm font-semibold text-slate-900">File Preview</p>
+          <p className="mt-1 truncate text-sm text-slate-500">
+            {fileLabel || "Uploaded file"}
+          </p>
+        </div>
+
+        <div className="flex-1 bg-slate-100 p-4">
+          {imagePreview ? (
+            <img
+              src={fileUrl}
+              alt={fileLabel || "Preview"}
+              className="h-full w-full rounded-2xl object-contain"
+            />
+          ) : (
+            <iframe
+              src={fileUrl}
+              title={fileLabel || "File preview"}
+              className="h-full w-full rounded-2xl border border-slate-200 bg-white"
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function TextInput({
@@ -122,46 +195,60 @@ function TextArea({ label, name, value, onChange, placeholder, rows = 4 }) {
 }
 
 function UploadRow({ label, name, fileName, onChange, accept, helperText }) {
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileLabel =
     typeof fileName === "object" && fileName !== null
       ? fileName.name
       : fileName;
   const fileUrl =
     typeof fileName === "object" && fileName !== null ? fileName.url : "";
+  const fileType =
+    typeof fileName === "object" && fileName !== null ? fileName.type : "";
 
   return (
-    <div className="grid gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 md:grid-cols-[1.2fr_1.6fr_auto_auto] md:items-center">
-      <div>
-        <p className="text-sm font-medium text-slate-700">{label}</p>
-        {helperText ? (
-          <p className="mt-1 text-xs text-slate-500">{helperText}</p>
-        ) : null}
+    <>
+      <div className="grid gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 md:grid-cols-[1.2fr_1.6fr_auto_auto] md:items-center">
+        <div>
+          <p className="text-sm font-medium text-slate-700">{label}</p>
+          {helperText ? (
+            <p className="mt-1 text-xs text-slate-500">{helperText}</p>
+          ) : null}
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
+          {fileLabel || "No file chosen"}
+        </div>
+        {fileUrl ? (
+          <button
+            type="button"
+            onClick={() => setIsPreviewOpen(true)}
+            className="inline-flex items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+          >
+            View
+          </button>
+        ) : (
+          <div className="hidden md:block" />
+        )}
+        <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-blue-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800">
+          Upload
+          <input
+            className="hidden"
+            type="file"
+            name={name}
+            accept={accept}
+            onChange={onChange}
+          />
+        </label>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
-        {fileLabel || "No file chosen"}
-      </div>
-      {fileUrl ? (
-        <a
-          href={fileUrl}
-          target="_self"
-          className="inline-flex items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
-        >
-          View
-        </a>
-      ) : (
-        <div className="hidden md:block" />
-      )}
-      <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-blue-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800">
-        Upload
-        <input
-          className="hidden"
-          type="file"
-          name={name}
-          accept={accept}
-          onChange={onChange}
+
+      {isPreviewOpen ? (
+        <FilePreviewModal
+          fileUrl={fileUrl}
+          fileLabel={fileLabel}
+          fileType={fileType}
+          onClose={() => setIsPreviewOpen(false)}
         />
-      </label>
-    </div>
+      ) : null}
+    </>
   );
 }
 
@@ -194,11 +281,12 @@ function SaveButton({ onClick, saved, label = "Save & Continue" }) {
     <button
       type="button"
       onClick={onClick}
+      disabled={saved}
       className={`inline-flex min-w-[170px] items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition ${
         saved
           ? "bg-emerald-600 text-white hover:bg-emerald-700"
           : "bg-blue-900 text-white hover:bg-blue-800"
-      }`}
+      } ${saved ? "cursor-not-allowed opacity-80" : ""}`}
     >
       {saved ? "Saved" : label}
     </button>
