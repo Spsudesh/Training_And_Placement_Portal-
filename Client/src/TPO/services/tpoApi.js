@@ -1,3 +1,9 @@
+import axios from "axios";
+
+const tpoApi = axios.create({
+  baseURL: "http://localhost:3000/tpo/dashboard",
+});
+
 const dashboardSnapshot = {
   overview: {
     totalStudents: 1248,
@@ -63,14 +69,13 @@ const dashboardSnapshot = {
   ],
 };
 
-const simulateDelay = (ms) =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
 export const getDashboardData = async () => {
-  await simulateDelay(600);
-
-  return structuredClone(dashboardSnapshot);
+  try {
+    const response = await tpoApi.get("/");
+    return response.data?.data ?? response.data;
+  } catch {
+    // Keep the current dashboard visible until the backend endpoints are ready.
+    return structuredClone(dashboardSnapshot);
+  }
 };
 

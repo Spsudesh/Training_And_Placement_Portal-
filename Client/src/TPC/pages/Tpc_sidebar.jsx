@@ -1,19 +1,18 @@
 import { useState } from "react";
-import Header from "./student_header";
+import Header from "./TPCheader";
 
 const navigationItems = [
-  { label: "Home", icon: "home" },
-  { label: "Job Profiles", icon: "work" },
-  { label: "My Profile", icon: "person" },
-  { label: "Interviews", icon: "groups" },
-  { label: "Assessments", icon: "assignment" },
-  { label: "Resume", icon: "description" },
+  { label: "Dashboard", icon: "dashboard" },
+  { label: "Students", icon: "groups" },
+  { label: "Drive Tasks", icon: "task_alt" },
+  { label: "Schedules", icon: "calendar_month" },
+  { label: "Companies", icon: "apartment" },
 ];
 
-function StudentSidebar({
+function TpcSidebar({
   children,
-  pageTitle = "Student Panel",
-  activePage = "Home",
+  pageTitle = "TPC Dashboard",
+  activePage = "Dashboard",
   showSidebar = true,
   onNavigate,
   onLogout,
@@ -26,7 +25,7 @@ function StudentSidebar({
         pageTitle={pageTitle}
         showMenuButton={showSidebar}
         onMenuClick={() => setSidebarOpen(true)}
-        profileInitials="SP"
+        profileInitials="TC"
         onLogout={onLogout}
       />
 
@@ -77,9 +76,7 @@ function StudentSidebar({
               className="flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-[11px] font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                <span className="material-symbols-outlined text-[22px]">
-                  help
-                </span>
+                <span className="material-symbols-outlined text-[22px]">help</span>
               </span>
               <span>Help</span>
             </button>
@@ -103,4 +100,4 @@ function StudentSidebar({
   );
 }
 
-export default StudentSidebar;
+export default TpcSidebar;

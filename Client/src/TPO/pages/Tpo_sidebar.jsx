@@ -1,19 +1,18 @@
 import { useState } from "react";
-import Header from "./student_header";
+import Header from "./TPOheader";
 
 const navigationItems = [
-  { label: "Home", icon: "home" },
-  { label: "Job Profiles", icon: "work" },
-  { label: "My Profile", icon: "person" },
-  { label: "Interviews", icon: "groups" },
-  { label: "Assessments", icon: "assignment" },
-  { label: "Resume", icon: "description" },
+  { label: "Dashboard", icon: "dashboard" },
+  { label: "Students", icon: "groups" },
+  { label: "Companies", icon: "business_center" },
+  { label: "Placements", icon: "work" },
+  { label: "Settings", icon: "settings" },
 ];
 
-function StudentSidebar({
+function TpoSidebar({
   children,
-  pageTitle = "Student Panel",
-  activePage = "Home",
+  pageTitle = "TPO Dashboard",
+  activePage = "Dashboard",
   showSidebar = true,
   onNavigate,
   onLogout,
@@ -26,7 +25,7 @@ function StudentSidebar({
         pageTitle={pageTitle}
         showMenuButton={showSidebar}
         onMenuClick={() => setSidebarOpen(true)}
-        profileInitials="SP"
+        profileInitials="TP"
         onLogout={onLogout}
       />
 
@@ -50,14 +49,14 @@ function StudentSidebar({
                   }}
                   className={`flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center text-[11px] font-medium transition ${
                     isActive
-                      ? "bg-blue-50 text-blue-700"
+                      ? "bg-cyan-50 text-cyan-700"
                       : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
                   <span
                     className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold ${
                       isActive
-                        ? "bg-blue-600 text-white"
+                        ? "bg-cyan-600 text-white"
                         : "bg-slate-100 text-slate-700"
                     }`}
                   >
@@ -77,9 +76,7 @@ function StudentSidebar({
               className="flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-[11px] font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                <span className="material-symbols-outlined text-[22px]">
-                  help
-                </span>
+                <span className="material-symbols-outlined text-[22px]">help</span>
               </span>
               <span>Help</span>
             </button>
@@ -103,4 +100,4 @@ function StudentSidebar({
   );
 }
 
-export default StudentSidebar;
+export default TpoSidebar;

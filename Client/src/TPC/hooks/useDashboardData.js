@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDashboardData } from "../services/tpoApi";
+import { getDashboardData } from "../services/tpcApi";
 
 export const useDashboardData = () => {
   const [data, setData] = useState(null);
@@ -60,4 +60,3 @@ export const useDashboardData = () => {
     refetch,
   };
 };
-

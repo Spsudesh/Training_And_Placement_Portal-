@@ -1,7 +1,7 @@
 import {
   BriefcaseBusiness,
-  GraduationCap,
-  ShieldCheck,
+  CalendarCheck2,
+  ClipboardCheck,
   Users,
 } from "lucide-react";
 import StatCard from "../components/StatCard";
@@ -9,40 +9,40 @@ import PieChartBox from "../components/Charts/PieChartBox";
 import BarChartBox from "../components/Charts/BarChartBox";
 import LineChartBox from "../components/Charts/LineChartBox";
 import RecentActivity from "../components/Table/RecentActivity";
-import TpoSidebar from "./Tpo_sidebar";
+import TpcSidebar from "./Tpc_sidebar";
 import { useDashboardData } from "../hooks/useDashboardData";
 
 const statConfig = [
   {
-    key: "totalStudents",
-    title: "Total Students",
-    subtitle: "Registered across all active departments",
+    key: "assignedStudents",
+    title: "Assigned Students",
+    subtitle: "Students currently managed by coordinator teams",
     icon: Users,
-    accent: "from-slate-900 via-slate-800 to-cyan-700",
+    accent: "from-slate-900 via-slate-800 to-blue-700",
     iconBg: "bg-white/15",
   },
   {
-    key: "eligibleStudents",
-    title: "Eligible Students",
-    subtitle: "Meeting current placement eligibility criteria",
-    icon: ShieldCheck,
-    accent: "from-emerald-500 via-teal-500 to-cyan-500",
+    key: "activeDrives",
+    title: "Active Drives",
+    subtitle: "Ongoing campus activities needing coordination",
+    icon: CalendarCheck2,
+    accent: "from-blue-500 via-sky-500 to-cyan-500",
     iconBg: "bg-white/20",
   },
   {
-    key: "jobOpenings",
-    title: "Job Openings",
-    subtitle: "Live opportunities shared with students",
-    icon: BriefcaseBusiness,
+    key: "pendingReferrals",
+    title: "Pending Tasks",
+    subtitle: "Student follow-ups and execution items awaiting action",
+    icon: ClipboardCheck,
     accent: "from-amber-500 via-orange-500 to-rose-500",
     iconBg: "bg-white/25",
   },
   {
-    key: "studentsPlaced",
-    title: "Students Placed",
-    subtitle: "Confirmed placements in the ongoing cycle",
-    icon: GraduationCap,
-    accent: "from-cyan-500 via-blue-500 to-indigo-600",
+    key: "placedStudents",
+    title: "Students Supported",
+    subtitle: "Placed students coordinated through the current cycle",
+    icon: BriefcaseBusiness,
+    accent: "from-sky-500 via-blue-500 to-indigo-600",
     iconBg: "bg-white/20",
   },
 ];
@@ -58,8 +58,8 @@ export default function Dashboard({ onLogout }) {
     useDashboardData();
 
   return (
-    <TpoSidebar
-      pageTitle="TPO Dashboard"
+    <TpcSidebar
+      pageTitle="TPC Dashboard"
       activePage="Dashboard"
       onLogout={onLogout}
     >
@@ -99,29 +99,29 @@ export default function Dashboard({ onLogout }) {
         ) : (
           <>
             <section className="grid gap-6 xl:grid-cols-[1.1fr_1.35fr]">
-              <PieChartBox data={data?.placementRatio ?? []} />
-              <BarChartBox data={data?.departmentPlacements ?? []} />
+              <PieChartBox data={data?.driveStatus ?? []} />
+              <BarChartBox data={data?.departmentSupport ?? []} />
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-              <LineChartBox data={data?.monthlyPlacementTrend ?? []} />
+              <LineChartBox data={data?.weeklyTaskTrend ?? []} />
 
               <div className="rounded-[28px] border border-slate-200/70 bg-white p-6 shadow-lg shadow-slate-200/60">
                 <p className="text-sm font-semibold text-slate-900">
                   Quick Highlights
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
-                  Snapshot metrics to support faster TPO decisions
+                  Snapshot metrics to support faster coordinator decisions
                 </p>
 
                 <div className="mt-6 space-y-4">
                   <div className="rounded-2xl bg-slate-950 p-5 text-white">
-                    <p className="text-sm text-white/70">Placement Rate</p>
+                    <p className="text-sm text-white/70">Task Closure Rate</p>
                     <p className="mt-2 text-3xl font-semibold">
                       {data
                         ? `${Math.round(
-                            (data.overview.studentsPlaced /
-                              data.overview.totalStudents) *
+                            (data.overview.placedStudents /
+                              data.overview.assignedStudents) *
                               100
                           )}%`
                         : "--"}
@@ -129,16 +129,16 @@ export default function Dashboard({ onLogout }) {
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                    <div className="rounded-2xl bg-cyan-50 p-4">
-                      <p className="text-sm text-cyan-700">Top Department</p>
+                    <div className="rounded-2xl bg-blue-50 p-4">
+                      <p className="text-sm text-blue-700">Focus Department</p>
                       <p className="mt-2 text-xl font-semibold text-slate-900">
                         CSE
                       </p>
                     </div>
                     <div className="rounded-2xl bg-amber-50 p-4">
-                      <p className="text-sm text-amber-700">Most Active Recruiter</p>
+                      <p className="text-sm text-amber-700">Next Major Drive</p>
                       <p className="mt-2 text-xl font-semibold text-slate-900">
-                        TCS
+                        Infosys
                       </p>
                     </div>
                     <div className="rounded-2xl bg-emerald-50 p-4">
@@ -156,7 +156,6 @@ export default function Dashboard({ onLogout }) {
           </>
         )}
       </div>
-    </TpoSidebar>
+    </TpcSidebar>
   );
 }
-

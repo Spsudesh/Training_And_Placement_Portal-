@@ -82,8 +82,16 @@ function createJsonArrayFormData(prn, fieldName, items) {
   return formData;
 }
 
+function omitFileField(items, fileFieldName) {
+  return items.map((item) => {
+    const sanitizedItem = { ...item };
+    delete sanitizedItem[fileFieldName];
+    return sanitizedItem;
+  });
+}
+
 function createExperienceFormData(prn, experience) {
-  const sanitizedExperience = experience.map(({ certificate, ...entry }) => entry);
+  const sanitizedExperience = omitFileField(experience, "certificate");
   const formData = createJsonArrayFormData(prn, "experience", sanitizedExperience);
 
   experience.forEach((entry, index) => {
@@ -94,7 +102,7 @@ function createExperienceFormData(prn, experience) {
 }
 
 function createCertificationsFormData(prn, certifications) {
-  const sanitizedCertifications = certifications.map(({ certificate, ...entry }) => entry);
+  const sanitizedCertifications = omitFileField(certifications, "certificate");
   const formData = createJsonArrayFormData(prn, "certifications", sanitizedCertifications);
 
   certifications.forEach((entry, index) => {

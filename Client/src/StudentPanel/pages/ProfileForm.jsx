@@ -121,7 +121,7 @@ const initialState = {
 };
 
 function removeCompletedStep(completedSteps, stepIndex) {
-  return completedSteps;
+  return completedSteps.filter((completedStep) => completedStep !== stepIndex);
 }
 
 function revokeFileUrl(fileValue) {

@@ -3,7 +3,7 @@ export default function StatCard({
   value,
   subtitle,
   icon,
-  accent = "from-cyan-500 to-blue-500",
+  accent = "from-blue-500 to-sky-500",
   iconBg = "bg-white/20",
 }) {
   const Icon = icon;
@@ -29,4 +29,3 @@ export default function StatCard({
     </article>
   );
 }
-

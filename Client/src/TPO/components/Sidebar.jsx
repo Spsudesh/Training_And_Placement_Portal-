@@ -59,7 +59,10 @@ export default function Sidebar({ mobileOpen, onClose }) {
         </div>
 
         <nav className="space-y-2">
-          {navItems.map(({ label, icon: Icon, to, disabled }) => (
+          {navItems.map(({ label, icon, to, disabled }) => {
+            const Icon = icon;
+
+            return (
             <NavLink
               key={label}
               to={to}
@@ -89,7 +92,8 @@ export default function Sidebar({ mobileOpen, onClose }) {
                 </span>
               )}
             </NavLink>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="mt-auto rounded-3xl bg-gradient-to-br from-slate-900 via-cyan-950 to-cyan-700 p-5 text-white">

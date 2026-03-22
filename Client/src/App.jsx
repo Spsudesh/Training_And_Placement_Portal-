@@ -1,36 +1,52 @@
-import { useEffect, useState } from "react";
-import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+import { useState } from "react";
+import {
+  BrowserRouter as Router,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+} from "react-router-dom";
 import "./index.css";
+import LoginPage from "./components/loginPage/LoginPage";
 import Dashboard from "./TPO/pages/Dashboard";
-import ProfileForm from "./StudentPanel/pages/ProfileForm";
+import TpcDashboard from "./TPC/pages/Dashboard";
 import StudentHome from "./StudentPanel/pages/StudentHome";
 import StudentProfilePage from "./StudentPanel/profile/pages/StudentProfilePage";
 import StudentSidebar from "./StudentPanel/pages/Student_sidebar";
 
-const ONBOARDING_STORAGE_KEY = "student-panel-onboarding-complete-v2";
+const AUTH_STORAGE_KEY = "training-placement-active-panel";
+
+function getActivePanel() {
+  return window.localStorage.getItem(AUTH_STORAGE_KEY);
+}
+
+function setActivePanel(panel) {
+  window.localStorage.setItem(AUTH_STORAGE_KEY, panel);
+}
+
+function clearActivePanel() {
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function ProtectedRoute({ allowedPanel, children }) {
+  const activePanel = getActivePanel();
+
+  if (activePanel !== allowedPanel) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
 
 function StudentApp() {
-  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [currentPage, setCurrentPage] = useState("Home");
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const onboardingStatus = window.localStorage.getItem(ONBOARDING_STORAGE_KEY);
-    setIsOnboardingComplete(onboardingStatus === "true");
-  }, []);
-
-  const handleOnboardingComplete = () => {
-    window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-    setIsOnboardingComplete(true);
+  const handleLogout = () => {
+    clearActivePanel();
     setCurrentPage("Home");
+    navigate("/", { replace: true });
   };
-
-  if (!isOnboardingComplete) {
-    return (
-      <StudentSidebar pageTitle="My Profile" activePage="My Profile" showSidebar={false}>
-        <ProfileForm onComplete={handleOnboardingComplete} />
-      </StudentSidebar>
-    );
-  }
 
   function renderStudentPanelPage() {
     switch (currentPage) {
@@ -47,18 +63,86 @@ function StudentApp() {
       pageTitle={currentPage}
       activePage={currentPage}
       onNavigate={setCurrentPage}
+      onLogout={handleLogout}
     >
       {renderStudentPanelPage()}
     </StudentSidebar>
   );
 }
 
+function TpoApp() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    clearActivePanel();
+    navigate("/", { replace: true });
+  };
+
+  return <Dashboard onLogout={handleLogout} />;
+}
+
+function TpcApp() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    clearActivePanel();
+    navigate("/", { replace: true });
+  };
+
+  return <TpcDashboard onLogout={handleLogout} />;
+}
+
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<StudentApp />} />
-        <Route path="/tpo-dashboard" element={<Dashboard />} />
+        <Route
+          path="/"
+          element={
+            getActivePanel() ? (
+              <Navigate
+                to={
+                  getActivePanel() === "student"
+                    ? "/student-panel"
+                    : getActivePanel() === "tpo"
+                      ? "/tpo-dashboard"
+                      : "/tpc-dashboard"
+                }
+                replace
+              />
+            ) : (
+              <LoginPage
+                onLogin={(panel) => {
+                  setActivePanel(panel);
+                }}
+              />
+            )
+          }
+        />
+        <Route
+          path="/student-panel"
+          element={
+            <ProtectedRoute allowedPanel="student">
+              <StudentApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tpo-dashboard"
+          element={
+            <ProtectedRoute allowedPanel="tpo">
+              <TpoApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tpc-dashboard"
+          element={
+            <ProtectedRoute allowedPanel="tpc">
+              <TpcApp />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
