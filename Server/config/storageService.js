@@ -1,4 +1,5 @@
 const cloudinary = require('cloudinary').v2;
+const path = require('path');
 require('dotenv').config();
 
 function getCloudinaryConfig() {
@@ -35,13 +36,36 @@ function validateCloudinaryConfig() {
   }
 }
 
-async function uploadFile(filePath, folder = 'students') {
+function getResourceType(file) {
+  const fileName = String(file?.originalname || file?.path || '').toLowerCase();
+  const mimeType = String(file?.mimetype || '').toLowerCase();
+  const extension = path.extname(fileName);
+
+  if (
+    mimeType === 'application/pdf' ||
+    ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.txt'].includes(extension)
+  ) {
+    return 'raw';
+  }
+
+  if (mimeType.startsWith('image/')) {
+    return 'image';
+  }
+
+  return 'auto';
+}
+
+async function uploadFile(file, folder = 'students') {
   validateCloudinaryConfig();
 
   try {
-    const result = await cloudinary.uploader.upload(filePath, {
+    const result = await cloudinary.uploader.upload(file.path, {
       folder,
-      resource_type: 'auto',
+      resource_type: getResourceType(file),
+      type: 'upload',
+      access_mode: 'public',
+      use_filename: true,
+      unique_filename: true,
     });
 
     return result.secure_url;
@@ -58,4 +82,8 @@ async function uploadFile(filePath, folder = 'students') {
   }
 }
 
-module.exports = { uploadFile };
+module.exports = {
+  cloudinary,
+  getCloudinaryConfig,
+  uploadFile,
+};

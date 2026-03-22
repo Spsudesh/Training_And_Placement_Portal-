@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "dev": "nodeman index.js"
+    "dev": "nodeman index.js",
+    "cloudinary:fix-access": "node scripts/fixCloudinaryDocumentAccess.js"
   },
   "keywords": [],
   "author": "",

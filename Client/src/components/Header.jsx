@@ -1,39 +1,63 @@
-import logo from "/rit_logo.jpeg";
-
-function Header() {
+function Header({
+  pageTitle = "Student Panel",
+  showMenuButton = false,
+  onMenuClick,
+  profileInitials = "SP",
+}) {
   return (
-    <div>
-      {/* Top Section */}
-      <div className="bg-sky-200 flex justify-between items-center px-6 py-3">
-        
-        {/* Left */}
-        <div className="flex items-center gap-4">
-          <img src={logo} alt="logo" className="w-20 H-20" />
+    <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-slate-200 bg-white px-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:px-6 lg:px-8">
+      <div className="flex items-center gap-4">
+        {showMenuButton ? (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-700 transition hover:bg-slate-50 lg:hidden"
+          >
+            <span className="material-symbols-outlined text-[22px] leading-none">
+              menu
+            </span>
+          </button>
+        ) : null}
 
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-500 text-base font-bold text-white shadow-lg">
+            TP
+          </div>
           <div>
-            <p className="text-sm">Kasegaon Education Society's</p>
-            <h2 className="font-bold text-lg">
-              RAJARAMBAPU INSTITUTE OF TECHNOLOGY
-            </h2>
-            <p className="text-xs">An Empowered Autonomous Institute</p>
+            <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">
+              Training & Placement
+            </p>
+            <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
+              {pageTitle}
+            </h1>
           </div>
         </div>
+      </div>
 
-        {/* Right */}
-        <div className="text-right text-sm MR-4">
-          <p>NAAC A+ Graded Autonomous Institute</p>
-          <p>DTE Code: EN6214 | MSBTE Code: 1740</p>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
+          aria-label="Settings"
+        >
+          <span className="material-symbols-outlined text-[22px]">
+            settings
+          </span>
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
+          aria-label="Notifications"
+        >
+          <span className="material-symbols-outlined text-[22px]">
+            notifications
+          </span>
+        </button>
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 text-sm font-bold text-white shadow-md">
+          {profileInitials}
         </div>
       </div>
-
-      {/* Navbar */}
-      <div className="bg-blue-900 text-white flex gap-6 px-6 py-3 text-sm">
-        {/* <p>HOME</p>
-        <p>ABOUT US</p>
-        <p>ACADEMIC</p>
-        <p>DEPARTMENTS</p> */}
-      </div>
-    </div>
+    </header>
   );
 }
 

@@ -1,0 +1,263 @@
+const express = require('express');
+const db = require('../../config/db').db;
+
+const studentProfileGetRoutes = express.Router();
+const DEFAULT_PRN = '2453008';
+
+function query(sql, values = []) {
+  return new Promise((resolve, reject) => {
+    db.query(sql, values, (error, result) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(result);
+    });
+  });
+}
+
+function toDisplayHandicap(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return value ? 'Yes' : 'No';
+}
+
+function buildFullName(personal) {
+  return [personal.first_name, personal.middle_name, personal.last_name]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function isAllowedDocumentUrl(url) {
+  return /^https:\/\/res\.cloudinary\.com\//i.test(String(url || ''));
+}
+
+studentProfileGetRoutes.get('/document', async (req, res) => {
+  const sourceUrl = req.query.url;
+  const fileName = req.query.name || 'document.pdf';
+
+  if (!sourceUrl || !isAllowedDocumentUrl(sourceUrl)) {
+    res.status(400).json({
+      message: 'Invalid document URL',
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch(sourceUrl);
+
+    if (!response.ok) {
+      res.status(response.status).json({
+        message: 'Failed to fetch document from source',
+      });
+      return;
+    }
+
+    const contentType = response.headers.get('content-type') || 'application/pdf';
+    const fileBuffer = Buffer.from(await response.arrayBuffer());
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.send(fileBuffer);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to stream document',
+      error: error.message,
+    });
+  }
+});
+
+async function handleGetStudentProfile(req, res) {
+  const prn = req.params.prn || req.query.prn || DEFAULT_PRN;
+
+  try {
+    const personalRows = await query(
+      'SELECT * FROM student_personal WHERE PRN = ? LIMIT 1',
+      [prn]
+    );
+
+    if (!personalRows.length) {
+      res.status(404).json({
+        message: 'Student profile not found',
+      });
+      return;
+    }
+
+    const educationRows = await query(
+      'SELECT * FROM student_education WHERE PRN = ? LIMIT 1',
+      [prn]
+    );
+
+    const skillRows = await query(
+      `
+        SELECT ts.skill_name, ss.skill_type
+        FROM student_skills ss
+        INNER JOIN technical_skills ts ON ts.skill_id = ss.skill_id
+        WHERE ss.PRN = ?
+        ORDER BY ts.skill_name ASC
+      `,
+      [prn]
+    );
+
+    const projectRows = await query(
+      `
+        SELECT project_number, title, description, tech_stack, github_link, live_link
+        FROM student_projects
+        WHERE PRN = ?
+        ORDER BY project_number ASC
+      `,
+      [prn]
+    );
+
+    const experienceRows = await query(
+      `
+        SELECT exp_number, type, company_name, role, duration, description, certificate_url
+        FROM student_experience
+        WHERE PRN = ?
+        ORDER BY exp_number ASC
+      `,
+      [prn]
+    );
+
+    const certificationRows = await query(
+      `
+        SELECT cert_number, name, platform, certificate_url
+        FROM student_certifications
+        WHERE PRN = ?
+        ORDER BY cert_number ASC
+      `,
+      [prn]
+    );
+
+    const activityRows = await query(
+      `
+        SELECT act_number, title, description, link
+        FROM student_activities
+        WHERE PRN = ?
+        ORDER BY act_number ASC
+      `,
+      [prn]
+    );
+
+    const personal = personalRows[0];
+    const education = educationRows[0] || {};
+
+    const profile = {
+      prn: personal.PRN,
+      profilePhotoUrl: personal.profile_photo_url || '',
+      firstName: personal.first_name || '',
+      middleName: personal.middle_name || '',
+      lastName: personal.last_name || '',
+      fullName: buildFullName(personal),
+      email: personal.email || '',
+      mobile: personal.mobile || '',
+      address: personal.address || '',
+      city: personal.city || '',
+      district: personal.district || '',
+      state: personal.state || '',
+      pincode: personal.pincode || '',
+      dob: personal.dob || '',
+      age: personal.age || '',
+      gender: personal.gender || '',
+      category: personal.category || '',
+      handicap: toDisplayHandicap(personal.handicap),
+      aadhaar: personal.aadhaar || '',
+      summary: '',
+      department: education.department || '',
+      currentCgpa: education.current_cgpa ?? '',
+      backlogs: education.backlogs ?? '',
+      passingYear: education.passing_year ?? '',
+      gap: education.gap || '',
+      gapReason: education.gap_reason || '',
+      education: {
+        tenth: education.tenth_year
+          ? {
+              marks: education.tenth_marks,
+              board: education.tenth_board,
+              year: education.tenth_year,
+              marksheetUrl: education.tenth_marksheet_url,
+            }
+          : null,
+        twelfth: education.twelfth_year
+          ? {
+              marks: education.twelfth_marks,
+              board: education.twelfth_board,
+              year: education.twelfth_year,
+              marksheetUrl: education.twelfth_marksheet_url,
+            }
+          : null,
+        diploma: education.diploma_year
+          ? {
+              marks: education.diploma_marks,
+              institute: education.diploma_institute,
+              year: education.diploma_year,
+              marksheetUrl: education.diploma_marksheet_url,
+            }
+          : null,
+      },
+      skills: {
+        languages: skillRows
+          .filter((skill) => skill.skill_type === 'language')
+          .map((skill) => skill.skill_name),
+        frameworks: skillRows
+          .filter((skill) => skill.skill_type === 'framework')
+          .map((skill) => skill.skill_name),
+        tools: skillRows
+          .filter((skill) => skill.skill_type === 'tool')
+          .map((skill) => skill.skill_name),
+        otherSkills: skillRows
+          .filter((skill) => skill.skill_type === 'other')
+          .map((skill) => skill.skill_name),
+      },
+
+      projects: projectRows.map((project) => ({
+        projectNumber: project.project_number,
+        title: project.title || '',
+        description: project.description || '',
+        techStack: project.tech_stack || '',
+        githubLink: project.github_link || '',
+        liveLink: project.live_link || '',
+      })),
+      
+      experience: experienceRows.map((item) => ({
+        expNumber: item.exp_number,
+        type: item.type || '',
+        companyName: item.company_name || '',
+        role: item.role || '',
+        duration: item.duration || '',
+        description: item.description || '',
+        certificateUrl: item.certificate_url || '',
+      })),
+      certifications: certificationRows.map((item) => ({
+        certNumber: item.cert_number,
+        name: item.name || '',
+        platform: item.platform || '',
+        certificateUrl: item.certificate_url || '',
+      })),
+      activities: activityRows.map((item) => ({
+        actNumber: item.act_number,
+        title: item.title || '',
+        description: item.description || '',
+        link: item.link || '',
+      })),
+    };
+
+    res.json({
+      message: 'Student profile fetched successfully',
+      data: profile,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to fetch student profile',
+      error: error.message,
+    });
+  }
+}
+
+studentProfileGetRoutes.get('/', handleGetStudentProfile);
+studentProfileGetRoutes.get('/:prn', handleGetStudentProfile);
+
+module.exports = studentProfileGetRoutes;

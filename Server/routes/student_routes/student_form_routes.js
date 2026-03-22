@@ -49,7 +49,7 @@ async function uploadSingleFile(req, fieldName, folder) {
   }
 
   try {
-    return await uploadFile(file.path, folder);
+    return await uploadFile(file, folder);
   } finally {
     await fs.unlink(file.path).catch(() => {});
   }
@@ -68,7 +68,7 @@ async function uploadIndexedFiles(req, prefix, folder) {
       }
 
       try {
-        uploadedFiles[index] = await uploadFile(file.path, folder);
+        uploadedFiles[index] = await uploadFile(file, folder);
       } finally {
         await fs.unlink(file.path).catch(() => {});
       }

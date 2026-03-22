@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Header from "../../components/Header";
 
 const navigationItems = [
   { label: "Home", icon: "home" },
@@ -9,69 +10,23 @@ const navigationItems = [
   { label: "Resume", icon: "description" },
 ];
 
-function PortalLayout({
+function StudentSidebar({
   children,
   pageTitle = "Student Panel",
   activePage = "Home",
   showSidebar = true,
+  onNavigate,
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] text-slate-900">
-      <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-slate-200 bg-white px-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
-          {showSidebar ? (
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-700 transition hover:bg-slate-50 lg:hidden"
-            >
-              <span className="material-symbols-outlined text-[22px] leading-none">
-                menu
-              </span>
-            </button>
-          ) : null}
-
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-500 text-base font-bold text-white shadow-lg">
-              TP
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">
-                Training & Placement
-              </p>
-              <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
-                {pageTitle}
-              </h1>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
-            aria-label="Settings"
-          >
-            <span className="material-symbols-outlined text-[22px]">
-              settings
-            </span>
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
-            aria-label="Notifications"
-          >
-            <span className="material-symbols-outlined text-[22px]">
-              notifications
-            </span>
-          </button>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 text-sm font-bold text-white shadow-md">
-            SP
-          </div>
-        </div>
-      </header>
+      <Header
+        pageTitle={pageTitle}
+        showMenuButton={showSidebar}
+        onMenuClick={() => setSidebarOpen(true)}
+        profileInitials="SP"
+      />
 
       {showSidebar ? (
         <aside
@@ -87,6 +42,10 @@ function PortalLayout({
                 <button
                   key={item.label}
                   type="button"
+                  onClick={() => {
+                    onNavigate?.(item.label);
+                    setSidebarOpen(false);
+                  }}
                   className={`flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center text-[11px] font-medium transition ${
                     isActive
                       ? "bg-blue-50 text-blue-700"
@@ -142,4 +101,4 @@ function PortalLayout({
   );
 }
 
-export default PortalLayout;
+export default StudentSidebar;
