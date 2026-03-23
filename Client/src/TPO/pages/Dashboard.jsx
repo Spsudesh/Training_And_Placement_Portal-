@@ -11,6 +11,7 @@ import LineChartBox from "../components/Charts/LineChartBox";
 import RecentActivity from "../components/Table/RecentActivity";
 import TpoSidebar from "./Tpo_sidebar";
 import { useDashboardData } from "../hooks/useDashboardData";
+import { useNavigate } from "react-router-dom";
 
 const statConfig = [
   {
@@ -54,13 +55,26 @@ function LoadingCard() {
 }
 
 export default function Dashboard({ onLogout }) {
+  const navigate = useNavigate();
   const { data, isLoading, isError, error, refetch, isFetching } =
     useDashboardData();
+
+  function handleSidebarNavigate(pageLabel) {
+    if (pageLabel === "Placements") {
+      navigate("/tpo-dashboard/placements");
+      return;
+    }
+
+    if (pageLabel === "Dashboard") {
+      navigate("/tpo-dashboard");
+    }
+  }
 
   return (
     <TpoSidebar
       pageTitle="TPO Dashboard"
       activePage="Dashboard"
+      onNavigate={handleSidebarNavigate}
       onLogout={onLogout}
     >
       <div className="space-y-6">
