@@ -1,9 +1,9 @@
 import { useState } from "react";
-import ComposePage from "../../TPO_Panel/notice_compose/Compose/ComposePage";
-import PostList from "../../TPO_Panel/notice_compose/Feed/PostList";
-import FilterBar from "../../TPO_Panel/notice_compose/Filters/FilterBar";
-import ManagePosts from "../../TPO_Panel/notice_compose/Manage/ManagePosts";
-import EditPostModal from "../../TPO_Panel/notice_compose/Manage/EditPostModal";
+import ComposePage from "../notice_compose/Compose/ComposePage";
+import PostList from "../notice_compose/Feed/PostList";
+import FilterBar from "../notice_compose/Filters/FilterBar";
+import ManagePosts from "../notice_compose/Manage/ManagePosts";
+import EditPostModal from "../notice_compose/Manage/EditPostModal";
 import TpoSidebar from "./Tpo_sidebar";
 
 function createEmptyFormData(type = "announcement") {
@@ -91,7 +91,7 @@ const initialPosts = [
   },
 ];
 
-export default function Dashboard({ onLogout }) {
+export default function Dashboard({ onLogout, onNavigate }) {
   const [posts, setPosts] = useState(initialPosts);
   const [createFormData, setCreateFormData] = useState(createEmptyFormData(""));
   const [editFormData, setEditFormData] = useState(createEmptyFormData());
@@ -357,19 +357,20 @@ export default function Dashboard({ onLogout }) {
     <TpoSidebar
       pageTitle="Notice Compose Center"
       activePage="Notice Board"
+      onNavigate={onNavigate}
       onLogout={onLogout}
     >
       <div className="space-y-6">
         <section className="overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
           <div className="relative px-6 py-6 sm:px-8 lg:px-10 lg:py-7">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.18),_transparent_24%),radial-gradient(circle_at_left,_rgba(15,23,42,0.08),_transparent_30%),linear-gradient(135deg,_#ffffff_0%,_#f8fbff_45%,_#eef7ff_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(15,23,42,0.12),_transparent_26%),radial-gradient(circle_at_left,_rgba(100,116,139,0.08),_transparent_32%),linear-gradient(135deg,_#ffffff_0%,_#f8fafc_48%,_#f1f5f9_100%)]" />
             <div className="relative">
               <div className="max-w-3xl">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white">
                     TPO Workspace
                   </span>
-                  <span className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-semibold text-cyan-700">
+                  <span className="rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700">
                     Active Form: {activeTypeLabel}
                   </span>
                 </div>

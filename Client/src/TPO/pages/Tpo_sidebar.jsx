@@ -3,10 +3,10 @@ import Header from "./TPOheader";
 
 const navigationItems = [
   { label: "Dashboard", icon: "dashboard" },
-  { label: "Students", icon: "groups" },
-  { label: "Companies", icon: "business_center" },
+  { label: "Students", icon: "groups", disabled: true },
+  { label: "Companies", icon: "business_center", disabled: true },
   { label: "Notice Board", icon: "campaign" },
-  { label: "Settings", icon: "settings" },
+  { label: "Settings", icon: "settings", disabled: true },
 ];
 
 function TpoSidebar({
@@ -44,18 +44,26 @@ function TpoSidebar({
                   key={item.label}
                   type="button"
                   onClick={() => {
+                    if (item.disabled) {
+                      return;
+                    }
+
                     onNavigate?.(item.label);
                     setSidebarOpen(false);
                   }}
                   className={`flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center text-[11px] font-medium transition ${
-                    isActive
+                    item.disabled
+                      ? "cursor-not-allowed text-slate-300"
+                      : isActive
                       ? "bg-cyan-50 text-cyan-700"
                       : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
                   <span
                     className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold ${
-                      isActive
+                      item.disabled
+                        ? "bg-slate-100 text-slate-300"
+                        : isActive
                         ? "bg-cyan-600 text-white"
                         : "bg-slate-100 text-slate-700"
                     }`}
@@ -65,6 +73,11 @@ function TpoSidebar({
                     </span>
                   </span>
                   <span>{item.label}</span>
+                  {item.disabled ? (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] text-slate-400">
+                      Soon
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
