@@ -5,6 +5,8 @@ import FilterBar from "../notice_compose/Filters/FilterBar";
 import ManagePosts from "../notice_compose/Manage/ManagePosts";
 import EditPostModal from "../notice_compose/Manage/EditPostModal";
 import TpoSidebar from "./Tpo_sidebar";
+import { useDashboardData } from "../hooks/useDashboardData";
+import { useNavigate } from "react-router-dom";
 
 function createEmptyFormData(type = "announcement") {
   return {
@@ -238,6 +240,10 @@ export default function Dashboard({ onLogout, onNavigate }) {
     return formData.title.trim() && formData.description.trim();
   }
 
+export default function Dashboard({ onLogout }) {
+  const navigate = useNavigate();
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useDashboardData();
   function upsertCreatePost(status) {
     if (!validateForm(createFormData)) {
       window.alert("Please fill in the title and description before saving.");
@@ -353,8 +359,22 @@ export default function Dashboard({ onLogout, onNavigate }) {
           ? "Announcement"
           : "Not Selected";
 
+  function handleSidebarNavigate(pageLabel) {
+    if (pageLabel === "Placements") {
+      navigate("/tpo-dashboard/placements");
+      return;
+    }
+
+    if (pageLabel === "Dashboard") {
+      navigate("/tpo-dashboard");
+    }
+  }
+
   return (
     <TpoSidebar
+      pageTitle="TPO Dashboard"
+      activePage="Dashboard"
+      onNavigate={handleSidebarNavigate}
       pageTitle="Notice Compose Center"
       activePage="Notice Board"
       onNavigate={onNavigate}

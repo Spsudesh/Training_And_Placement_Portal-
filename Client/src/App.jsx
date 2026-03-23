@@ -10,10 +10,12 @@ import {
 import "./index.css";
 import LoginPage from "./components/loginPage/LoginPage";
 import Dashboard from "./TPO/pages/Dashboard";
+import Placements from "./TPO/pages/Placements";
 import Overview from "./TPO/pages/Overview";
 import TpcDashboard from "./TPC/pages/Dashboard";
 import TpcSidebar from "./TPC/pages/Tpc_sidebar";
 import StudentHome from "./StudentPanel/pages/StudentHome";
+import JobProfiles from "./StudentPanel/pages/JobProfiles";
 import StudentProfilePage from "./StudentPanel/profile/pages/StudentProfilePage";
 import StudentSidebar from "./StudentPanel/pages/Student_sidebar";
 import StudentDetailsPage from "./TPC_Panel/student_verification/pages/StudentDetailsPage";
@@ -56,6 +58,8 @@ function StudentApp() {
 
   function renderStudentPanelPage() {
     switch (currentPage) {
+      case "Job Profiles":
+        return <JobProfiles />;
       case "My Profile":
         return <StudentProfilePage />;
       case "Home":
@@ -93,6 +97,17 @@ function TpoApp() {
     default:
       return <Overview onLogout={handleLogout} onNavigate={setCurrentPage} />;
   }
+}
+
+function TpoPlacementsApp() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    clearActivePanel();
+    navigate("/", { replace: true });
+  };
+
+  return <Placements onLogout={handleLogout} />;
 }
 
 function TpcApp() {
@@ -186,6 +201,14 @@ function App() {
           element={
             <ProtectedRoute allowedPanel="student">
               <StudentApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tpo-dashboard/placements"
+          element={
+            <ProtectedRoute allowedPanel="tpo">
+              <TpoPlacementsApp />
             </ProtectedRoute>
           }
         />

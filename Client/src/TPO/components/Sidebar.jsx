@@ -13,7 +13,7 @@ const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/tpo-dashboard" },
   { label: "Students", icon: Users, to: "/tpo-dashboard/students", disabled: true },
   { label: "Companies", icon: Building2, to: "/tpo-dashboard/companies", disabled: true },
-  { label: "Placements", icon: BriefcaseBusiness, to: "/tpo-dashboard/placements", disabled: true },
+  { label: "Placements", icon: BriefcaseBusiness, to: "/tpo-dashboard/placements" },
   { label: "Settings", icon: Settings, to: "/tpo-dashboard/settings", disabled: true },
 ];
 
