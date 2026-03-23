@@ -4,14 +4,14 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import StatCard from "../components/StatCard";
-import PieChartBox from "../components/Charts/PieChartBox";
-import BarChartBox from "../components/Charts/BarChartBox";
-import LineChartBox from "../components/Charts/LineChartBox";
-import RecentActivity from "../components/Table/RecentActivity";
-import TpoSidebar from "./Tpo_sidebar";
-import { useDashboardData } from "../hooks/useDashboardData";
 import { useNavigate } from "react-router-dom";
+import { TpoLayout } from "../common";
+import StatCard from "./components/StatCard";
+import PieChartBox from "./components/charts/PieChartBox";
+import BarChartBox from "./components/charts/BarChartBox";
+import LineChartBox from "./components/charts/LineChartBox";
+import RecentActivity from "./components/table/RecentActivity";
+import { useDashboardData } from "./hooks/useDashboardData";
 
 const statConfig = [
   {
@@ -61,17 +61,17 @@ export default function Dashboard({ onLogout }) {
 
   function handleSidebarNavigate(pageLabel) {
     if (pageLabel === "Placements") {
-      navigate("/tpo-dashboard/placements");
+      navigate("/tpo/placements");
       return;
     }
 
     if (pageLabel === "Dashboard") {
-      navigate("/tpo-dashboard");
+      navigate("/tpo/dashboard");
     }
   }
 
   return (
-    <TpoSidebar
+    <TpoLayout
       pageTitle="TPO Dashboard"
       activePage="Dashboard"
       onNavigate={handleSidebarNavigate}
@@ -170,7 +170,7 @@ export default function Dashboard({ onLogout }) {
           </>
         )}
       </div>
-    </TpoSidebar>
+    </TpoLayout>
   );
 }
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, EyeOff, FileText, PlusCircle, SendHorizonal, Upload } from "lucide-react";
-import TpoSidebar from "./Tpo_sidebar";
+import { TpoLayout } from "../common";
+import { Tabs } from "../common/ui";
 import {
   buildPlacementPayload,
   emptyPlacementForm,
@@ -405,12 +406,12 @@ export default function Placements({ onLogout }) {
 
   function handleSidebarNavigate(pageLabel) {
     if (pageLabel === "Dashboard") {
-      navigate("/tpo-dashboard");
+      navigate("/tpo/dashboard");
       return;
     }
 
     if (pageLabel === "Placements") {
-      navigate("/tpo-dashboard/placements");
+      navigate("/tpo/placements");
     }
   }
 
@@ -548,7 +549,7 @@ export default function Placements({ onLogout }) {
   }
 
   return (
-    <TpoSidebar
+    <TpoLayout
       pageTitle="Placements"
       activePage="Placements"
       onNavigate={handleSidebarNavigate}
@@ -1043,26 +1044,11 @@ export default function Placements({ onLogout }) {
                   </header>
 
                   <div className="mt-5 min-h-0 flex-1 overflow-y-auto scroll-smooth pr-1">
-                    <div className="flex flex-wrap gap-6 border-b border-slate-200/80 pb-3">
-                      {detailTabs.map((tab) => {
-                        const active = activeDetailTab === tab.key;
-
-                        return (
-                          <button
-                            key={tab.key}
-                            type="button"
-                            onClick={() => setActiveDetailTab(tab.key)}
-                            className={`pb-2 text-sm font-medium transition ${
-                              active
-                                ? "border-b-2 border-cyan-600 text-cyan-700"
-                                : "border-b-2 border-transparent text-slate-500 hover:text-slate-700"
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <Tabs
+                      tabs={detailTabs}
+                      activeTab={activeDetailTab}
+                      onChange={setActiveDetailTab}
+                    />
 
                     <div className="mt-6">{renderJobDetailsContent()}</div>
                   </div>
@@ -1072,6 +1058,6 @@ export default function Placements({ onLogout }) {
           </div>
         </div>
       </section>
-    </TpoSidebar>
+    </TpoLayout>
   );
 }

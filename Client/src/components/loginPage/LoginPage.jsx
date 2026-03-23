@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 const credentials = {
   "2453011": { password: "2453011", panel: "student", route: "/student-panel" },
-  TPO: { password: "TPO", panel: "tpo", route: "/tpo-dashboard" },
+  TPO: { password: "TPO", panel: "tpo", route: "/tpo/dashboard" },
   TPC: { password: "TPC", panel: "tpc", route: "/tpc-dashboard" },
 };
 

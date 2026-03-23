@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDashboardData } from "../services/tpoApi";
+import { getDashboardData } from "../../services/tpoApi";
 
 export const useDashboardData = () => {
   const [data, setData] = useState(null);

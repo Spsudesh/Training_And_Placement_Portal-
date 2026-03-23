@@ -8,8 +8,8 @@ import {
 } from "react-router-dom";
 import "./index.css";
 import LoginPage from "./components/loginPage/LoginPage";
-import Dashboard from "./TPO/pages/Dashboard";
-import Placements from "./TPO/pages/Placements";
+import Dashboard from "./TPO/dashboard";
+import Placements from "./TPO/placement";
 import TpcDashboard from "./TPC/pages/Dashboard";
 import StudentHome from "./StudentPanel/pages/StudentHome";
 import JobProfiles from "./StudentPanel/pages/JobProfiles";
@@ -120,7 +120,7 @@ function App() {
                   getActivePanel() === "student"
                     ? "/student-panel"
                     : getActivePanel() === "tpo"
-                      ? "/tpo-dashboard"
+                      ? "/tpo/dashboard"
                       : "/tpc-dashboard"
                 }
                 replace
@@ -143,7 +143,7 @@ function App() {
           }
         />
         <Route
-          path="/tpo-dashboard/placements"
+          path="/tpo/placements"
           element={
             <ProtectedRoute allowedPanel="tpo">
               <TpoPlacementsApp />
@@ -151,12 +151,17 @@ function App() {
           }
         />
         <Route
-          path="/tpo-dashboard"
+          path="/tpo/dashboard"
           element={
             <ProtectedRoute allowedPanel="tpo">
               <TpoApp />
             </ProtectedRoute>
           }
+        />
+        <Route path="/tpo-dashboard" element={<Navigate to="/tpo/dashboard" replace />} />
+        <Route
+          path="/tpo-dashboard/placements"
+          element={<Navigate to="/tpo/placements" replace />}
         />
         <Route
           path="/tpc-dashboard"
