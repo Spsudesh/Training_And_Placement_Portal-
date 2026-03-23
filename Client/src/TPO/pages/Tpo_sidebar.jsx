@@ -5,7 +5,7 @@ const navigationItems = [
   { label: "Dashboard", icon: "dashboard" },
   { label: "Students", icon: "groups" },
   { label: "Companies", icon: "business_center" },
-  { label: "Placements", icon: "work" },
+  { label: "Notice Board", icon: "campaign" },
   { label: "Settings", icon: "settings" },
 ];
 
