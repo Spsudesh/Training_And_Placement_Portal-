@@ -1,3 +1,7 @@
+
+# Ignore Firebase service account keys
+Server/config/*.json
+
 # Logs
 logs
 *.log

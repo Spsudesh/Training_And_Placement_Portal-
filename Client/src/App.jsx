@@ -15,7 +15,6 @@ import Overview from "./TPO/pages/Overview";
 import TpcDashboard from "./TPC/pages/Dashboard";
 import TpcSidebar from "./TPC/pages/Tpc_sidebar";
 import StudentHome from "./StudentPanel/pages/StudentHome";
-import JobProfiles from "./StudentPanel/pages/JobProfiles";
 import StudentProfilePage from "./StudentPanel/profile/pages/StudentProfilePage";
 import StudentSidebar from "./StudentPanel/pages/Student_sidebar";
 import StudentDetailsPage from "./TPC_Panel/student_verification/pages/StudentDetailsPage";
@@ -47,12 +46,12 @@ function ProtectedRoute({ allowedPanel, children }) {
 }
 
 function StudentApp() {
-  const [currentPage, setCurrentPage] = useState("Home");
+  const [currentPage, setCurrentPage] = useState("My Profile");
   const navigate = useNavigate();
 
   const handleLogout = () => {
     clearActivePanel();
-    setCurrentPage("Home");
+    setCurrentPage("My Profile");
     navigate("/", { replace: true });
   };
 
@@ -61,6 +60,8 @@ function StudentApp() {
       case "Job Profiles":
         return <JobProfiles />;
       case "My Profile":
+        return <ProfileForm onComplete={() => setCurrentPage("Home")} />;
+      case "Submitted Profile":
         return <StudentProfilePage />;
       case "Home":
       default:

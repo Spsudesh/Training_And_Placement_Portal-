@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 const credentials = {
   "2453011": { password: "2453011", panel: "student", route: "/student-panel" },
+  "2453012": { password: "2453012", panel: "student", route: "/student-panel" },
   TPO: { password: "TPO", panel: "tpo", route: "/tpo-dashboard" },
   TPC: { password: "TPC", panel: "tpc", route: "/tpc-dashboard" },
 };
@@ -87,6 +88,7 @@ function LoginPage({ onLogin }) {
             <div className="mt-4 rounded border border-dashed border-slate-300 bg-white/60 p-3 text-left text-xs text-slate-600">
               <p className="font-semibold text-slate-800">Dummy panel credentials</p>
               <p className="mt-1">Student: 2453011 / 2453011</p>
+              <p className="mt-1">Student: 2453012 / 2453012</p>
               <p className="mt-1">TPO: TPO / TPO</p>
               <p className="mt-1">TPC: TPC / TPC</p>
             </div>

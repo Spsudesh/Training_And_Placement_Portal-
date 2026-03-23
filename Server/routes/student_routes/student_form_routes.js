@@ -1,5 +1,4 @@
 const express = require('express');
-const fs = require('fs/promises');
 const upload = require('../../config/upload');
 const { uploadFile } = require('../../config/storageService');
 const db = require('../../config/db').db;
@@ -48,11 +47,8 @@ async function uploadSingleFile(req, fieldName, folder) {
     return null;
   }
 
-  try {
-    return await uploadFile(file, folder);
-  } finally {
-    await fs.unlink(file.path).catch(() => {});
-  }
+  const uploadedFile = await uploadFile(file, folder);
+  return uploadedFile.url;
 }
 
 async function uploadIndexedFiles(req, prefix, folder) {
@@ -67,11 +63,8 @@ async function uploadIndexedFiles(req, prefix, folder) {
         return;
       }
 
-      try {
-        uploadedFiles[index] = await uploadFile(file, folder);
-      } finally {
-        await fs.unlink(file.path).catch(() => {});
-      }
+      const uploadedFile = await uploadFile(file, folder);
+      uploadedFiles[index] = uploadedFile.url;
     })
   );
 
@@ -121,10 +114,8 @@ function asyncHandler(handler) {
       res.status(500).json({
         message: 'Failed to save data',
         error:
-          error.code === 'CLOUDINARY_AUTH_FAILED' ||
-          error.code === 'CLOUDINARY_CONFIG_INVALID' ||
-          error.code === 'CLOUDINARY_CONFIG_MISSING'
-            ? 'File upload is not configured correctly on the server. Please verify Cloudinary credentials in Server/.env.'
+          String(error.message || '').toLowerCase().includes('firebase')
+            ? 'File upload is not configured correctly on the server. Please verify your Firebase service account and FIREBASE_STORAGE_BUCKET in Server/.env.'
             : error.message,
       });
     }
