@@ -11,7 +11,7 @@ import { NavLink } from "react-router-dom";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/tpc-dashboard" },
-  { label: "Students", icon: Users, to: "/tpc-dashboard/students", disabled: true },
+  { label: "Students", icon: Users, to: "/tpc-dashboard/student-verification" },
   { label: "Drive Tasks", icon: ClipboardList, to: "/tpc-dashboard/tasks", disabled: true },
   { label: "Schedules", icon: CalendarDays, to: "/tpc-dashboard/schedules", disabled: true },
   { label: "Companies", icon: BriefcaseBusiness, to: "/tpc-dashboard/companies", disabled: true },

@@ -4,9 +4,9 @@ import Header from "./TPCheader";
 const navigationItems = [
   { label: "Dashboard", icon: "dashboard" },
   { label: "Students", icon: "groups" },
-  { label: "Drive Tasks", icon: "task_alt" },
-  { label: "Schedules", icon: "calendar_month" },
-  { label: "Companies", icon: "apartment" },
+  { label: "Drive Tasks", icon: "task_alt", disabled: true },
+  { label: "Schedules", icon: "calendar_month", disabled: true },
+  { label: "Companies", icon: "apartment", disabled: true },
 ];
 
 function TpcSidebar({
@@ -44,18 +44,26 @@ function TpcSidebar({
                   key={item.label}
                   type="button"
                   onClick={() => {
+                    if (item.disabled) {
+                      return;
+                    }
+
                     onNavigate?.(item.label);
                     setSidebarOpen(false);
                   }}
                   className={`flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center text-[11px] font-medium transition ${
-                    isActive
+                    item.disabled
+                      ? "cursor-not-allowed text-slate-300"
+                      : isActive
                       ? "bg-blue-50 text-blue-700"
                       : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
                   <span
                     className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold ${
-                      isActive
+                      item.disabled
+                        ? "bg-slate-100 text-slate-300"
+                        : isActive
                         ? "bg-blue-600 text-white"
                         : "bg-slate-100 text-slate-700"
                     }`}
@@ -65,6 +73,11 @@ function TpcSidebar({
                     </span>
                   </span>
                   <span>{item.label}</span>
+                  {item.disabled ? (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] text-slate-400">
+                      Soon
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
