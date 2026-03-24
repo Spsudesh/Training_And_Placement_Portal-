@@ -9,7 +9,6 @@ import PieChartBox from "../components/Charts/PieChartBox";
 import BarChartBox from "../components/Charts/BarChartBox";
 import LineChartBox from "../components/Charts/LineChartBox";
 import RecentActivity from "../components/Table/RecentActivity";
-import TpcSidebar from "./Tpc_sidebar";
 import { useDashboardData } from "../hooks/useDashboardData";
 
 const statConfig = [
@@ -53,109 +52,103 @@ function LoadingCard() {
   );
 }
 
-export default function Dashboard({ onLogout }) {
+export default function Dashboard() {
   const { data, isLoading, isError, error, refetch, isFetching } =
     useDashboardData();
 
   return (
-    <TpcSidebar
-      pageTitle="TPC Dashboard"
-      activePage="Dashboard"
-      onLogout={onLogout}
-    >
-      <div className="space-y-6">
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {isLoading
-            ? Array.from({ length: 4 }).map((_, index) => (
-                <LoadingCard key={index} />
-              ))
-            : statConfig.map((item) => (
-                <StatCard
-                  key={item.key}
-                  title={item.title}
-                  value={data?.overview[item.key] ?? 0}
-                  subtitle={item.subtitle}
-                  icon={item.icon}
-                  accent={item.accent}
-                  iconBg={item.iconBg}
-                />
-              ))}
+    <div className="space-y-6">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <LoadingCard key={index} />
+            ))
+          : statConfig.map((item) => (
+              <StatCard
+                key={item.key}
+                title={item.title}
+                value={data?.overview[item.key] ?? 0}
+                subtitle={item.subtitle}
+                icon={item.icon}
+                accent={item.accent}
+                iconBg={item.iconBg}
+              />
+            ))}
+      </section>
+
+      {isError ? (
+        <section className="rounded-[28px] border border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-lg shadow-rose-100/60">
+          <p className="text-lg font-semibold">Unable to load dashboard data</p>
+          <p className="mt-2 text-sm">
+            {error?.message ?? "Something went wrong while fetching the data."}
+          </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="mt-4 rounded-2xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+          >
+            Try again
+          </button>
         </section>
-
-        {isError ? (
-          <section className="rounded-[28px] border border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-lg shadow-rose-100/60">
-            <p className="text-lg font-semibold">Unable to load dashboard data</p>
-            <p className="mt-2 text-sm">
-              {error?.message ?? "Something went wrong while fetching the data."}
-            </p>
-            <button
-              type="button"
-              onClick={() => refetch()}
-              className="mt-4 rounded-2xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
-            >
-              Try again
-            </button>
+      ) : (
+        <>
+          <section className="grid gap-6 xl:grid-cols-[1.1fr_1.35fr]">
+            <PieChartBox data={data?.driveStatus ?? []} />
+            <BarChartBox data={data?.departmentSupport ?? []} />
           </section>
-        ) : (
-          <>
-            <section className="grid gap-6 xl:grid-cols-[1.1fr_1.35fr]">
-              <PieChartBox data={data?.driveStatus ?? []} />
-              <BarChartBox data={data?.departmentSupport ?? []} />
-            </section>
 
-            <section className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-              <LineChartBox data={data?.weeklyTaskTrend ?? []} />
+          <section className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+            <LineChartBox data={data?.weeklyTaskTrend ?? []} />
 
-              <div className="rounded-[28px] border border-slate-200/70 bg-white p-6 shadow-lg shadow-slate-200/60">
-                <p className="text-sm font-semibold text-slate-900">
-                  Quick Highlights
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Snapshot metrics to support faster coordinator decisions
-                </p>
+            <div className="rounded-[28px] border border-slate-200/70 bg-white p-6 shadow-lg shadow-slate-200/60">
+              <p className="text-sm font-semibold text-slate-900">
+                Quick Highlights
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Snapshot metrics to support faster coordinator decisions
+              </p>
 
-                <div className="mt-6 space-y-4">
-                  <div className="rounded-2xl bg-slate-950 p-5 text-white">
-                    <p className="text-sm text-white/70">Task Closure Rate</p>
-                    <p className="mt-2 text-3xl font-semibold">
-                      {data
-                        ? `${Math.round(
-                            (data.overview.placedStudents /
-                              data.overview.assignedStudents) *
-                              100
-                          )}%`
-                        : "--"}
+              <div className="mt-6 space-y-4">
+                <div className="rounded-2xl bg-slate-950 p-5 text-white">
+                  <p className="text-sm text-white/70">Task Closure Rate</p>
+                  <p className="mt-2 text-3xl font-semibold">
+                    {data
+                      ? `${Math.round(
+                          (data.overview.placedStudents /
+                            data.overview.assignedStudents) *
+                            100
+                        )}%`
+                      : "--"}
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                  <div className="rounded-2xl bg-blue-50 p-4">
+                    <p className="text-sm text-blue-700">Focus Department</p>
+                    <p className="mt-2 text-xl font-semibold text-slate-900">
+                      CSE
                     </p>
                   </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                    <div className="rounded-2xl bg-blue-50 p-4">
-                      <p className="text-sm text-blue-700">Focus Department</p>
-                      <p className="mt-2 text-xl font-semibold text-slate-900">
-                        CSE
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-amber-50 p-4">
-                      <p className="text-sm text-amber-700">Next Major Drive</p>
-                      <p className="mt-2 text-xl font-semibold text-slate-900">
-                        Infosys
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-emerald-50 p-4">
-                      <p className="text-sm text-emerald-700">Live Cache Status</p>
-                      <p className="mt-2 text-xl font-semibold text-slate-900">
-                        {isFetching ? "Refreshing..." : "Up to date"}
-                      </p>
-                    </div>
+                  <div className="rounded-2xl bg-amber-50 p-4">
+                    <p className="text-sm text-amber-700">Next Major Drive</p>
+                    <p className="mt-2 text-xl font-semibold text-slate-900">
+                      Infosys
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-emerald-50 p-4">
+                    <p className="text-sm text-emerald-700">Live Cache Status</p>
+                    <p className="mt-2 text-xl font-semibold text-slate-900">
+                      {isFetching ? "Refreshing..." : "Up to date"}
+                    </p>
                   </div>
                 </div>
               </div>
-            </section>
+            </div>
+          </section>
 
-            <RecentActivity data={data?.recentActivities ?? []} />
-          </>
-        )}
-      </div>
-    </TpcSidebar>
+          <RecentActivity data={data?.recentActivities ?? []} />
+        </>
+      )}
+    </div>
   );
 }

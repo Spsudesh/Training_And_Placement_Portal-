@@ -4,6 +4,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
 import "./index.css";
@@ -11,10 +12,15 @@ import LoginPage from "./components/loginPage/LoginPage";
 import Dashboard from "./TPO/dashboard";
 import Placements from "./TPO/placement";
 import TpcDashboard from "./TPC/pages/Dashboard";
-import StudentHome from "./StudentPanel/pages/StudentHome";
+import TpcSidebar from "./TPC/pages/Tpc_sidebar";
 import JobProfiles from "./StudentPanel/pages/JobProfiles";
+import ProfileForm from "./StudentPanel/pages/ProfileForm";
+import StudentHome from "./StudentPanel/pages/StudentHome";
 import StudentProfilePage from "./StudentPanel/profile/pages/StudentProfilePage";
 import StudentSidebar from "./StudentPanel/pages/Student_sidebar";
+import StudentDetailsPage from "./TPC_Panel/student_verification/pages/StudentDetailsPage";
+import StudentListPage from "./TPC_Panel/student_verification/pages/StudentListPage";
+import studentDummyData from "./TPC_Panel/student_verification/utils/dummyData";
 
 const AUTH_STORAGE_KEY = "training-placement-active-panel";
 
@@ -41,12 +47,12 @@ function ProtectedRoute({ allowedPanel, children }) {
 }
 
 function StudentApp() {
-  const [currentPage, setCurrentPage] = useState("Home");
+  const [currentPage, setCurrentPage] = useState("My Profile");
   const navigate = useNavigate();
 
   const handleLogout = () => {
     clearActivePanel();
-    setCurrentPage("Home");
+    setCurrentPage("My Profile");
     navigate("/", { replace: true });
   };
 
@@ -55,6 +61,8 @@ function StudentApp() {
       case "Job Profiles":
         return <JobProfiles />;
       case "My Profile":
+        return <ProfileForm onComplete={() => setCurrentPage("Home")} />;
+      case "Submitted Profile":
         return <StudentProfilePage />;
       case "Home":
       default:
@@ -98,13 +106,61 @@ function TpoPlacementsApp() {
 
 function TpcApp() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [students, setStudents] = useState(studentDummyData);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const handleLogout = () => {
     clearActivePanel();
     navigate("/", { replace: true });
   };
 
-  return <TpcDashboard onLogout={handleLogout} />;
+  const isStudentVerificationRoute = location.pathname.startsWith(
+    "/tpc-dashboard/student-verification"
+  );
+
+  return (
+    <TpcSidebar
+      pageTitle={isStudentVerificationRoute ? "Student Verification" : "TPC Dashboard"}
+      activePage={isStudentVerificationRoute ? "Students" : "Dashboard"}
+      onLogout={handleLogout}
+      onNavigate={(page) => {
+        if (page === "Students") {
+          navigate("/tpc-dashboard/student-verification");
+          return;
+        }
+
+        if (page === "Dashboard") {
+          navigate("/tpc-dashboard");
+        }
+      }}
+    >
+      <Routes>
+        <Route index element={<TpcDashboard />} />
+        <Route
+          path="student-verification"
+          element={
+            <StudentListPage
+              students={students}
+              setSelectedStudent={setSelectedStudent}
+            />
+          }
+        />
+        <Route
+          path="student-verification/:prn"
+          element={
+            <StudentDetailsPage
+              students={students}
+              selectedStudent={selectedStudent}
+              setSelectedStudent={setSelectedStudent}
+              setStudents={setStudents}
+            />
+          }
+        />
+        <Route path="*" element={<Navigate to="/tpc-dashboard" replace />} />
+      </Routes>
+    </TpcSidebar>
+  );
 }
 
 function App() {
@@ -164,7 +220,7 @@ function App() {
           element={<Navigate to="/tpo/placements" replace />}
         />
         <Route
-          path="/tpc-dashboard"
+          path="/tpc-dashboard/*"
           element={
             <ProtectedRoute allowedPanel="tpc">
               <TpcApp />

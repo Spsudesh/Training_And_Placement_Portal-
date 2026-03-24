@@ -1,17 +1,17 @@
 import { useState } from "react";
-import Header from "./TPCheader";
+import Header from "./TPOheader";
 
 const navigationItems = [
   { label: "Dashboard", icon: "dashboard" },
-  { label: "Students", icon: "groups" },
-  { label: "Drive Tasks", icon: "task_alt", disabled: true },
-  { label: "Schedules", icon: "calendar_month", disabled: true },
-  { label: "Companies", icon: "apartment", disabled: true },
+  { label: "Students", icon: "groups", disabled: true },
+  { label: "Companies", icon: "business_center", disabled: true },
+  { label: "Notice Board", icon: "campaign" },
+  { label: "Settings", icon: "settings", disabled: true },
 ];
 
-function TpcSidebar({
+function TpoSidebar({
   children,
-  pageTitle = "TPC Dashboard",
+  pageTitle = "TPO Dashboard",
   activePage = "Dashboard",
   showSidebar = true,
   onNavigate,
@@ -25,7 +25,7 @@ function TpcSidebar({
         pageTitle={pageTitle}
         showMenuButton={showSidebar}
         onMenuClick={() => setSidebarOpen(true)}
-        profileInitials="TC"
+        profileInitials="TP"
         onLogout={onLogout}
       />
 
@@ -55,7 +55,7 @@ function TpcSidebar({
                     item.disabled
                       ? "cursor-not-allowed text-slate-300"
                       : isActive
-                      ? "bg-blue-50 text-blue-700"
+                      ? "bg-cyan-50 text-cyan-700"
                       : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
@@ -64,7 +64,7 @@ function TpcSidebar({
                       item.disabled
                         ? "bg-slate-100 text-slate-300"
                         : isActive
-                        ? "bg-blue-600 text-white"
+                        ? "bg-cyan-600 text-white"
                         : "bg-slate-100 text-slate-700"
                     }`}
                   >
@@ -113,4 +113,4 @@ function TpcSidebar({
   );
 }
 
-export default TpcSidebar;
+export default TpoSidebar;

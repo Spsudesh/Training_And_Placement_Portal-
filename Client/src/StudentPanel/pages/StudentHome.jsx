@@ -95,36 +95,36 @@ function StudentHome() {
           </p>
           <h1 className="mt-3 text-3xl font-bold">Welcome to Training And PLacement Portal</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-blue-100/90">
-            Your initial profile submission is complete. You can now explore the
-            full student panel, track opportunities, and continue improving your
-            placement profile from here.
+            Use the student profile form to submit your details and upload your
+            documents. Once you finish testing the onboarding flow, you can come
+            back here to explore opportunities and panel features.
           </p>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
             <p className="text-sm font-semibold text-slate-500">Profile Status</p>
-            <p className="mt-3 text-2xl font-bold text-emerald-600">Submitted</p>
+            <p className="mt-3 text-2xl font-bold text-amber-600">Pending Submission</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Your onboarding form has been completed successfully.
+              Complete the student form first to test your Firebase-backed uploads.
             </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
             <p className="text-sm font-semibold text-slate-500">Next Step</p>
-            <p className="mt-3 text-2xl font-bold text-slate-900">Explore Panel</p>
+            <p className="mt-3 text-2xl font-bold text-slate-900">Fill Student Form</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Use the sidebar to access interviews, assessments, resume tools,
-              and other student features.
+              Open My Profile from the sidebar, save each step, and upload your
+              documents for manual checking in Firebase Storage.
             </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
             <p className="text-sm font-semibold text-slate-500">Profile Updates</p>
-            <p className="mt-3 text-2xl font-bold text-slate-900">Available Later</p>
+            <p className="mt-3 text-2xl font-bold text-slate-900">Uploads Enabled</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              After onboarding, profile improvements and updates can be managed
-              from the full panel experience.
+              Personal, education, experience, and certification files will now
+              be stored through the backend upload flow.
             </p>
           </div>
         </div>
