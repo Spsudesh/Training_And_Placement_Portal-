@@ -25,7 +25,7 @@ function LoginPage({ onLogin }) {
       return;
     }
 
-    onLogin?.(account.panel);
+    onLogin?.(account.panel, normalizedUserId);
     navigate(account.route, { replace: true });
   };
 

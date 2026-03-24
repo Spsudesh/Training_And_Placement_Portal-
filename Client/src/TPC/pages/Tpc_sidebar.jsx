@@ -45,6 +45,8 @@ function TpcSidebar({
                   type="button"
                   onClick={() => {
                     if (item.disabled) {
+                      onNavigate?.("Dashboard");
+                      setSidebarOpen(false);
                       return;
                     }
 
@@ -53,7 +55,7 @@ function TpcSidebar({
                   }}
                   className={`flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center text-[11px] font-medium transition ${
                     item.disabled
-                      ? "cursor-not-allowed text-slate-300"
+                      ? "text-slate-300 hover:bg-slate-50 hover:text-slate-400"
                       : isActive
                       ? "bg-blue-50 text-blue-700"
                       : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"

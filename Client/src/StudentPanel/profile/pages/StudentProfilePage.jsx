@@ -11,7 +11,7 @@ import {
   createEmptyStudentProfile,
   profileSectionLinks,
 } from "../data/mockStudentProfile";
-import { getStudentProfile } from "../services/studentProfileApi";
+import { DEFAULT_PRN, getStudentProfile } from "../services/studentProfileApi";
 
 function formatDate(dateValue) {
   if (!dateValue) {
@@ -138,7 +138,7 @@ function StudentProfilePage() {
       <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
         <p className="text-lg font-semibold text-slate-900">Loading profile...</p>
         <p className="mt-2 text-sm text-slate-500">
-          Fetching student profile data for the default PRN.
+          Fetching student profile data for default PRN {DEFAULT_PRN}.
         </p>
       </div>
     );

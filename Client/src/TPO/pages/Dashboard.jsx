@@ -5,7 +5,6 @@ import FilterBar from "../notice_compose/Filters/FilterBar";
 import ManagePosts from "../notice_compose/Manage/ManagePosts";
 import EditPostModal from "../notice_compose/Manage/EditPostModal";
 import TpoSidebar from "./Tpo_sidebar";
-import { useDashboardData } from "../hooks/useDashboardData";
 import { useNavigate } from "react-router-dom";
 
 function createEmptyFormData(type = "announcement") {
@@ -94,6 +93,7 @@ const initialPosts = [
 ];
 
 export default function Dashboard({ onLogout, onNavigate }) {
+  const navigate = useNavigate();
   const [posts, setPosts] = useState(initialPosts);
   const [createFormData, setCreateFormData] = useState(createEmptyFormData(""));
   const [editFormData, setEditFormData] = useState(createEmptyFormData());
@@ -240,10 +240,6 @@ export default function Dashboard({ onLogout, onNavigate }) {
     return formData.title.trim() && formData.description.trim();
   }
 
-export default function Dashboard({ onLogout }) {
-  const navigate = useNavigate();
-  const { data, isLoading, isError, error, refetch, isFetching } =
-    useDashboardData();
   function upsertCreatePost(status) {
     if (!validateForm(createFormData)) {
       window.alert("Please fill in the title and description before saving.");
@@ -360,24 +356,29 @@ export default function Dashboard({ onLogout }) {
           : "Not Selected";
 
   function handleSidebarNavigate(pageLabel) {
-    if (pageLabel === "Placements") {
+    if (pageLabel === "Placement Opportunity") {
       navigate("/tpo-dashboard/placements");
+      return;
+    }
+
+    if (pageLabel === "Notice Board") {
+      navigate("/tpo-dashboard/notice-board");
       return;
     }
 
     if (pageLabel === "Dashboard") {
       navigate("/tpo-dashboard");
+      return;
     }
+
+    onNavigate?.(pageLabel);
   }
 
   return (
     <TpoSidebar
-      pageTitle="TPO Dashboard"
-      activePage="Dashboard"
-      onNavigate={handleSidebarNavigate}
       pageTitle="Notice Compose Center"
       activePage="Notice Board"
-      onNavigate={onNavigate}
+      onNavigate={handleSidebarNavigate}
       onLogout={onLogout}
     >
       <div className="space-y-6">

@@ -1,11 +1,29 @@
 const path = require('path');
+const fs = require('fs');
 const admin = require('firebase-admin');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
-const serviceAccountPath = path.join(
-  __dirname,
-  'employee-gamification-1421c-firebase-adminsdk-fbsvc-32926c20fd.json'
-);
+function resolveServiceAccountPath() {
+  const envPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+
+  if (envPath) {
+    return path.resolve(__dirname, '..', envPath);
+  }
+
+  return path.join(
+    __dirname,
+    'employee-gamification-1421c-firebase-adminsdk-fbsvc-32926c20fd.json'
+  );
+}
+
+const serviceAccountPath = resolveServiceAccountPath();
+
+if (!fs.existsSync(serviceAccountPath)) {
+  throw new Error(
+    `Firebase service account file not found at "${serviceAccountPath}". ` +
+      'Set FIREBASE_SERVICE_ACCOUNT_PATH in Server/.env or place the JSON key in Server/config.'
+  );
+}
 
 const serviceAccount = require(serviceAccountPath);
 

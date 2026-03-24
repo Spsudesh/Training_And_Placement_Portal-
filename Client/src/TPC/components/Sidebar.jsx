@@ -12,9 +12,9 @@ import { NavLink } from "react-router-dom";
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/tpc-dashboard" },
   { label: "Students", icon: Users, to: "/tpc-dashboard/student-verification" },
-  { label: "Drive Tasks", icon: ClipboardList, to: "/tpc-dashboard/tasks", disabled: true },
-  { label: "Schedules", icon: CalendarDays, to: "/tpc-dashboard/schedules", disabled: true },
-  { label: "Companies", icon: BriefcaseBusiness, to: "/tpc-dashboard/companies", disabled: true },
+  { label: "Drive Tasks", icon: ClipboardList, to: "/tpc-dashboard", fallback: true },
+  { label: "Schedules", icon: CalendarDays, to: "/tpc-dashboard", fallback: true },
+  { label: "Companies", icon: BriefcaseBusiness, to: "/tpc-dashboard", fallback: true },
 ];
 
 const linkBaseClass =
@@ -59,25 +59,20 @@ export default function Sidebar({ mobileOpen, onClose }) {
         </div>
 
         <nav className="space-y-2">
-          {navItems.map(({ label, icon, to, disabled }) => {
+          {navItems.map(({ label, icon, to, fallback }) => {
             const Icon = icon;
 
             return (
               <NavLink
                 key={label}
                 to={to}
-                onClick={(event) => {
-                  if (disabled) {
-                    event.preventDefault();
-                    return;
-                  }
-
+                onClick={() => {
                   onClose();
                 }}
                 className={({ isActive }) =>
                   `${linkBaseClass} ${
-                    disabled
-                      ? "cursor-not-allowed bg-slate-50 text-slate-400"
+                    fallback
+                      ? "bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-500"
                       : isActive
                         ? "bg-slate-950 text-white shadow-lg shadow-slate-900/15"
                         : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
@@ -86,7 +81,7 @@ export default function Sidebar({ mobileOpen, onClose }) {
               >
                 <Icon className="h-4 w-4" />
                 <span>{label}</span>
-                {disabled && (
+                {fallback && (
                   <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                     Soon
                   </span>

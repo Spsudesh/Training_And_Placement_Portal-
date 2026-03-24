@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCheck, CircleAlert, MapPin, Mail, Phone } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import StatusBadge from "../components/StatusBadge";
 import VerifySection from "../components/VerifySection";
@@ -27,23 +27,21 @@ export default function StudentDetailsPage({
 }) {
   const navigate = useNavigate();
   const { prn } = useParams();
-  const [verifiedFields, setVerifiedFields] = useState({});
-  const [isProfileVerified, setIsProfileVerified] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-
-  useEffect(() => {
-    const matchedStudent =
+  const currentStudent = useMemo(
+    () =>
       selectedStudent?.prn === prn
         ? selectedStudent
-        : students.find((student) => student.prn === prn) ?? null;
+        : students.find((student) => student.prn === prn) ?? null,
+    [prn, selectedStudent, students],
+  );
 
-    setSelectedStudent(matchedStudent);
-    setVerifiedFields(matchedStudent?.verifiedFields ?? {});
-    setIsProfileVerified(matchedStudent?.status === "Verified");
-    setSuccessMessage(matchedStudent?.status === "Verified" ? "Profile Verified" : "");
-  }, [prn, selectedStudent, setSelectedStudent, students]);
+  useEffect(() => {
+    if (selectedStudent !== currentStudent) {
+      setSelectedStudent(currentStudent);
+    }
+  }, [currentStudent, selectedStudent, setSelectedStudent]);
 
-  if (!selectedStudent) {
+  if (!currentStudent) {
     return (
       <section className="rounded-[28px] border border-slate-200/80 bg-white p-8 text-center shadow-lg shadow-slate-200/60">
         <p className="text-lg font-semibold text-slate-900">Student not found</p>
@@ -61,6 +59,9 @@ export default function StudentDetailsPage({
     );
   }
 
+  const verifiedFields = currentStudent.verifiedFields ?? {};
+  const isProfileVerified = currentStudent.status === "Verified";
+
   const handleVerifyField = (fieldId) => {
     if (isProfileVerified) {
       return;
@@ -71,10 +72,9 @@ export default function StudentDetailsPage({
       [fieldId]: true,
     };
 
-    setVerifiedFields(nextVerifiedFields);
     setStudents((currentStudents) =>
       currentStudents.map((student) =>
-        student.prn === selectedStudent.prn
+        student.prn === currentStudent.prn
           ? { ...student, verifiedFields: nextVerifiedFields }
           : student
       )
@@ -89,15 +89,11 @@ export default function StudentDetailsPage({
       return;
     }
 
-    const allVerifiedFields = createVerifiedFieldMap(selectedStudent);
-
-    setVerifiedFields(allVerifiedFields);
-    setIsProfileVerified(true);
-    setSuccessMessage("Student profile marked as verified successfully.");
+    const allVerifiedFields = createVerifiedFieldMap(currentStudent);
 
     setStudents((currentStudents) =>
       currentStudents.map((student) =>
-        student.prn === selectedStudent.prn
+        student.prn === currentStudent.prn
           ? { ...student, status: "Verified", verifiedFields: allVerifiedFields }
           : student
       )
@@ -128,8 +124,8 @@ export default function StudentDetailsPage({
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             <img
-              src={selectedStudent.avatar}
-              alt={selectedStudent.name}
+              src={currentStudent.avatar}
+              alt={currentStudent.name}
               className="h-20 w-20 rounded-3xl object-cover shadow-lg shadow-slate-200"
             />
             <div>
@@ -137,20 +133,20 @@ export default function StudentDetailsPage({
                 Student Details
               </p>
               <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-                {selectedStudent.name}
+                {currentStudent.name}
               </h1>
               <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-500">
                 <span className="inline-flex items-center gap-2">
                   <Mail className="h-4 w-4" />
-                  {selectedStudent.email}
+                  {currentStudent.email}
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <Phone className="h-4 w-4" />
-                  {selectedStudent.phone}
+                  {currentStudent.phone}
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
-                  {selectedStudent.location}
+                  {currentStudent.location}
                 </span>
               </div>
             </div>
@@ -160,7 +156,7 @@ export default function StudentDetailsPage({
             <div className="rounded-2xl bg-slate-50 px-4 py-3">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">PRN</p>
               <p className="mt-1 text-sm font-semibold text-slate-900">
-                {selectedStudent.prn}
+                {currentStudent.prn}
               </p>
             </div>
             <div className="rounded-2xl bg-slate-50 px-4 py-3">
@@ -168,17 +164,17 @@ export default function StudentDetailsPage({
                 Department
               </p>
               <p className="mt-1 text-sm font-semibold text-slate-900">
-                {selectedStudent.department}
+                {currentStudent.department}
               </p>
             </div>
-            <StatusBadge status={isProfileVerified ? "Verified" : selectedStudent.status} />
+            <StatusBadge status={isProfileVerified ? "Verified" : currentStudent.status} />
           </div>
         </div>
       </section>
 
-      {successMessage ? (
+      {isProfileVerified ? (
         <section className="rounded-[24px] border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-700 shadow-sm">
-          {successMessage}
+          Student profile marked as verified successfully.
         </section>
       ) : null}
 
@@ -190,7 +186,7 @@ export default function StudentDetailsPage({
       ) : null}
 
       <section className="grid gap-6">
-        {selectedStudent.sections.map((section) => (
+        {currentStudent.sections.map((section) => (
           <VerifySection
             key={section.id}
             section={section}
