@@ -8,6 +8,7 @@ export default function VerifyField({
   onVerify,
 }) {
   const isVerifiable = Boolean(field.verifiable);
+  const isProjectField = String(field.id || "").startsWith("project_");
   const wrapperClass = isVerifiable
     ? isVerified || isProfileVerified
       ? "border-emerald-200 bg-emerald-50/90"
@@ -49,19 +50,31 @@ export default function VerifyField({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              {field.label}
-            </p>
-            <p className="text-sm font-medium leading-6 text-slate-900">{field.value}</p>
+        isProjectField ? (
+          <div className="text-sm leading-6 text-slate-900">
+            <span className="font-semibold">{field.label}</span>
+            <span className="text-slate-500"> - </span>
+            <span>{field.value}</span>
+            {field.meta ? <span className="text-slate-500"> ({field.meta})</span> : null}
           </div>
-          {field.documentUrl ? (
-            <div className="flex items-center">
-              <ViewDocumentButton documentUrl={field.documentUrl} />
+        ) : (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                {field.label}
+              </p>
+              <p className="text-sm font-medium leading-6 text-slate-900">{field.value}</p>
+              {field.meta ? (
+                <p className="text-sm leading-6 text-slate-500">{field.meta}</p>
+              ) : null}
             </div>
-          ) : null}
-        </div>
+            {field.documentUrl ? (
+              <div className="flex items-center">
+                <ViewDocumentButton documentUrl={field.documentUrl} />
+              </div>
+            ) : null}
+          </div>
+        )
       )}
     </div>
   );

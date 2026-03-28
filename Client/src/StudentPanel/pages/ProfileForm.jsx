@@ -84,6 +84,7 @@ const initialState = {
       profilePhoto: "",
     },
     education: {
+      educationTrack: "twelfth",
       marks10: "",
       marksheet10: "",
       board10: "",

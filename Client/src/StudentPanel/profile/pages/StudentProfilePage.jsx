@@ -1,4 +1,21 @@
 import { useEffect, useState } from "react";
+import CertificationsSection from "../../components/CertificationsSection";
+import EducationalDetailsSection from "../../components/EducationalDetailsSection";
+import ExperienceSection from "../../components/ExperienceSection";
+import ExtraActivitiesSection from "../../components/ExtraActivitiesSection";
+import PersonalDetailsSection from "../../components/PersonalDetailsSection";
+import ProjectsSection from "../../components/ProjectsSection";
+import TechnicalSkillsSection from "../../components/TechnicalSkillsSection";
+import {
+  saveActivitiesDetails,
+  saveCertificationDetails,
+  saveEducationDetails,
+  saveExperienceDetails,
+  savePersonalDetails,
+  saveProfileSummaryDetails,
+  saveProjectsDetails,
+  saveSkillsDetails,
+} from "../../services/studentFormApi";
 import ProfileSidebarCard from "../components/ProfileSidebarCard";
 import {
   ProfileChipGroup,
@@ -11,7 +28,45 @@ import {
   createEmptyStudentProfile,
   profileSectionLinks,
 } from "../data/mockStudentProfile";
-import { DEFAULT_PRN, getStudentProfile } from "../services/studentProfileApi";
+import {
+  DEFAULT_PRN,
+  getStudentProfile,
+  STUDENT_PROFILE_VERIFICATION_EVENT,
+  STUDENT_PROFILE_VERIFIED_STORAGE_KEY,
+} from "../services/studentProfileApi";
+
+const SECTION_VERIFICATION_STORAGE_KEY = "training-placement-student-section-verification";
+
+const createExperienceEntry = () => ({
+  type: "",
+  companyName: "",
+  role: "",
+  duration: "",
+  description: "",
+  certificate: "",
+  certificateUrl: "",
+});
+
+const createProjectEntry = () => ({
+  title: "",
+  description: "",
+  techStack: "",
+  githubLink: "",
+  liveLink: "",
+});
+
+const createCertificationEntry = () => ({
+  name: "",
+  platform: "",
+  certificate: "",
+  certificateUrl: "",
+});
+
+const createActivityEntry = () => ({
+  title: "",
+  description: "",
+  links: "",
+});
 
 function formatDate(dateValue) {
   if (!dateValue) {
@@ -90,11 +145,345 @@ function buildPreviewUrl(fileUrl, fileLabel) {
   return fileUrl;
 }
 
+function normalizeExternalUrl(url) {
+  if (!url) {
+    return "";
+  }
+
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+function getFileNameFromUrl(fileUrl, fallbackLabel) {
+  if (!fileUrl) {
+    return fallbackLabel;
+  }
+
+  const normalizedUrl = String(fileUrl).split("?")[0];
+  const urlParts = normalizedUrl.split("/");
+  return urlParts[urlParts.length - 1] || fallbackLabel;
+}
+
+function createExistingFileValue(fileUrl, fallbackLabel) {
+  const sourceUrl = buildDocumentUrl(fileUrl);
+
+  if (!sourceUrl) {
+    return "";
+  }
+
+  return {
+    name: getFileNameFromUrl(fileUrl, fallbackLabel),
+    type: inferFileType(sourceUrl),
+    url: buildPreviewUrl(sourceUrl, fallbackLabel),
+  };
+}
+
+function mapProfileToEducationForm(profile) {
+  return {
+    educationTrack: profile.education.diploma?.year ? "diploma" : "twelfth",
+    marks10: profile.education.tenth?.marks ?? "",
+    marksheet10: createExistingFileValue(profile.education.tenth?.marksheetUrl, "10th Marksheet"),
+    board10: profile.education.tenth?.board ?? "",
+    year10: profile.education.tenth?.year ?? "",
+    marks12: profile.education.twelfth?.marks ?? "",
+    marksheet12: createExistingFileValue(profile.education.twelfth?.marksheetUrl, "12th Marksheet"),
+    board12: profile.education.twelfth?.board ?? "",
+    year12: profile.education.twelfth?.year ?? "",
+    diplomaInstitute: profile.education.diploma?.institute ?? "",
+    diplomaMarks: profile.education.diploma?.marks ?? "",
+    diplomaYear: profile.education.diploma?.year ?? "",
+    diplomaMarksheet: createExistingFileValue(
+      profile.education.diploma?.marksheetUrl,
+      "Diploma Marksheet",
+    ),
+    gapStatus: profile.gap === "YES" ? "Yes" : "No",
+    gapReason: profile.gapReason ?? "",
+    gapCertificate: createExistingFileValue(
+      profile.education.gapCertificateUrl,
+      "Gap Certificate",
+    ),
+    department: profile.department ?? "",
+    cgpa: profile.currentCgpa ?? "",
+    backlogs: profile.backlogs ?? "",
+    graduationYear: profile.passingYear ?? "",
+  };
+}
+
+function mapProfileToPersonalForm(profile) {
+  return {
+    prn: profile.prn ?? "",
+    firstName: profile.firstName ?? "",
+    middleName: profile.middleName ?? "",
+    lastName: profile.lastName ?? "",
+    email: profile.email ?? "",
+    mobile: profile.mobile ?? "",
+    address: profile.address ?? "",
+    country: profile.country ?? "",
+    state: profile.state ?? "",
+    district: profile.district ?? "",
+    city: profile.city ?? "",
+    pincode: profile.pincode ?? "",
+    dob: profile.dob ?? "",
+    age: profile.age ?? "",
+    gender: profile.gender ?? "",
+    category: profile.category ?? "",
+    handicap: profile.handicap ?? "",
+    aadhaar: profile.aadhaar ?? "",
+    profilePhoto: createExistingFileValue(profile.profilePhotoUrl, "Profile Photo"),
+  };
+}
+
+function mapProfileToSkillsForm(profile) {
+  return {
+    languages: profile.skills.languages ?? [],
+    tools: profile.skills.tools ?? [],
+    frameworks: profile.skills.frameworks ?? [],
+    otherSkills: profile.skills.otherSkills ?? [],
+  };
+}
+
+function mapProfileToProjectsForm(profile) {
+  return profile.projects.length
+    ? profile.projects.map((project) => ({
+        projectNumber: project.projectNumber,
+        title: project.title ?? "",
+        description: project.description ?? "",
+        techStack: project.techStack ?? "",
+        githubLink: project.githubLink ?? "",
+        liveLink: project.liveLink ?? "",
+      }))
+    : [createProjectEntry()];
+}
+
+function mapProfileToExperienceForm(profile) {
+  return profile.experience.length
+    ? profile.experience.map((item) => ({
+        expNumber: item.expNumber,
+        type: item.type ?? "",
+        companyName: item.companyName ?? "",
+        role: item.role ?? "",
+        duration: item.duration ?? "",
+        description: item.description ?? "",
+        certificate: createExistingFileValue(
+          item.certificateUrl,
+          `${item.companyName || "Experience"} Certificate`,
+        ),
+        certificateUrl: buildDocumentUrl(item.certificateUrl),
+      }))
+    : [createExperienceEntry()];
+}
+
+function mapProfileToCertificationsForm(profile) {
+  return profile.certifications.length
+    ? profile.certifications.map((item) => ({
+        certNumber: item.certNumber,
+        name: item.name ?? "",
+        platform: item.platform ?? "",
+        certificate: createExistingFileValue(item.certificateUrl, `${item.name || "Certificate"}.pdf`),
+        certificateUrl: buildDocumentUrl(item.certificateUrl),
+      }))
+    : [createCertificationEntry()];
+}
+
+function mapProfileToActivitiesForm(profile) {
+  return profile.activities.length
+    ? profile.activities.map((item) => ({
+        actNumber: item.actNumber,
+        title: item.title ?? "",
+        description: item.description ?? "",
+        links: item.link ?? "",
+      }))
+    : [createActivityEntry()];
+}
+
+function mapEducationFormToProfile(profile, formData) {
+  const selectedTrack =
+    formData.educationTrack ||
+    (formData.diplomaInstitute || formData.diplomaMarks || formData.diplomaYear
+      ? "diploma"
+      : "twelfth");
+
+  const currentTenth = profile.education.tenth;
+  const currentTwelfth = profile.education.twelfth;
+  const currentDiploma = profile.education.diploma;
+
+  return {
+    ...profile,
+    department: formData.department ?? profile.department,
+    currentCgpa: formData.cgpa === "" ? "" : formData.cgpa,
+    backlogs: formData.backlogs === "" ? "" : formData.backlogs,
+    passingYear: formData.graduationYear === "" ? "" : formData.graduationYear,
+    gap: formData.gapStatus === "Yes" ? "YES" : "NO",
+    gapReason: formData.gapReason ?? "",
+    education: {
+      ...profile.education,
+      tenth:
+        formData.year10 || formData.board10 || formData.marks10 || currentTenth?.marksheetUrl
+          ? {
+              marks: formData.marks10 === "" ? "" : formData.marks10,
+              board: formData.board10 ?? "",
+              year: formData.year10 === "" ? "" : formData.year10,
+              marksheetUrl: currentTenth?.marksheetUrl ?? "",
+            }
+          : null,
+      twelfth:
+        selectedTrack === "twelfth" &&
+        (formData.year12 || formData.board12 || formData.marks12 || currentTwelfth?.marksheetUrl)
+          ? {
+              marks: formData.marks12 === "" ? "" : formData.marks12,
+              board: formData.board12 ?? "",
+              year: formData.year12 === "" ? "" : formData.year12,
+              marksheetUrl: currentTwelfth?.marksheetUrl ?? "",
+            }
+          : null,
+      diploma:
+        selectedTrack === "diploma" &&
+        (formData.diplomaYear ||
+          formData.diplomaInstitute ||
+          formData.diplomaMarks ||
+          currentDiploma?.marksheetUrl)
+          ? {
+              marks: formData.diplomaMarks === "" ? "" : formData.diplomaMarks,
+              institute: formData.diplomaInstitute ?? "",
+              year: formData.diplomaYear === "" ? "" : formData.diplomaYear,
+              marksheetUrl: currentDiploma?.marksheetUrl ?? "",
+            }
+          : null,
+      gapCertificateUrl: profile.education.gapCertificateUrl,
+    },
+  };
+}
+
+function resetVerificationState(profile) {
+  return {
+    ...profile,
+    verification: {
+      ...profile.verification,
+      isProfileVerified: false,
+    },
+  };
+}
+
+function getStoredSectionVerification(prn) {
+  try {
+    const sectionStatusMap = JSON.parse(
+      window.localStorage.getItem(SECTION_VERIFICATION_STORAGE_KEY) || "{}",
+    );
+
+    return sectionStatusMap[prn] || {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function setStoredSectionVerification(prn, sectionStatus) {
+  if (!prn) {
+    return;
+  }
+
+  try {
+    const sectionStatusMap = JSON.parse(
+      window.localStorage.getItem(SECTION_VERIFICATION_STORAGE_KEY) || "{}",
+    );
+
+    sectionStatusMap[prn] = {
+      ...(sectionStatusMap[prn] || {}),
+      ...sectionStatus,
+    };
+
+    window.localStorage.setItem(
+      SECTION_VERIFICATION_STORAGE_KEY,
+      JSON.stringify(sectionStatusMap),
+    );
+  } catch (error) {
+    window.localStorage.setItem(
+      SECTION_VERIFICATION_STORAGE_KEY,
+      JSON.stringify({
+        [prn]: sectionStatus,
+      }),
+    );
+  }
+}
+
+function createEditorState(profile, sectionKey) {
+  switch (sectionKey) {
+    case "summary":
+      return profile.summary ?? "";
+    case "personal":
+      return mapProfileToPersonalForm(profile);
+    case "academic":
+      return mapProfileToEducationForm(profile);
+    case "skills":
+      return mapProfileToSkillsForm(profile);
+    case "projects":
+      return mapProfileToProjectsForm(profile);
+    case "experience":
+      return mapProfileToExperienceForm(profile);
+    case "certifications":
+      return mapProfileToCertificationsForm(profile);
+    case "activities":
+      return mapProfileToActivitiesForm(profile);
+    default:
+      return null;
+  }
+}
+
+function ProfileEditModal({ title, children, onClose }) {
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+      <button
+        type="button"
+        aria-label="Close editor"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+      />
+      <div className="relative z-10 max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-slate-100 p-4 shadow-2xl sm:p-6">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">
+              Profile Update
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">{title}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
+          >
+            x
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function StudentProfilePage() {
   const [profile, setProfile] = useState(createEmptyStudentProfile);
+  const [sectionVerification, setSectionVerification] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [previewDocument, setPreviewDocument] = useState(null);
+  const [editingSection, setEditingSection] = useState("");
+  const [editorState, setEditorState] = useState(null);
+  const [isSavingSection, setIsSavingSection] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -107,6 +496,14 @@ function StudentProfilePage() {
 
         if (isMounted) {
           setProfile(profileData);
+          const storedSectionVerification = getStoredSectionVerification(profileData.prn);
+          const nextSectionVerification = {
+            personal:
+              profileData.verification?.isProfileVerified ||
+              Boolean(storedSectionVerification.personal),
+          };
+          setSectionVerification(nextSectionVerification);
+          setStoredSectionVerification(profileData.prn, nextSectionVerification);
         }
       } catch (error) {
         if (isMounted) {
@@ -132,6 +529,345 @@ function StudentProfilePage() {
   }, []);
 
   const currentAddress = formatAddress(profile);
+  const hasDiplomaDetails = Boolean(
+    profile.education.diploma?.year ||
+      profile.education.diploma?.marks ||
+      profile.education.diploma?.institute ||
+      profile.education.diploma?.marksheetUrl,
+  );
+  const academicSectionVerified = hasDiplomaDetails
+    ? Boolean(
+        profile.verification?.education?.tenth &&
+          profile.verification?.education?.diploma &&
+          profile.verification?.education?.cgpa &&
+          profile.verification?.education?.backlogs,
+      )
+    : Boolean(
+        profile.verification?.education?.tenth &&
+          profile.verification?.education?.twelfth &&
+          profile.verification?.education?.cgpa &&
+          profile.verification?.education?.backlogs,
+      );
+  const experienceSectionVerified = Boolean(
+    profile.experience.length &&
+      profile.experience.every(
+        (item) => profile.verification?.experience?.[item.expNumber],
+      ),
+  );
+  const personalSectionVerified = Boolean(sectionVerification.personal);
+
+  function openEditor(sectionKey) {
+    setEditingSection(sectionKey);
+    setEditorState(createEditorState(profile, sectionKey));
+  }
+
+  function requestEdit(sectionKey) {
+    if (profile.verification?.isProfileVerified) {
+      const confirmed = window.confirm(
+        "Your profile is verified. If you edit these details, your profile will go for verification again and until then you cannot use other features. Do you want to continue?",
+      );
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    openEditor(sectionKey);
+  }
+
+  function closeEditor(force = false) {
+    if (isSavingSection && !force) {
+      return;
+    }
+
+    setEditingSection("");
+    setEditorState(null);
+  }
+
+  const handleEditorFieldChange = (event) => {
+    const { value } = event.target;
+    setEditorState((current) =>
+      typeof current === "string" ? value : { ...current, [event.target.name]: value },
+    );
+  };
+
+  const handleEditorFileChange = (event) => {
+    const file = event.target.files?.[0];
+    const { name } = event.target;
+
+    setEditorState((current) => ({
+      ...current,
+      [name]: file
+        ? {
+            file,
+            name: file.name,
+            type: file.type,
+            url: URL.createObjectURL(file),
+          }
+        : "",
+    }));
+  };
+
+  const handleSkillsChange = (skillType, values) => {
+    setEditorState((current) => ({
+      ...current,
+      [skillType]: values,
+    }));
+  };
+
+  const handleListItemChange = (index, event) => {
+    const { name, value } = event.target;
+    setEditorState((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [name]: value } : item,
+      ),
+    );
+  };
+
+  const handleListItemFileChange = (index, event) => {
+    const file = event.target.files?.[0];
+    const { name } = event.target;
+
+    setEditorState((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [name]: file
+                ? {
+                    file,
+                    name: file.name,
+                    type: file.type,
+                    url: URL.createObjectURL(file),
+                  }
+                : "",
+            }
+          : item,
+      ),
+    );
+  };
+
+  const addListItem = (factory) => {
+    setEditorState((current) => [...current, factory()]);
+  };
+
+  const removeListItem = (index) => {
+    setEditorState((current) => {
+      if (current.length === 1) {
+        return current;
+      }
+
+      return current.filter((_, itemIndex) => itemIndex !== index);
+    });
+  };
+
+  async function refreshProfile() {
+    const profileData = await getStudentProfile();
+    setProfile(profileData);
+    const storedSectionVerification = getStoredSectionVerification(profileData.prn);
+    const nextSectionVerification = {
+      personal:
+        profileData.verification?.isProfileVerified ||
+        Boolean(storedSectionVerification.personal),
+    };
+    setSectionVerification(nextSectionVerification);
+    setStoredSectionVerification(profileData.prn, nextSectionVerification);
+    return profileData;
+  }
+
+  async function handleSectionSave() {
+    try {
+      setIsSavingSection(true);
+
+      switch (editingSection) {
+        case "summary":
+          await saveProfileSummaryDetails(profile.prn, editorState);
+          break;
+        case "personal":
+          await savePersonalDetails(editorState);
+          break;
+        case "academic":
+          await saveEducationDetails(profile.prn, editorState);
+          break;
+        case "skills":
+          await saveSkillsDetails(profile.prn, editorState);
+          break;
+        case "projects":
+          await saveProjectsDetails(profile.prn, editorState);
+          break;
+        case "experience":
+          await saveExperienceDetails(profile.prn, editorState);
+          break;
+        case "certifications":
+          await saveCertificationDetails(profile.prn, editorState);
+          break;
+        case "activities":
+          await saveActivitiesDetails(profile.prn, editorState);
+          break;
+        default:
+          return;
+      }
+
+      window.localStorage.setItem(STUDENT_PROFILE_VERIFIED_STORAGE_KEY, "false");
+      window.dispatchEvent(new Event(STUDENT_PROFILE_VERIFICATION_EVENT));
+
+      const refreshedProfile = await refreshProfile();
+      let nextProfile = resetVerificationState(refreshedProfile);
+      let nextSectionVerification = getStoredSectionVerification(refreshedProfile.prn);
+
+      if (editingSection === "summary") {
+        nextProfile = {
+          ...nextProfile,
+          summary: editorState,
+        };
+      }
+
+      if (editingSection === "academic") {
+        nextProfile = mapEducationFormToProfile(nextProfile, editorState);
+      }
+
+      if (editingSection === "personal") {
+        nextSectionVerification = {
+          ...nextSectionVerification,
+          personal: false,
+        };
+      }
+
+      setProfile(nextProfile);
+      setSectionVerification(nextSectionVerification);
+      setStoredSectionVerification(nextProfile.prn, nextSectionVerification);
+
+      closeEditor(true);
+      window.alert("Profile section updated successfully.");
+    } catch (error) {
+      window.alert(
+        error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update profile section.",
+      );
+    } finally {
+      setIsSavingSection(false);
+    }
+  }
+
+  function renderEditorSection() {
+    switch (editingSection) {
+      case "summary":
+        return (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-blue-50 to-cyan-50 px-6 py-5">
+              <h2 className="text-xl font-semibold text-slate-900">Profile Summary</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Add a short summary that introduces the student profile.
+              </p>
+            </div>
+            <div className="space-y-5 px-6 py-6">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">
+                  Summary
+                </span>
+                <textarea
+                  name="summary"
+                  value={editorState}
+                  onChange={handleEditorFieldChange}
+                  rows={6}
+                  placeholder="Write a simple summary about strengths, interests, academic background, and career focus."
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                />
+              </label>
+            </div>
+            <div className="border-t border-slate-200 bg-slate-50 px-6 py-4">
+              <button
+                type="button"
+                onClick={handleSectionSave}
+                disabled={isSavingSection}
+                className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-blue-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-80"
+              >
+                {isSavingSection ? "Saving..." : "Submit Summary"}
+              </button>
+            </div>
+          </div>
+        );
+      case "academic":
+        return (
+          <EducationalDetailsSection
+            data={editorState}
+            onFieldChange={handleEditorFieldChange}
+            onFileChange={handleEditorFileChange}
+            onSave={handleSectionSave}
+            isSaved={isSavingSection}
+          />
+        );
+      case "personal":
+        return (
+          <PersonalDetailsSection
+            data={editorState}
+            onFieldChange={handleEditorFieldChange}
+            onFileChange={handleEditorFileChange}
+            onSave={handleSectionSave}
+            isSaved={isSavingSection}
+          />
+        );
+      case "skills":
+        return (
+          <TechnicalSkillsSection
+            data={editorState}
+            onSkillsChange={handleSkillsChange}
+            onSave={handleSectionSave}
+            isSaved={isSavingSection}
+          />
+        );
+      case "projects":
+        return (
+          <ProjectsSection
+            data={editorState}
+            onEntryChange={handleListItemChange}
+            onAddEntry={() => addListItem(createProjectEntry)}
+            onRemoveEntry={removeListItem}
+            onSave={handleSectionSave}
+            isSaved={isSavingSection}
+          />
+        );
+      case "experience":
+        return (
+          <ExperienceSection
+            data={editorState}
+            onEntryChange={handleListItemChange}
+            onEntryFileChange={handleListItemFileChange}
+            onAddEntry={() => addListItem(createExperienceEntry)}
+            onRemoveEntry={removeListItem}
+            onSave={handleSectionSave}
+            isSaved={isSavingSection}
+          />
+        );
+      case "certifications":
+        return (
+          <CertificationsSection
+            data={editorState}
+            onEntryChange={handleListItemChange}
+            onEntryFileChange={handleListItemFileChange}
+            onAddEntry={() => addListItem(createCertificationEntry)}
+            onRemoveEntry={removeListItem}
+            onSave={handleSectionSave}
+            isSaved={isSavingSection}
+          />
+        );
+      case "activities":
+        return (
+          <ExtraActivitiesSection
+            data={editorState}
+            onEntryChange={handleListItemChange}
+            onAddEntry={() => addListItem(createActivityEntry)}
+            onRemoveEntry={removeListItem}
+            onSave={handleSectionSave}
+            isSaved={isSavingSection}
+          />
+        );
+      default:
+        return null;
+    }
+  }
 
   if (isLoading) {
     return (
@@ -161,10 +897,45 @@ function StudentProfilePage() {
         </div>
 
         <div className="space-y-6">
+          {profile.verification?.isProfileVerified ? (
+            <section className="rounded-3xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm font-medium text-blue-700">
+              This profile is fully verified by TPC. If you edit any section, the profile will move back to verification review and other student features will stay locked until it is verified again.
+            </section>
+          ) : (
+            <section className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-700">
+              This profile is currently unverified by TPC. Once the updated details are reviewed and verified again, the locked student features will become available.
+            </section>
+          )}
+
+          <ProfileSection
+            id="profile-summary"
+            title="Profile Summary"
+            description="A quick overview of the student profile that appears before the detailed academic and resume sections."
+            actionLabel={profile.summary ? "Update Profile Summary" : "Add Profile Summary"}
+            actionVariant={profile.summary ? "update" : "add"}
+            onAction={() => requestEdit("summary")}
+          >
+            {profile.summary ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <p className="text-sm font-semibold text-slate-700">Student Summary</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{profile.summary}</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+                <p className="text-sm leading-6 text-slate-600">
+                  No profile summary has been added yet.
+                </p>
+              </div>
+            )}
+          </ProfileSection>
+
           <ProfileSection
             id="basic-details"
             title="Basic Details"
-            description="Core identity information is locked after initial verification. These details stay read-only to preserve record accuracy."
+            description="Core identity details from the submitted student profile. Editing them will send the profile back for TPC verification."
+            statusLabel={personalSectionVerified ? "Verified" : "Pending Verification"}
+            actionLabel="Edit Basic Details"
+            onAction={() => requestEdit("personal")}
           >
             <ProfileFieldList
               columns={3}
@@ -185,8 +956,10 @@ function StudentProfilePage() {
           <ProfileSection
             id="contact-address"
             title="Contact & Address"
-            description="These are active profile fields that students may need to keep current for communication and placement records."
-            actionLabel="Update Contact Info"
+            description="Communication and address details used across placement records. Editing them will send the profile back for TPC verification."
+            statusLabel={personalSectionVerified ? "Verified" : "Pending Verification"}
+            actionLabel="Edit Contact Info"
+            onAction={() => requestEdit("personal")}
           >
             <ProfileFieldList
               items={[
@@ -201,8 +974,10 @@ function StudentProfilePage() {
           <ProfileSection
             id="academic-details"
             title="Academic Details"
-            description="Historic records like 10th and 12th remain mostly informational, while current academics may need updates as your resume evolves."
+            description="10th details are shown for every student. Based on the submitted academic path, the profile shows either diploma details or 12th details."
+            statusLabel={academicSectionVerified ? "Verified" : "Pending Verification"}
             actionLabel="Update Current Academics"
+            onAction={() => requestEdit("academic")}
           >
             <div className="grid gap-4 lg:grid-cols-3">
               <ProfileItemCard
@@ -234,35 +1009,67 @@ function StudentProfilePage() {
                     : []
                 }
               />
-              <ProfileItemCard
-                title="12th Standard"
-                subtitle={profile.education.twelfth?.board}
-                meta={profile.education.twelfth?.year ? `${profile.education.twelfth.year}` : ""}
-                description={
-                  profile.education.twelfth
-                    ? `Marks: ${profile.education.twelfth.marks}%`
-                    : "No 12th record available."
-                }
-                links={
-                  profile.education.twelfth?.marksheetUrl
-                    ? [
-                            {
-                              label: "View Marksheet",
-                              onClick: () =>
-                                setPreviewDocument({
-                                  url: buildPreviewUrl(
-                                    buildDocumentUrl(profile.education.twelfth.marksheetUrl),
-                                    "12th Marksheet.pdf"
-                                  ),
-                                  sourceUrl: buildDocumentUrl(profile.education.twelfth.marksheetUrl),
-                                  label: "12th Marksheet",
-                                  type: inferFileType(profile.education.twelfth.marksheetUrl),
-                                }),
-                            },
-                      ]
-                    : []
-                }
-              />
+              {hasDiplomaDetails ? (
+                <ProfileItemCard
+                  title="Diploma Student"
+                  subtitle={profile.education.diploma?.institute}
+                  meta={profile.education.diploma?.year ? `${profile.education.diploma.year}` : ""}
+                  description={
+                    profile.education.diploma
+                      ? `Marks: ${profile.education.diploma.marks}%`
+                      : "No diploma record available."
+                  }
+                  links={
+                    profile.education.diploma?.marksheetUrl
+                      ? [
+                          {
+                            label: "View Marksheet",
+                            onClick: () =>
+                              setPreviewDocument({
+                                url: buildPreviewUrl(
+                                  buildDocumentUrl(profile.education.diploma.marksheetUrl),
+                                  "Diploma Marksheet.pdf"
+                                ),
+                                sourceUrl: buildDocumentUrl(profile.education.diploma.marksheetUrl),
+                                label: "Diploma Marksheet",
+                                type: inferFileType(profile.education.diploma.marksheetUrl),
+                              }),
+                          },
+                        ]
+                      : []
+                  }
+                />
+              ) : (
+                <ProfileItemCard
+                  title="12th Candidate"
+                  subtitle={profile.education.twelfth?.board}
+                  meta={profile.education.twelfth?.year ? `${profile.education.twelfth.year}` : ""}
+                  description={
+                    profile.education.twelfth
+                      ? `Marks: ${profile.education.twelfth.marks}%`
+                      : "No 12th record available."
+                  }
+                  links={
+                    profile.education.twelfth?.marksheetUrl
+                      ? [
+                          {
+                            label: "View Marksheet",
+                            onClick: () =>
+                              setPreviewDocument({
+                                url: buildPreviewUrl(
+                                  buildDocumentUrl(profile.education.twelfth.marksheetUrl),
+                                  "12th Marksheet.pdf"
+                                ),
+                                sourceUrl: buildDocumentUrl(profile.education.twelfth.marksheetUrl),
+                                label: "12th Marksheet",
+                                type: inferFileType(profile.education.twelfth.marksheetUrl),
+                              }),
+                          },
+                        ]
+                      : []
+                  }
+                />
+              )}
               <ProfileItemCard
                 title="Current Degree Snapshot"
                 subtitle={profile.department}
@@ -277,6 +1084,7 @@ function StudentProfilePage() {
             title="Skills, Subjects & Languages"
             description="Skills are high-impact resume fields and should stay easy to update as the student grows."
             actionLabel="Update Skills"
+            onAction={() => requestEdit("skills")}
           >
             <div className="grid gap-5 lg:grid-cols-2">
               <ProfileChipGroup title="Languages" items={profile.skills.languages} />
@@ -290,8 +1098,13 @@ function StudentProfilePage() {
             id="projects"
             title="Projects"
             description="Projects are resume-building content, so students should be able to add new work or improve descriptions later."
-            actionLabel={profile.projects.length ? "Update Projects" : "Add Projects"}
+            actionLabel={
+              profile.projects.length
+                ? "Update Projects"
+                : "Add Projects"
+            }
             actionVariant={profile.projects.length ? "update" : "add"}
+            onAction={() => requestEdit("projects")}
           >
             <div className="space-y-4">
               {profile.projects.length ? (
@@ -303,8 +1116,32 @@ function StudentProfilePage() {
                     meta={`Project ${project.projectNumber}`}
                     description={project.description}
                     links={[
-                      { label: "GitHub Link" },
-                      ...(project.liveLink ? [{ label: "Live Demo" }] : []),
+                      ...(project.githubLink
+                        ? [
+                            {
+                              label: "GitHub Link",
+                              onClick: () =>
+                                window.open(
+                                  normalizeExternalUrl(project.githubLink),
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                ),
+                            },
+                          ]
+                        : []),
+                      ...(project.liveLink
+                        ? [
+                            {
+                              label: "Live Demo",
+                              onClick: () =>
+                                window.open(
+                                  normalizeExternalUrl(project.liveLink),
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                ),
+                            },
+                          ]
+                        : []),
                     ]}
                   />
                 ))
@@ -318,8 +1155,14 @@ function StudentProfilePage() {
             id="experience"
             title="Internship & Work Experience"
             description="Internships and work experience often grow over time, so these entries should remain updateable."
-            actionLabel={profile.experience.length ? "Update Experience" : "Add Experience"}
+            statusLabel={experienceSectionVerified ? "Verified" : "Pending Verification"}
+            actionLabel={
+              profile.experience.length
+                ? "Update Experience"
+                : "Add Experience"
+            }
             actionVariant={profile.experience.length ? "update" : "add"}
+            onAction={() => requestEdit("experience")}
           >
             <div className="space-y-4">
               {profile.experience.length ? (
@@ -361,8 +1204,13 @@ function StudentProfilePage() {
             id="certifications"
             title="Certifications"
             description="Certifications are dynamic resume items and should support both new additions and updates."
-            actionLabel={profile.certifications.length ? "Update Certifications" : "Add Certifications"}
+            actionLabel={
+              profile.certifications.length
+                ? "Update Certifications"
+                : "Add Certifications"
+            }
             actionVariant={profile.certifications.length ? "update" : "add"}
+            onAction={() => requestEdit("certifications")}
           >
             <div className="space-y-4">
               {profile.certifications.length ? (
@@ -403,30 +1251,15 @@ function StudentProfilePage() {
             id="activities"
             title="Activities & Accomplishments"
             description="This section keeps the profile resume-ready by highlighting clubs, volunteering, hackathons, and similar achievements."
-            actionLabel={profile.activities.length ? "Update Activities" : "Add Activities"}
+            actionLabel={
+              profile.activities.length
+                ? "Update Activities"
+                : "Add Activities"
+            }
             actionVariant={profile.activities.length ? "update" : "add"}
+            onAction={() => requestEdit("activities")}
           >
             <div className="space-y-4">
-              {profile.summary ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="text-sm font-semibold text-slate-700">Profile Summary</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{profile.summary}</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 md:flex-row md:items-center md:justify-between">
-                  <p className="max-w-2xl text-sm leading-6 text-slate-600">
-                    No profile summary has been added yet. This should be an addable field because students refine their resume summary over time.
-                  </p>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800"
-                  >
-                    <span className="material-symbols-outlined mr-2 text-[18px]">add</span>
-                    Add Summary
-                  </button>
-                </div>
-              )}
-
               {profile.activities.length ? (
                 profile.activities.map((item) => (
                   <ProfileItemCard
@@ -434,7 +1267,21 @@ function StudentProfilePage() {
                     title={item.title}
                     subtitle={`Activity ${item.actNumber}`}
                     description={item.description}
-                    links={item.link ? [{ label: "Open Link" }] : []}
+                    links={
+                      item.link
+                        ? [
+                            {
+                              label: "Open Link",
+                              onClick: () =>
+                                window.open(
+                                  normalizeExternalUrl(item.link),
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                ),
+                            },
+                          ]
+                        : []
+                    }
                   />
                 ))
               ) : (
@@ -453,6 +1300,31 @@ function StudentProfilePage() {
           fileType={previewDocument.type}
           onClose={() => setPreviewDocument(null)}
         />
+      ) : null}
+
+      {editingSection && editorState !== null ? (
+        <ProfileEditModal
+          title={
+            editingSection === "summary"
+              ? "Profile Summary"
+              : editingSection === "personal"
+              ? "Edit Personal Details"
+              : editingSection === "academic"
+              ? "Update Academic Details"
+              : editingSection === "skills"
+              ? "Update Skills"
+              : editingSection === "projects"
+              ? "Update Projects"
+              : editingSection === "experience"
+              ? "Update Experience"
+              : editingSection === "certifications"
+              ? "Update Certifications"
+              : "Update Activities"
+          }
+          onClose={closeEditor}
+        >
+          {renderEditorSection()}
+        </ProfileEditModal>
       ) : null}
     </div>
   );

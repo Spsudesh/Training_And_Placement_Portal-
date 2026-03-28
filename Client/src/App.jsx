@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
   Navigate,
@@ -8,9 +8,11 @@ import {
   useNavigate,
 } from "react-router-dom";
 import "./index.css";
+import LoginPage from "./components/loginPage/LoginPage";
 import Overview from "./TPO/pages/Overview";
 import Dashboard from "./TPO/pages/Dashboard";
 import Placements from "./TPO/pages/Placements";
+import TpoSidebar from "./TPO/pages/Tpo_sidebar";
 import TpcDashboard from "./TPC/pages/Dashboard";
 import TpcSidebar from "./TPC/pages/Tpc_sidebar";
 import JobProfiles from "./StudentPanel/pages/JobProfiles";
@@ -20,12 +22,15 @@ import StudentSidebar from "./StudentPanel/pages/Student_sidebar";
 import ProfileForm from "./StudentPanel/pages/ProfileForm";
 import StudentDetailsPage from "./TPC_Panel/student_verification/pages/StudentDetailsPage";
 import StudentListPage from "./TPC_Panel/student_verification/pages/StudentListPage";
-import studentDummyData from "./TPC_Panel/student_verification/utils/dummyData";
+import { getStudentVerificationRecords } from "./TPC_Panel/student_verification/services/studentVerificationApi";
+import TpoStudentDetailsPage from "./TPO_Panel/student_management/pages/StudentDetailsPage";
+import TpoStudentListPage from "./TPO_Panel/student_management/pages/StudentListPage";
+import { studentManagementData } from "./TPO_Panel/student_management/utils/dummyData";
 
 const AUTH_STORAGE_KEY = "training-placement-active-panel";
 const STUDENT_ID_STORAGE_KEY = "training-placement-active-student";
 const STUDENT_FORM_STATUS_KEY = "training-placement-student-form-status";
-const DEFAULT_STUDENT_ID = "2453011";
+const DEFAULT_STUDENT_ID = "2453014";
 
 function getActivePanel() {
   return window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -83,10 +88,7 @@ function clearActivePanel() {
 
 function ensureDirectStudentSession() {
   setActivePanel("student");
-
-  if (!getActiveStudentId()) {
-    setActiveStudentId(DEFAULT_STUDENT_ID);
-  }
+  setActiveStudentId(DEFAULT_STUDENT_ID);
 }
 
 function ProtectedRoute({ allowedPanel, children }) {
@@ -101,7 +103,7 @@ function ProtectedRoute({ allowedPanel, children }) {
 
 function DirectStudentEntry() {
   ensureDirectStudentSession();
-  return <Navigate to="/student-panel/profile-form" replace />;
+  return <Navigate to="/student-panel" replace />;
 }
 
 function StudentPlaceholderPage({ title, description }) {
@@ -121,7 +123,7 @@ function getStudentPageTitle(pathname) {
     return "Home";
   }
 
-  if (pathname.startsWith("/student-panel/jobs")) {
+  if (pathname.startsWith("/student-panel/jobs")) { 
     return "Job Profiles";
   }
 
@@ -152,7 +154,7 @@ function StudentApp() {
   const navigate = useNavigate();
   const location = useLocation();
   const activeStudentId = getActiveStudentId();
-  const hasSubmittedForm = isStudentFormSubmitted(activeStudentId);
+  const hasSubmittedProfileForm = isStudentFormSubmitted(activeStudentId);
   const isProfileFormRoute = location.pathname.startsWith("/student-panel/profile-form");
 
   const handleLogout = () => {
@@ -161,14 +163,6 @@ function StudentApp() {
     navigate("/login", { replace: true });
   };
 
-  if (!hasSubmittedForm && !isProfileFormRoute) {
-    return <Navigate to="/student-panel/profile-form" replace />;
-  }
-
-  if (hasSubmittedForm && isProfileFormRoute) {
-    return <Navigate to="/student-panel" replace />;
-  }
-
   return (
     <StudentSidebar
       pageTitle={getStudentPageTitle(location.pathname)}
@@ -176,9 +170,36 @@ function StudentApp() {
       onLogout={handleLogout}
     >
       <Routes>
-        <Route index element={<StudentHome />} />
-        <Route path="jobs" element={<JobProfiles />} />
-        <Route path="profile" element={<StudentProfilePage />} />
+        <Route
+          index
+          element={
+            hasSubmittedProfileForm ? (
+              <StudentHome />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
+          }
+        />
+        <Route
+          path="jobs"
+          element={
+            hasSubmittedProfileForm ? (
+              <JobProfiles />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            hasSubmittedProfileForm ? (
+              <StudentProfilePage />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
+          }
+        />
         <Route
           path="profile-form"
           element={
@@ -193,31 +214,51 @@ function StudentApp() {
         <Route
           path="interviews"
           element={
-            <StudentPlaceholderPage
-              title="Interviews"
-              description="Interview tracking will be added here once the student interview workflow is connected."
-            />
+            hasSubmittedProfileForm ? (
+              <StudentPlaceholderPage
+                title="Interviews"
+                description="Interview tracking will be added here once the student interview workflow is connected."
+              />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
           }
         />
         <Route
           path="assessments"
           element={
-            <StudentPlaceholderPage
-              title="Assessments"
-              description="Assessment schedules and results will appear here after this module is enabled."
-            />
+            hasSubmittedProfileForm ? (
+              <StudentPlaceholderPage
+                title="Assessments"
+                description="Assessment schedules and results will appear here after this module is enabled."
+              />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
           }
         />
         <Route
           path="resume"
           element={
-            <StudentPlaceholderPage
-              title="Resume"
-              description="Resume tools and downloadable profile assets will be added here in a later step."
+            hasSubmittedProfileForm ? (
+              <StudentPlaceholderPage
+                title="Resume"
+                description="Resume tools and downloadable profile assets will be added here in a later step."
+              />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to={hasSubmittedProfileForm ? "/student-panel" : "/student-panel/profile-form"}
+              replace
             />
           }
         />
-        <Route path="*" element={<Navigate to="/student-panel" replace />} />
       </Routes>
     </StudentSidebar>
   );
@@ -231,18 +272,7 @@ function TpoOverviewApp() {
     navigate("/login", { replace: true });
   };
 
-  const handleNavigate = (page) => {
-    if (page === "Notice Board") {
-      navigate("/tpo-dashboard/notice-board");
-      return;
-    }
-
-    if (page === "Dashboard") {
-      navigate("/tpo-dashboard");
-    }
-  };
-
-  return <Overview onLogout={handleLogout} onNavigate={handleNavigate} />;
+  return <Overview onLogout={handleLogout} />;
 }
 
 function TpoNoticeBoardApp() {
@@ -253,23 +283,7 @@ function TpoNoticeBoardApp() {
     navigate("/login", { replace: true });
   };
 
-  const handleNavigate = (page) => {
-    if (page === "Dashboard") {
-      navigate("/tpo-dashboard");
-      return;
-    }
-
-    if (page === "Notice Board") {
-      navigate("/tpo-dashboard/notice-board");
-      return;
-    }
-
-    if (page === "Placement Opportunity") {
-      navigate("/tpo-dashboard/placements");
-    }
-  };
-
-  return <Dashboard onLogout={handleLogout} onNavigate={handleNavigate} />;
+  return <Dashboard onLogout={handleLogout} />;
 }
 
 function TpoPlacementsApp() {
@@ -283,11 +297,52 @@ function TpoPlacementsApp() {
   return <Placements onLogout={handleLogout} />;
 }
 
+function TpoStudentsApp() {
+  const navigate = useNavigate();
+  const [students, setStudents] = useState(studentManagementData);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const handleLogout = () => {
+    clearActivePanel();
+    navigate("/login", { replace: true });
+  };
+
+  return (
+    <TpoSidebar pageTitle="Student Management" onLogout={handleLogout}>
+      <Routes>
+        <Route
+          index
+          element={
+            <TpoStudentListPage
+              students={students}
+              setStudents={setStudents}
+              setSelectedStudent={setSelectedStudent}
+            />
+          }
+        />
+        <Route
+          path=":prn"
+          element={
+            <TpoStudentDetailsPage
+              students={students}
+              selectedStudent={selectedStudent}
+              setSelectedStudent={setSelectedStudent}
+            />
+          }
+        />
+        <Route path="*" element={<Navigate to="/tpo-dashboard/students" replace />} />
+      </Routes>
+    </TpoSidebar>
+  );
+}
+
 function TpcApp() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [students, setStudents] = useState(studentDummyData);
+  const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+  const [studentsError, setStudentsError] = useState("");
 
   const handleLogout = () => {
     clearActivePanel();
@@ -298,19 +353,46 @@ function TpcApp() {
     "/tpc-dashboard/student-verification",
   );
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadStudents() {
+      try {
+        setIsLoadingStudents(true);
+        setStudentsError("");
+        const records = await getStudentVerificationRecords();
+
+        if (isMounted) {
+          setStudents(records);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setStudents([]);
+          setStudentsError(
+            error?.response?.data?.message ||
+              error?.response?.data?.error ||
+              error?.message ||
+              "Failed to fetch student verification records.",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingStudents(false);
+        }
+      }
+    }
+
+    loadStudents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <TpcSidebar
       pageTitle={isStudentVerificationRoute ? "Student Verification" : "TPC Dashboard"}
-      activePage={isStudentVerificationRoute ? "Students" : "Dashboard"}
       onLogout={handleLogout}
-      onNavigate={(page) => {
-        if (page === "Students") {
-          navigate("/tpc-dashboard/student-verification");
-          return;
-        }
-
-        navigate("/tpc-dashboard");
-      }}
     >
       <Routes>
         <Route index element={<TpcDashboard />} />
@@ -319,6 +401,8 @@ function TpcApp() {
           element={
             <StudentListPage
               students={students}
+              isLoading={isLoadingStudents}
+              errorMessage={studentsError}
               setSelectedStudent={setSelectedStudent}
             />
           }
@@ -328,6 +412,8 @@ function TpcApp() {
           element={
             <StudentDetailsPage
               students={students}
+              isLoading={isLoadingStudents}
+              errorMessage={studentsError}
               selectedStudent={selectedStudent}
               setSelectedStudent={setSelectedStudent}
               setStudents={setStudents}
@@ -348,7 +434,23 @@ function App() {
           path="/"
           element={<DirectStudentEntry />}
         />
-        <Route path="/login" element={<DirectStudentEntry />} />
+        <Route
+          path="/login"
+          element={
+            <LoginPage
+              onLogin={(panel, userId) => {
+                setActivePanel(panel);
+
+                if (panel === "student") {
+                  setActiveStudentId(userId);
+                  return;
+                }
+
+                clearActiveStudentId();
+              }}
+            />
+          }
+        />
         <Route
           path="/student-panel/*"
           element={
@@ -378,6 +480,14 @@ function App() {
           element={
             <ProtectedRoute allowedPanel="tpo">
               <TpoPlacementsApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tpo-dashboard/students/*"
+          element={
+            <ProtectedRoute allowedPanel="tpo">
+              <TpoStudentsApp />
             </ProtectedRoute>
           }
         />

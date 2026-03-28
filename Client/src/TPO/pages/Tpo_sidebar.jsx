@@ -1,20 +1,27 @@
 import { useState } from "react";
+import {
+  BriefcaseBusiness,
+  CircleHelp,
+  FileText,
+  LayoutDashboard,
+  Megaphone,
+  Users,
+} from "lucide-react";
+import { NavLink } from "react-router-dom";
 import Header from "./TPOheader";
 
 const navigationItems = [
-  { label: "Dashboard", icon: "dashboard" },
-  { label: "Students", icon: "groups", disabled: true },
-  { label: "Companies", icon: "business_center", disabled: true },
-  { label: "Notice Board", icon: "campaign" },
-  { label: "Settings", icon: "settings", disabled: true },
+  { label: "Dashboard", icon: LayoutDashboard, to: "/tpo-dashboard" },
+  { label: "Students", icon: Users, to: "/tpo-dashboard/students" },
+  { label: "Opportunities", icon: BriefcaseBusiness, to: "/tpo-dashboard/placements" },
+  { label: "Notice Board", icon: Megaphone, to: "/tpo-dashboard/notice-board" },
+  { label: "Reports", icon: FileText, to: "/tpo-dashboard", disabled: true },
 ];
 
 function TpoSidebar({
   children,
   pageTitle = "TPO Dashboard",
-  activePage = "Dashboard",
   showSidebar = true,
-  onNavigate,
   onLogout,
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -37,50 +44,46 @@ function TpoSidebar({
         >
           <nav className="flex-1 space-y-2 px-3 py-5">
             {navigationItems.map((item) => {
-              const isActive = item.label === activePage;
-
+              const Icon = item.icon;
               return (
-                <button
+                <NavLink
                   key={item.label}
-                  type="button"
+                  to={item.disabled ? "/tpo-dashboard" : item.to}
+                  end={item.to === "/tpo-dashboard"}
                   onClick={() => {
-                    if (item.disabled) {
-                      onNavigate?.("Dashboard");
-                      setSidebarOpen(false);
-                      return;
-                    }
-
-                    onNavigate?.(item.label);
                     setSidebarOpen(false);
                   }}
-                  className={`flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center text-[11px] font-medium transition ${
-                    item.disabled
-                      ? "text-slate-300 hover:bg-slate-50 hover:text-slate-400"
-                      : isActive
-                      ? "bg-cyan-50 text-cyan-700"
-                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
                 >
-                  <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold ${
-                      item.disabled
-                        ? "bg-slate-100 text-slate-300"
-                        : isActive
-                        ? "bg-cyan-600 text-white"
-                        : "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[22px]">
-                      {item.icon}
-                    </span>
-                  </span>
-                  <span>{item.label}</span>
-                  {item.disabled ? (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] text-slate-400">
-                      Soon
-                    </span>
-                  ) : null}
-                </button>
+                  {({ isActive }) => (
+                    <div
+                      className={`flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center text-[11px] font-medium transition ${
+                        item.disabled
+                          ? "text-slate-300 hover:bg-slate-50 hover:text-slate-400"
+                          : isActive
+                          ? "bg-cyan-50 text-cyan-700"
+                          : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold ${
+                          item.disabled
+                            ? "bg-slate-100 text-slate-300"
+                            : isActive
+                            ? "bg-cyan-600 text-white shadow-[0_12px_24px_rgba(8,145,178,0.28)]"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        <Icon className="h-[22px] w-[22px]" />
+                      </span>
+                      <span>{item.label}</span>
+                      {item.disabled ? (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] text-slate-400">
+                          Soon
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
+                </NavLink>
               );
             })}
           </nav>
@@ -91,7 +94,7 @@ function TpoSidebar({
               className="flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-[11px] font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                <span className="material-symbols-outlined text-[22px]">help</span>
+                <CircleHelp className="h-[22px] w-[22px]" />
               </span>
               <span>Help</span>
             </button>

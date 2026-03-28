@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Calendar, EyeOff, FileText, PlusCircle, SendHorizonal, Upload } from "lucide-react";
+import {
+  Calendar,
+  CheckCheck,
+  CircleDot,
+  EyeOff,
+  FileText,
+  PlusCircle,
+  SendHorizonal,
+  Upload,
+  Users,
+  XCircle,
+} from "lucide-react";
 import TpoSidebar from "./Tpo_sidebar";
 import {
   buildPlacementPayload,
@@ -158,8 +168,163 @@ function InlineDetail({ label, value }) {
   );
 }
 
+function getWorkflowStyles(status) {
+  if (status === "completed") {
+    return {
+      dot: "border-emerald-500 bg-emerald-500",
+      line: "bg-emerald-200",
+      badge: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+      card: "border-emerald-200 bg-emerald-50/60",
+    };
+  }
+
+  if (status === "current") {
+    return {
+      dot: "border-cyan-500 bg-cyan-500 ring-4 ring-cyan-100",
+      line: "bg-slate-200",
+      badge: "border border-cyan-200 bg-cyan-50 text-cyan-700",
+      card: "border-cyan-200 bg-cyan-50/60",
+    };
+  }
+
+  return {
+    dot: "border-slate-300 bg-white",
+    line: "bg-slate-200",
+    badge: "border border-slate-200 bg-slate-50 text-slate-600",
+    card: "border-slate-200 bg-slate-50/60",
+  };
+}
+
+function getWorkflowIcon(status) {
+  if (status === "completed") {
+    return CheckCheck;
+  }
+
+  if (status === "current") {
+    return CircleDot;
+  }
+
+  if (status === "rejected") {
+    return XCircle;
+  }
+
+  return Calendar;
+}
+
+function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
+  if (!workflow.length) {
+    return <p className="text-sm leading-6 text-slate-500">No workflow data available.</p>;
+  }
+
+  const firstStageCount = workflow[0]?.selectedCount ?? 0;
+  const finalStageCount = workflow[workflow.length - 1]?.selectedCount ?? 0;
+  const currentStage = workflow.find((item) => item.status === "current")?.stage || "Completed";
+  const conversionRate = firstStageCount > 0
+    ? `${Math.round((finalStageCount / firstStageCount) * 100)}%`
+    : "0%";
+
+  return (
+    <section className="space-y-5">
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+            {isActive ? "Workflow Plan" : "Process History"}
+          </p>
+          <h4 className="mt-2 text-lg font-semibold text-slate-900">
+            {isActive ? "Planned hiring roadmap" : "Stage-wise student selection flow"}
+          </h4>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {isActive
+              ? "This plan shows the expected hiring journey for the currently active drive."
+              : "This map shows how many students progressed at each step of the hiring process."}
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Applied Pool
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{firstStageCount}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Final Selected
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{finalStageCount}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Selection Rate
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{conversionRate}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          Completed
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
+          <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" />
+          Current
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+          <span className="h-2.5 w-2.5 rounded-full border border-slate-300 bg-white" />
+          Upcoming
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+          Current Focus: {currentStage}
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {workflow.map((item, index) => {
+          const styles = getWorkflowStyles(item.status);
+          const Icon = getWorkflowIcon(item.status);
+          const isLast = index === workflow.length - 1;
+
+          return (
+            <div key={`${item.stage}-${item.date}-${index}`} className="flex gap-4">
+              <div className="flex w-5 flex-col items-center">
+                <span className={`mt-2 h-4 w-4 rounded-full border-2 ${styles.dot}`} />
+                {!isLast ? <span className={`mt-2 w-0.5 flex-1 ${styles.line}`} /> : null}
+              </div>
+
+              <div className={`flex-1 rounded-2xl border p-5 ${styles.card}`}>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-start gap-3">
+                    <span className="rounded-2xl bg-white p-3 text-slate-600 shadow-sm">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-base font-semibold text-slate-900">{item.stage}</p>
+                      <p className="mt-1 text-sm text-slate-500">{item.date}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${styles.badge}`}>
+                      {item.status}
+                    </span>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+                      <Users className="h-3.5 w-3.5" />
+                      {item.selectedCount} students
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function Placements({ onLogout }) {
-  const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const formRef = useRef(null);
   const [jobs, setJobs] = useState(() => loadPlacementJobs());
@@ -403,17 +568,6 @@ export default function Placements({ onLogout }) {
     resetFormState();
   }
 
-  function handleSidebarNavigate(pageLabel) {
-    if (pageLabel === "Dashboard") {
-      navigate("/tpo-dashboard");
-      return;
-    }
-
-    if (pageLabel === "Placements") {
-      navigate("/tpo-dashboard/placements");
-    }
-  }
-
   function renderJobDetailsContent() {
     if (!selectedJob) {
       return null;
@@ -429,9 +583,10 @@ export default function Placements({ onLogout }) {
 
     if (activeDetailTab === "workflow") {
       return (
-        <section className="py-8">
-          <p className="text-sm leading-6 text-slate-500">Hiring workflow will be added soon.</p>
-        </section>
+        <HiringWorkflowMindmap
+          workflow={selectedJob.workflow}
+          isActive={isPlacementActive(selectedJob)}
+        />
       );
     }
 
@@ -550,8 +705,6 @@ export default function Placements({ onLogout }) {
   return (
     <TpoSidebar
       pageTitle="Placements"
-      activePage="Placements"
-      onNavigate={handleSidebarNavigate}
       onLogout={onLogout}
     >
       <section className="mt-4 rounded-[28px] border border-slate-200 bg-white px-5 py-6 sm:px-6">

@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../../config/db').db;
 
 const studentProfileGetRoutes = express.Router();
-const DEFAULT_PRN = '2453008';
+const DEFAULT_PRN = '2453014';
 
 function query(sql, values = []) {
   return new Promise((resolve, reject) => {
@@ -114,7 +114,7 @@ async function handleGetStudentProfile(req, res) {
 
     const experienceRows = await query(
       `
-        SELECT exp_number, type, company_name, role, duration, description, certificate_url
+        SELECT exp_number, type, company_name, role, duration, description, certificate_url, is_verified
         FROM student_experience
         WHERE PRN = ?
         ORDER BY exp_number ASC
@@ -124,7 +124,7 @@ async function handleGetStudentProfile(req, res) {
 
     const certificationRows = await query(
       `
-        SELECT cert_number, name, platform, certificate_url
+        SELECT cert_number, name, platform, certificate_url, is_verified
         FROM student_certifications
         WHERE PRN = ?
         ORDER BY cert_number ASC
@@ -134,7 +134,7 @@ async function handleGetStudentProfile(req, res) {
 
     const activityRows = await query(
       `
-        SELECT act_number, title, description, link
+        SELECT act_number, title, description, link, is_verified
         FROM student_activities
         WHERE PRN = ?
         ORDER BY act_number ASC
@@ -142,8 +142,30 @@ async function handleGetStudentProfile(req, res) {
       [prn]
     );
 
+    const credentialRows = await query(
+      `
+        SELECT is_profile_verified
+        FROM student_credentials
+        WHERE PRN = ?
+        LIMIT 1
+      `,
+      [prn]
+    );
+
+    const summaryRows = await query(
+      `
+        SELECT summary
+        FROM student_profile_summary
+        WHERE PRN = ?
+        LIMIT 1
+      `,
+      [prn]
+    );
+
     const personal = personalRows[0];
     const education = educationRows[0] || {};
+    const credential = credentialRows[0] || {};
+    const summaryRecord = summaryRows[0] || {};
 
     const profile = {
       prn: personal.PRN,
@@ -155,6 +177,7 @@ async function handleGetStudentProfile(req, res) {
       email: personal.email || '',
       mobile: personal.mobile || '',
       address: personal.address || '',
+      country: personal.country || '',
       city: personal.city || '',
       district: personal.district || '',
       state: personal.state || '',
@@ -165,7 +188,7 @@ async function handleGetStudentProfile(req, res) {
       category: personal.category || '',
       handicap: toDisplayHandicap(personal.handicap),
       aadhaar: personal.aadhaar || '',
-      summary: '',
+      summary: summaryRecord.summary || '',
       department: education.department || '',
       currentCgpa: education.current_cgpa ?? '',
       backlogs: education.backlogs ?? '',
@@ -197,6 +220,7 @@ async function handleGetStudentProfile(req, res) {
               marksheetUrl: education.diploma_marksheet_url,
             }
           : null,
+        gapCertificateUrl: education.gap_certificate_url || '',
       },
       skills: {
         languages: skillRows
@@ -243,6 +267,26 @@ async function handleGetStudentProfile(req, res) {
         description: item.description || '',
         link: item.link || '',
       })),
+      verification: {
+        isProfileVerified: Boolean(credential.is_profile_verified),
+        education: {
+          tenth: Boolean(education.tenth_verified),
+          twelfth: Boolean(education.twelfth_verified),
+          diploma: Boolean(education.diploma_verified),
+          gap: Boolean(education.gap_verified),
+          cgpa: Boolean(education.cgpa_verified),
+          backlogs: Boolean(education.backlogs_verified),
+        },
+        experience: Object.fromEntries(
+          experienceRows.map((item) => [item.exp_number, Boolean(item.is_verified)])
+        ),
+        certifications: Object.fromEntries(
+          certificationRows.map((item) => [item.cert_number, Boolean(item.is_verified)])
+        ),
+        activities: Object.fromEntries(
+          activityRows.map((item) => [item.act_number, Boolean(item.is_verified)])
+        ),
+      },
     };
 
     res.json({

@@ -106,6 +106,26 @@ function normalizeLocationValue(value) {
   return normalizedValue.replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+function normalizeTextValue(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  return String(value).trim();
+}
+
+function valuesMatch(currentValue, nextValue) {
+  return normalizeTextValue(currentValue) === normalizeTextValue(nextValue);
+}
+
+function numbersMatch(currentValue, nextValue) {
+  return toNullableNumber(currentValue) === toNullableNumber(nextValue);
+}
+
+function booleansMatch(currentValue, nextValue) {
+  return toNullableBoolean(currentValue) === toNullableBoolean(nextValue);
+}
+
 function asyncHandler(handler) {
   return async (req, res) => {
     try {
@@ -120,6 +140,14 @@ function asyncHandler(handler) {
       });
     }
   };
+}
+
+async function resetProfileVerification(prn) {
+  if (!prn) {
+    return;
+  }
+
+  await query('UPDATE student_credentials SET is_profile_verified = FALSE WHERE PRN = ?', [prn]);
 }
 
 studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
@@ -195,7 +223,32 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
     ]
   );
 
+  await resetProfileVerification(prn);
+
   res.json({ message: 'Personal details saved' });
+}));
+
+studentFormRoutes.post('/summary', asyncHandler(async (req, res) => {
+  const { prn, summary } = req.body;
+
+  if (!prn) {
+    res.status(400).json({ message: 'PRN is required' });
+    return;
+  }
+
+  await query(
+    `
+      INSERT INTO student_profile_summary (PRN, summary)
+      VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE
+        summary = VALUES(summary)
+    `,
+    [prn, summary || null]
+  );
+
+  await resetProfileVerification(prn);
+
+  res.json({ message: 'Profile summary saved' });
 }));
 
 studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
@@ -223,58 +276,133 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
     graduationYear,
   } = req.body;
 
+  const existingEducationRows = await query(
+    'SELECT * FROM student_education WHERE PRN = ? LIMIT 1',
+    [prn]
+  );
+  const existingEducation = existingEducationRows[0] || {};
+
+  const nextTenthMarks = toNullableNumber(marks10);
+  const nextTenthBoard = board10 || null;
+  const nextTenthYear = toNullableNumber(year10);
+  const nextTenthMarksheetUrl = tenthMarksheetUrl || existingEducation.tenth_marksheet_url || null;
+  const nextTwelfthMarks = toNullableNumber(marks12);
+  const nextTwelfthBoard = board12 || null;
+  const nextTwelfthYear = toNullableNumber(year12);
+  const nextTwelfthMarksheetUrl = twelfthMarksheetUrl || existingEducation.twelfth_marksheet_url || null;
+  const nextDiplomaMarks = toNullableNumber(diplomaMarks);
+  const nextDiplomaInstitute = diplomaInstitute || null;
+  const nextDiplomaYear = toNullableNumber(diplomaYear);
+  const nextDiplomaMarksheetUrl = diplomaMarksheetUrl || existingEducation.diploma_marksheet_url || null;
+  const nextGap = gapStatus === 'Yes' ? 'YES' : 'NO';
+  const nextGapReason = gapReason || null;
+  const nextGapCertificateUrl = gapCertificateUrl || existingEducation.gap_certificate_url || null;
+  const nextDepartment = department || null;
+  const nextCgpa = toNullableNumber(cgpa);
+  const nextBacklogs = toNullableNumber(backlogs);
+  const nextPassingYear = toNullableNumber(graduationYear);
+
+  const nextTenthVerified =
+    Boolean(existingEducation.tenth_verified) &&
+    numbersMatch(existingEducation.tenth_marks, nextTenthMarks) &&
+    valuesMatch(existingEducation.tenth_board, nextTenthBoard) &&
+    numbersMatch(existingEducation.tenth_year, nextTenthYear) &&
+    valuesMatch(existingEducation.tenth_marksheet_url, nextTenthMarksheetUrl);
+
+  const nextTwelfthVerified =
+    Boolean(existingEducation.twelfth_verified) &&
+    numbersMatch(existingEducation.twelfth_marks, nextTwelfthMarks) &&
+    valuesMatch(existingEducation.twelfth_board, nextTwelfthBoard) &&
+    numbersMatch(existingEducation.twelfth_year, nextTwelfthYear) &&
+    valuesMatch(existingEducation.twelfth_marksheet_url, nextTwelfthMarksheetUrl);
+
+  const nextDiplomaVerified =
+    Boolean(existingEducation.diploma_verified) &&
+    numbersMatch(existingEducation.diploma_marks, nextDiplomaMarks) &&
+    valuesMatch(existingEducation.diploma_institute, nextDiplomaInstitute) &&
+    numbersMatch(existingEducation.diploma_year, nextDiplomaYear) &&
+    valuesMatch(existingEducation.diploma_marksheet_url, nextDiplomaMarksheetUrl);
+
+  const nextGapVerified =
+    Boolean(existingEducation.gap_verified) &&
+    valuesMatch(existingEducation.gap, nextGap) &&
+    valuesMatch(existingEducation.gap_reason, nextGapReason) &&
+    valuesMatch(existingEducation.gap_certificate_url, nextGapCertificateUrl);
+
+  const nextCgpaVerified =
+    Boolean(existingEducation.cgpa_verified) &&
+    numbersMatch(existingEducation.current_cgpa, nextCgpa);
+
+  const nextBacklogsVerified =
+    Boolean(existingEducation.backlogs_verified) &&
+    numbersMatch(existingEducation.backlogs, nextBacklogs);
+
   await query(
     `
       INSERT INTO student_education
-      (PRN, tenth_marks, tenth_board, tenth_year, tenth_marksheet_url,
-       twelfth_marks, twelfth_board, twelfth_year, twelfth_marksheet_url,
-       diploma_marks, diploma_institute, diploma_year, diploma_marksheet_url,
-       gap, gap_reason, gap_certificate_url, department, current_cgpa, backlogs, passing_year)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (PRN, tenth_marks, tenth_board, tenth_year, tenth_marksheet_url, tenth_verified,
+       twelfth_marks, twelfth_board, twelfth_year, twelfth_marksheet_url, twelfth_verified,
+       diploma_marks, diploma_institute, diploma_year, diploma_marksheet_url, diploma_verified,
+       gap, gap_reason, gap_certificate_url, gap_verified, department, current_cgpa, cgpa_verified, backlogs, backlogs_verified, passing_year)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         tenth_marks = VALUES(tenth_marks),
         tenth_board = VALUES(tenth_board),
         tenth_year = VALUES(tenth_year),
         tenth_marksheet_url = COALESCE(VALUES(tenth_marksheet_url), tenth_marksheet_url),
+        tenth_verified = VALUES(tenth_verified),
         twelfth_marks = VALUES(twelfth_marks),
         twelfth_board = VALUES(twelfth_board),
         twelfth_year = VALUES(twelfth_year),
         twelfth_marksheet_url = COALESCE(VALUES(twelfth_marksheet_url), twelfth_marksheet_url),
+        twelfth_verified = VALUES(twelfth_verified),
         diploma_marks = VALUES(diploma_marks),
         diploma_institute = VALUES(diploma_institute),
         diploma_year = VALUES(diploma_year),
         diploma_marksheet_url = COALESCE(VALUES(diploma_marksheet_url), diploma_marksheet_url),
+        diploma_verified = VALUES(diploma_verified),
         gap = VALUES(gap),
         gap_reason = VALUES(gap_reason),
         gap_certificate_url = COALESCE(VALUES(gap_certificate_url), gap_certificate_url),
+        gap_verified = VALUES(gap_verified),
         department = VALUES(department),
         current_cgpa = VALUES(current_cgpa),
+        cgpa_verified = VALUES(cgpa_verified),
         backlogs = VALUES(backlogs),
+        backlogs_verified = VALUES(backlogs_verified),
         passing_year = VALUES(passing_year)
     `,
     [
       prn,
-      toNullableNumber(marks10),
-      board10 || null,
-      toNullableNumber(year10),
-      tenthMarksheetUrl,
-      toNullableNumber(marks12),
-      board12 || null,
-      toNullableNumber(year12),
-      twelfthMarksheetUrl,
-      toNullableNumber(diplomaMarks),
-      diplomaInstitute || null,
-      toNullableNumber(diplomaYear),
-      diplomaMarksheetUrl,
-      gapStatus === 'Yes' ? 'YES' : 'NO',
-      gapReason || null,
-      gapCertificateUrl,
-      department || null,
-      toNullableNumber(cgpa),
-      toNullableNumber(backlogs),
-      toNullableNumber(graduationYear),
+      nextTenthMarks,
+      nextTenthBoard,
+      nextTenthYear,
+      nextTenthMarksheetUrl,
+      nextTenthVerified ? 1 : 0,
+      nextTwelfthMarks,
+      nextTwelfthBoard,
+      nextTwelfthYear,
+      nextTwelfthMarksheetUrl,
+      nextTwelfthVerified ? 1 : 0,
+      nextDiplomaMarks,
+      nextDiplomaInstitute,
+      nextDiplomaYear,
+      nextDiplomaMarksheetUrl,
+      nextDiplomaVerified ? 1 : 0,
+      nextGap,
+      nextGapReason,
+      nextGapCertificateUrl,
+      nextGapVerified ? 1 : 0,
+      nextDepartment,
+      nextCgpa,
+      nextCgpaVerified ? 1 : 0,
+      nextBacklogs,
+      nextBacklogsVerified ? 1 : 0,
+      nextPassingYear,
     ]
   );
+
+  await resetProfileVerification(prn);
 
   res.json({ message: 'Education details saved' });
 }));
@@ -301,6 +429,7 @@ studentFormRoutes.post('/skills', asyncHandler(async (req, res) => {
   await query('DELETE FROM student_skills WHERE PRN = ?', [prn]);
 
   if (!uniqueSkills.length) {
+    await resetProfileVerification(prn);
     res.json({ message: 'Skills saved' });
     return;
   }
@@ -326,6 +455,8 @@ studentFormRoutes.post('/skills', asyncHandler(async (req, res) => {
     ]),
   ]);
 
+  await resetProfileVerification(prn);
+
   res.json({ message: 'Skills saved' });
 }));
 
@@ -341,6 +472,7 @@ studentFormRoutes.post('/projects', asyncHandler(async (req, res) => {
   await query('DELETE FROM student_projects WHERE PRN = ?', [prn]);
 
   if (!parsedProjects.length) {
+    await resetProfileVerification(prn);
     res.json({ message: 'Projects saved' });
     return;
   }
@@ -364,6 +496,8 @@ studentFormRoutes.post('/projects', asyncHandler(async (req, res) => {
     ]
   );
 
+  await resetProfileVerification(prn);
+
   res.json({ message: 'Projects saved' });
 }));
 
@@ -371,15 +505,56 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
   const { prn, experience = '[]' } = req.body;
   const parsedExperience = parseJsonField(experience);
   const certificateUrls = await uploadIndexedFiles(req, 'experienceCertificate_', 'students/experience');
+  const existingExperienceRows = await query(
+    'SELECT * FROM student_experience WHERE PRN = ? ORDER BY exp_number ASC',
+    [prn]
+  );
+  const existingExperienceMap = new Map(
+    existingExperienceRows.map((row) => [row.exp_number, row])
+  );
 
   if (parsedExperience.length > 3) {
     res.status(400).json({ message: 'Maximum 3 experience entries allowed' });
     return;
   }
 
+  let nextExpNumber =
+    existingExperienceRows.reduce((maximum, row) => Math.max(maximum, row.exp_number || 0), 0) + 1;
+
+  const normalizedExperience = parsedExperience.map((entry, index) => {
+    const expNumber = entry.expNumber ? Number(entry.expNumber) : nextExpNumber++;
+    const existingEntry = existingExperienceMap.get(expNumber);
+    const nextType = entry.type || null;
+    const nextCompanyName = entry.companyName || null;
+    const nextRole = entry.role || null;
+    const nextDuration = entry.duration || null;
+    const nextDescription = entry.description || null;
+    const nextCertificateUrl =
+      certificateUrls[index] || entry.certificateUrl || existingEntry?.certificate_url || null;
+
+    return {
+      expNumber,
+      type: nextType,
+      companyName: nextCompanyName,
+      role: nextRole,
+      duration: nextDuration,
+      description: nextDescription,
+      certificateUrl: nextCertificateUrl,
+      isVerified:
+        Boolean(existingEntry?.is_verified) &&
+        valuesMatch(existingEntry?.type, nextType) &&
+        valuesMatch(existingEntry?.company_name, nextCompanyName) &&
+        valuesMatch(existingEntry?.role, nextRole) &&
+        valuesMatch(existingEntry?.duration, nextDuration) &&
+        valuesMatch(existingEntry?.description, nextDescription) &&
+        valuesMatch(existingEntry?.certificate_url, nextCertificateUrl),
+    };
+  });
+
   await query('DELETE FROM student_experience WHERE PRN = ?', [prn]);
 
-  if (!parsedExperience.length) {
+  if (!normalizedExperience.length) {
+    await resetProfileVerification(prn);
     res.json({ message: 'Experience saved' });
     return;
   }
@@ -387,22 +562,25 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
   await query(
     `
       INSERT INTO student_experience
-      (PRN, exp_number, type, company_name, role, duration, description, certificate_url)
+      (PRN, exp_number, type, company_name, role, duration, description, certificate_url, is_verified)
       VALUES ?
     `,
     [
-      parsedExperience.map((entry, index) => [
+      normalizedExperience.map((entry) => [
         prn,
-        index + 1,
+        entry.expNumber,
         entry.type || null,
         entry.companyName || null,
         entry.role || null,
         entry.duration || null,
         entry.description || null,
-        certificateUrls[index] || null,
+        entry.certificateUrl || null,
+        entry.isVerified ? 1 : 0,
       ]),
     ]
   );
+
+  await resetProfileVerification(prn);
 
   res.json({ message: 'Experience saved' });
 }));
@@ -411,10 +589,42 @@ studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
   const { prn, certifications = '[]' } = req.body;
   const parsedCertifications = parseJsonField(certifications);
   const certificateUrls = await uploadIndexedFiles(req, 'certificationFile_', 'students/certifications');
+  const existingCertificationRows = await query(
+    'SELECT * FROM student_certifications WHERE PRN = ? ORDER BY cert_number ASC',
+    [prn]
+  );
+  const existingCertificationMap = new Map(
+    existingCertificationRows.map((row) => [row.cert_number, row])
+  );
+
+  let nextCertNumber =
+    existingCertificationRows.reduce((maximum, row) => Math.max(maximum, row.cert_number || 0), 0) + 1;
+
+  const normalizedCertifications = parsedCertifications.map((entry, index) => {
+    const certNumber = entry.certNumber ? Number(entry.certNumber) : nextCertNumber++;
+    const existingEntry = existingCertificationMap.get(certNumber);
+    const nextName = entry.name || null;
+    const nextPlatform = entry.platform || null;
+    const nextCertificateUrl =
+      certificateUrls[index] || entry.certificateUrl || existingEntry?.certificate_url || null;
+
+    return {
+      certNumber,
+      name: nextName,
+      platform: nextPlatform,
+      certificateUrl: nextCertificateUrl,
+      isVerified:
+        Boolean(existingEntry?.is_verified) &&
+        valuesMatch(existingEntry?.name, nextName) &&
+        valuesMatch(existingEntry?.platform, nextPlatform) &&
+        valuesMatch(existingEntry?.certificate_url, nextCertificateUrl),
+    };
+  });
 
   await query('DELETE FROM student_certifications WHERE PRN = ?', [prn]);
 
-  if (!parsedCertifications.length) {
+  if (!normalizedCertifications.length) {
+    await resetProfileVerification(prn);
     res.json({ message: 'Certifications saved' });
     return;
   }
@@ -422,19 +632,22 @@ studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
   await query(
     `
       INSERT INTO student_certifications
-      (PRN, cert_number, name, platform, certificate_url)
+      (PRN, cert_number, name, platform, certificate_url, is_verified)
       VALUES ?
     `,
     [
-      parsedCertifications.map((entry, index) => [
+      normalizedCertifications.map((entry) => [
         prn,
-        index + 1,
+        entry.certNumber,
         entry.name || null,
         entry.platform || null,
-        certificateUrls[index] || null,
+        entry.certificateUrl || null,
+        entry.isVerified ? 1 : 0,
       ]),
     ]
   );
+
+  await resetProfileVerification(prn);
 
   res.json({ message: 'Certifications saved' });
 }));
@@ -442,10 +655,41 @@ studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
 studentFormRoutes.post('/activities', asyncHandler(async (req, res) => {
   const { prn, activities = '[]' } = req.body;
   const parsedActivities = parseJsonField(activities);
+  const existingActivityRows = await query(
+    'SELECT * FROM student_activities WHERE PRN = ? ORDER BY act_number ASC',
+    [prn]
+  );
+  const existingActivityMap = new Map(
+    existingActivityRows.map((row) => [row.act_number, row])
+  );
+
+  let nextActNumber =
+    existingActivityRows.reduce((maximum, row) => Math.max(maximum, row.act_number || 0), 0) + 1;
+
+  const normalizedActivities = parsedActivities.map((entry) => {
+    const actNumber = entry.actNumber ? Number(entry.actNumber) : nextActNumber++;
+    const existingEntry = existingActivityMap.get(actNumber);
+    const nextTitle = entry.title || null;
+    const nextDescription = entry.description || null;
+    const nextLink = entry.links || null;
+
+    return {
+      actNumber,
+      title: nextTitle,
+      description: nextDescription,
+      link: nextLink,
+      isVerified:
+        Boolean(existingEntry?.is_verified) &&
+        valuesMatch(existingEntry?.title, nextTitle) &&
+        valuesMatch(existingEntry?.description, nextDescription) &&
+        valuesMatch(existingEntry?.link, nextLink),
+    };
+  });
 
   await query('DELETE FROM student_activities WHERE PRN = ?', [prn]);
 
-  if (!parsedActivities.length) {
+  if (!normalizedActivities.length) {
+    await resetProfileVerification(prn);
     res.json({ message: 'Activities saved' });
     return;
   }
@@ -453,19 +697,22 @@ studentFormRoutes.post('/activities', asyncHandler(async (req, res) => {
   await query(
     `
       INSERT INTO student_activities
-      (PRN, act_number, title, description, link)
+      (PRN, act_number, title, description, link, is_verified)
       VALUES ?
     `,
     [
-      parsedActivities.map((entry, index) => [
+      normalizedActivities.map((entry) => [
         prn,
-        index + 1,
+        entry.actNumber,
         entry.title || null,
         entry.description || null,
-        entry.links || null,
+        entry.link || null,
+        entry.isVerified ? 1 : 0,
       ]),
     ]
   );
+
+  await resetProfileVerification(prn);
 
   res.json({ message: 'Activities saved' });
 }));

@@ -1,3 +1,5 @@
+import { AlertCircle, BadgeCheck } from "lucide-react";
+
 function getInitials(name) {
   return name
     .split(" ")
@@ -15,8 +17,23 @@ function ProfileSidebarCard({ profile, links }) {
         <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-orange-200 via-rose-200 to-blue-200 text-2xl font-bold text-slate-800">
           {getInitials(profile.fullName)}
         </div>
-        <h2 className="mt-4 text-2xl font-bold text-slate-900">{profile.fullName}</h2>
-        <p className="mt-1 text-sm text-slate-500">PRN: {profile.prn}</p>
+        <div className="mt-5 flex justify-center">
+          {profile.verification?.isProfileVerified ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm">
+              <BadgeCheck className="h-4 w-4" />
+              Verified
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 shadow-sm">
+              <AlertCircle className="h-4 w-4" />
+              Unverified by TPC
+            </span>
+          )}
+        </div>
+        <h2 className="mt-4 text-2xl font-bold leading-tight text-slate-900">
+          {profile.fullName}
+        </h2>
+        <p className="mt-2 text-sm text-slate-500">PRN: {profile.prn}</p>
         <p className="mt-2 text-sm font-medium text-blue-700">{profile.department}</p>
       </div>
 

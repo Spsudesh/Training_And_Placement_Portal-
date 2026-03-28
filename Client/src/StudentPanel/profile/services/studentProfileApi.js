@@ -4,14 +4,33 @@ const profileApi = axios.create({
   baseURL: "http://localhost:3000/student/profile",
 });
 
-const DEFAULT_PRN = "2453012";
+const DEFAULT_PRN = "2453014";
+const ACTIVE_STUDENT_STORAGE_KEY = "training-placement-active-student";
+const STUDENT_PROFILE_VERIFIED_STORAGE_KEY = "training-placement-student-profile-verified";
+const STUDENT_PROFILE_VERIFICATION_EVENT = "student-profile-verification-changed";
 
-async function getStudentProfile(prn = DEFAULT_PRN) {
+function getStoredStudentPrn() {
+  return window.localStorage.getItem(ACTIVE_STUDENT_STORAGE_KEY) || DEFAULT_PRN;
+}
+
+async function getStudentProfile(prn = getStoredStudentPrn()) {
   const response = await profileApi.get("/", {
     params: { prn },
   });
 
-  return response.data.data;
+  const profileData = response.data.data;
+  window.localStorage.setItem(
+    STUDENT_PROFILE_VERIFIED_STORAGE_KEY,
+    profileData?.verification?.isProfileVerified ? "true" : "false",
+  );
+  window.dispatchEvent(new Event(STUDENT_PROFILE_VERIFICATION_EVENT));
+
+  return profileData;
 }
 
-export { DEFAULT_PRN, getStudentProfile };
+export {
+  DEFAULT_PRN,
+  STUDENT_PROFILE_VERIFICATION_EVENT,
+  STUDENT_PROFILE_VERIFIED_STORAGE_KEY,
+  getStudentProfile,
+};

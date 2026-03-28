@@ -38,17 +38,31 @@ function createPersonalFormData(personal) {
 
 function createEducationFormData(prn, education) {
   const formData = new FormData();
+  const educationTrack =
+    education.educationTrack ||
+    (education.diplomaInstitute || education.diplomaMarks || education.diplomaYear
+      ? "diploma"
+      : "twelfth");
 
   formData.append("prn", prn ?? "");
   formData.append("marks10", education.marks10 ?? "");
   formData.append("board10", education.board10 ?? "");
   formData.append("year10", education.year10 ?? "");
-  formData.append("marks12", education.marks12 ?? "");
-  formData.append("board12", education.board12 ?? "");
-  formData.append("year12", education.year12 ?? "");
-  formData.append("diplomaInstitute", education.diplomaInstitute ?? "");
-  formData.append("diplomaMarks", education.diplomaMarks ?? "");
-  formData.append("diplomaYear", education.diplomaYear ?? "");
+  formData.append("marks12", educationTrack === "twelfth" ? education.marks12 ?? "" : "");
+  formData.append("board12", educationTrack === "twelfth" ? education.board12 ?? "" : "");
+  formData.append("year12", educationTrack === "twelfth" ? education.year12 ?? "" : "");
+  formData.append(
+    "diplomaInstitute",
+    educationTrack === "diploma" ? education.diplomaInstitute ?? "" : ""
+  );
+  formData.append(
+    "diplomaMarks",
+    educationTrack === "diploma" ? education.diplomaMarks ?? "" : ""
+  );
+  formData.append(
+    "diplomaYear",
+    educationTrack === "diploma" ? education.diplomaYear ?? "" : ""
+  );
   formData.append("gapStatus", education.gapStatus ?? "");
   formData.append("gapReason", education.gapReason ?? "");
   formData.append("department", education.department ?? "");
@@ -56,8 +70,16 @@ function createEducationFormData(prn, education) {
   formData.append("backlogs", education.backlogs ?? "");
   formData.append("graduationYear", education.graduationYear ?? "");
   appendFileIfPresent(formData, "marksheet10", education.marksheet10);
-  appendFileIfPresent(formData, "marksheet12", education.marksheet12);
-  appendFileIfPresent(formData, "diplomaMarksheet", education.diplomaMarksheet);
+  appendFileIfPresent(
+    formData,
+    "marksheet12",
+    educationTrack === "twelfth" ? education.marksheet12 : ""
+  );
+  appendFileIfPresent(
+    formData,
+    "diplomaMarksheet",
+    educationTrack === "diploma" ? education.diplomaMarksheet : ""
+  );
   appendFileIfPresent(formData, "gapCertificate", education.gapCertificate);
 
   return formData;
@@ -150,12 +172,20 @@ async function saveActivitiesDetails(prn, activities) {
   return postFormData("/activities", createJsonArrayFormData(prn, "activities", activities));
 }
 
+async function saveProfileSummaryDetails(prn, summary) {
+  const formData = new FormData();
+  formData.append("prn", prn ?? "");
+  formData.append("summary", summary ?? "");
+  return postFormData("/summary", formData);
+}
+
 export {
   saveActivitiesDetails,
   saveCertificationDetails,
   saveEducationDetails,
   saveExperienceDetails,
   savePersonalDetails,
+  saveProfileSummaryDetails,
   saveProjectsDetails,
   saveSkillsDetails,
 };

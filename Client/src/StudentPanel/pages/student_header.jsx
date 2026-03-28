@@ -1,3 +1,5 @@
+import { Bell, Menu, Settings } from "lucide-react";
+
 function Header({
   pageTitle = "Student Panel",
   showMenuButton = false,
@@ -14,9 +16,7 @@ function Header({
             onClick={onMenuClick}
             className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-700 transition hover:bg-slate-50 lg:hidden"
           >
-            <span className="material-symbols-outlined text-[22px] leading-none">
-              menu
-            </span>
+            <Menu className="h-[22px] w-[22px]" />
           </button>
         ) : null}
 
@@ -48,18 +48,14 @@ function Header({
           className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
           aria-label="Settings"
         >
-          <span className="material-symbols-outlined text-[22px]">
-            settings
-          </span>
+          <Settings className="h-[22px] w-[22px]" />
         </button>
         <button
           type="button"
           className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
           aria-label="Notifications"
         >
-          <span className="material-symbols-outlined text-[22px]">
-            notifications
-          </span>
+          <Bell className="h-[22px] w-[22px]" />
         </button>
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 text-sm font-bold text-white shadow-md">
           {profileInitials}

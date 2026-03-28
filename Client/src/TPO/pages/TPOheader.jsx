@@ -1,3 +1,5 @@
+import { Bell, Menu, Search } from "lucide-react";
+
 function Header({
   pageTitle = "TPO Panel",
   showMenuButton = true,
@@ -14,16 +16,16 @@ function Header({
             onClick={onMenuClick}
             className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-700 transition hover:bg-slate-50 lg:hidden"
           >
-            <span className="material-symbols-outlined text-[22px] leading-none">
-              menu
-            </span>
+            <Menu className="h-[22px] w-[22px]" />
           </button>
         ) : null}
 
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-600 to-sky-500 text-base font-bold text-white shadow-lg">
-            TP
-          </div>
+          <img
+            src="/rit_logo.jpeg"
+            alt="RIT logo"
+            className="h-12 w-20 object-contain"
+          />
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">
               Training & Placement Officer
@@ -48,16 +50,14 @@ function Header({
           className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
           aria-label="Search"
         >
-          <span className="material-symbols-outlined text-[22px]">search</span>
+          <Search className="h-[22px] w-[22px]" />
         </button>
         <button
           type="button"
           className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
           aria-label="Notifications"
         >
-          <span className="material-symbols-outlined text-[22px]">
-            notifications
-          </span>
+          <Bell className="h-[22px] w-[22px]" />
         </button>
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-400 to-blue-500 text-sm font-bold text-white shadow-md">
           {profileInitials}

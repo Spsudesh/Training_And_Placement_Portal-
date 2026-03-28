@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-function ProfileActionButton({ label, variant = "update" }) {
+function ProfileActionButton({ label, variant = "update", onClick }) {
   const styles =
     variant === "add"
       ? "bg-blue-700 text-white hover:bg-blue-800"
@@ -9,6 +9,7 @@ function ProfileActionButton({ label, variant = "update" }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition ${styles}`}
     >
       <span className="material-symbols-outlined mr-2 text-[18px]">
@@ -218,16 +219,35 @@ function ProfileSection({
   description,
   actionLabel,
   actionVariant = "update",
+  onAction,
+  statusLabel,
   children,
 }) {
+  const isVerifiedStatus = String(statusLabel || "").toLowerCase() === "verified";
+
   return (
     <section id={id} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-start md:justify-between">
         <div>
-          <h3 className="text-2xl font-bold text-slate-900">{title}</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-2xl font-bold text-slate-900">{title}</h3>
+            {statusLabel ? (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
+                  isVerifiedStatus
+                    ? "bg-blue-50 text-blue-700"
+                    : "bg-amber-50 text-amber-700"
+                }`}
+              >
+                {statusLabel}
+              </span>
+            ) : null}
+          </div>
           {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
         </div>
-        {actionLabel ? <ProfileActionButton label={actionLabel} variant={actionVariant} /> : null}
+        {actionLabel ? (
+          <ProfileActionButton label={actionLabel} variant={actionVariant} onClick={onAction} />
+        ) : null}
       </div>
 
       <div className="mt-5 space-y-5">{children}</div>

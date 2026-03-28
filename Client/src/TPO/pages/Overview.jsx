@@ -32,15 +32,13 @@ function LoadingState() {
   );
 }
 
-export default function Overview({ onLogout, onNavigate }) {
+export default function Overview({ onLogout }) {
   const { data, isLoading, isError, refetch } = useDashboardData();
   const overview = data?.overview;
 
   return (
     <TpoSidebar
       pageTitle="TPO Dashboard"
-      activePage="Dashboard"
-      onNavigate={onNavigate}
       onLogout={onLogout}
     >
       {isLoading ? <LoadingState /> : null}

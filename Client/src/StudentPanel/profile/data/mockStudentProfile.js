@@ -8,6 +8,7 @@ const mockStudentProfile = {
   email: "anushka@gmail.com",
   mobile: "9876543210",
   address: "ABC Colony, Lane 2",
+  country: "India",
   city: "Mumbai",
   district: "Mumbai",
   state: "Maharashtra",
@@ -39,6 +40,7 @@ const mockStudentProfile = {
       marksheetUrl: "xyz",
     },
     diploma: null,
+    gapCertificateUrl: "",
   },
   skills: {
     languages: ["Java", "Python"],
@@ -105,6 +107,20 @@ const mockStudentProfile = {
       link: "github.com/demo/hackathon-project",
     },
   ],
+  verification: {
+    isProfileVerified: false,
+    education: {
+      tenth: false,
+      twelfth: false,
+      diploma: false,
+      gap: false,
+      cgpa: false,
+      backlogs: false,
+    },
+    experience: {},
+    certifications: {},
+    activities: {},
+  },
 };
 
 function createEmptyStudentProfile() {
@@ -118,6 +134,7 @@ function createEmptyStudentProfile() {
     email: "",
     mobile: "",
     address: "",
+    country: "",
     city: "",
     district: "",
     state: "",
@@ -139,6 +156,7 @@ function createEmptyStudentProfile() {
       tenth: null,
       twelfth: null,
       diploma: null,
+      gapCertificateUrl: "",
     },
     skills: {
       languages: [],
@@ -150,10 +168,25 @@ function createEmptyStudentProfile() {
     experience: [],
     certifications: [],
     activities: [],
+    verification: {
+      isProfileVerified: false,
+      education: {
+        tenth: false,
+        twelfth: false,
+        diploma: false,
+        gap: false,
+        cgpa: false,
+        backlogs: false,
+      },
+      experience: {},
+      certifications: {},
+      activities: {},
+    },
   };
 }
 
 const profileSectionLinks = [
+  { id: "profile-summary", label: "Profile Summary" },
   { id: "basic-details", label: "Basic Details" },
   { id: "contact-address", label: "Contact & Address" },
   { id: "academic-details", label: "Academic Details" },

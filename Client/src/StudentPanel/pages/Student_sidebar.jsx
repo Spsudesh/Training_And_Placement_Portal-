@@ -1,14 +1,27 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  CircleHelp,
+  ClipboardCheck,
+  FileText,
+  Home,
+  Layers3,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { NavLink } from "react-router-dom";
 import Header from "./student_header";
+import {
+  STUDENT_PROFILE_VERIFICATION_EVENT,
+  STUDENT_PROFILE_VERIFIED_STORAGE_KEY,
+} from "../profile/services/studentProfileApi";
 
 const navigationItems = [
-  { label: "Home", icon: "home", to: "/student-panel" },
-  { label: "Job Profiles", icon: "work", to: "/student-panel/jobs" },
-  { label: "My Profile", icon: "person", to: "/student-panel/profile" },
-  { label: "Interviews", icon: "groups", to: "/student-panel", fallback: true },
-  { label: "Assessments", icon: "assignment", to: "/student-panel", fallback: true },
-  { label: "Resume", icon: "description", to: "/student-panel", fallback: true },
+  { label: "Home", icon: Home, to: "/student-panel" },
+  { label: "Job Profiles", icon: Layers3, to: "/student-panel/jobs", requiresVerified: true },
+  { label: "My Profile", icon: UserRound, to: "/student-panel/profile" },
+  { label: "Interviews", icon: Users, to: "/student-panel", fallback: true, requiresVerified: true },
+  { label: "Assessments", icon: ClipboardCheck, to: "/student-panel", fallback: true, requiresVerified: true },
+  { label: "Resume", icon: FileText, to: "/student-panel", fallback: true, requiresVerified: true },
 ];
 
 function StudentSidebar({
@@ -18,6 +31,26 @@ function StudentSidebar({
   onLogout,
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isProfileVerified, setIsProfileVerified] = useState(
+    () => window.localStorage.getItem(STUDENT_PROFILE_VERIFIED_STORAGE_KEY) === "true",
+  );
+
+  useEffect(() => {
+    const handleStorageSync = () => {
+      setIsProfileVerified(
+        window.localStorage.getItem(STUDENT_PROFILE_VERIFIED_STORAGE_KEY) === "true",
+      );
+    };
+
+    window.addEventListener("storage", handleStorageSync);
+    window.addEventListener(STUDENT_PROFILE_VERIFICATION_EVENT, handleStorageSync);
+    handleStorageSync();
+
+    return () => {
+      window.removeEventListener("storage", handleStorageSync);
+      window.removeEventListener(STUDENT_PROFILE_VERIFICATION_EVENT, handleStorageSync);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] text-slate-900">
@@ -37,25 +70,25 @@ function StudentSidebar({
         >
           <nav className="flex-1 space-y-2 px-3 py-5">
             {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const isDisabled = item.requiresVerified && !isProfileVerified;
               const itemContent = (isActive = false) => (
                 <>
                   <span
                     className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold ${
-                      item.fallback
+                      item.fallback || isDisabled
                         ? "bg-slate-100 text-slate-300"
                         : isActive
                         ? "bg-blue-600 text-white"
                         : "bg-slate-100 text-slate-700"
                     }`}
                   >
-                    <span className="material-symbols-outlined text-[22px]">
-                      {item.icon}
-                    </span>
+                    <Icon className="h-[22px] w-[22px]" />
                   </span>
                   <span>{item.label}</span>
-                  {item.fallback ? (
+                  {item.fallback || isDisabled ? (
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] text-slate-400">
-                      Soon
+                      {isDisabled ? "Locked" : "Soon"}
                     </span>
                   ) : null}
                 </>
@@ -64,12 +97,12 @@ function StudentSidebar({
               return (
                 <NavLink
                   key={item.label}
-                  to={item.to}
+                  to={isDisabled ? "/student-panel/profile" : item.to}
                   end={item.to === "/student-panel"}
                   onClick={() => setSidebarOpen(false)}
                   className={({ isActive }) =>
                     `flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center text-[11px] font-medium transition ${
-                      item.fallback
+                      item.fallback || isDisabled
                         ? "text-slate-400 hover:bg-slate-50 hover:text-slate-500"
                         : isActive
                         ? "bg-blue-50 text-blue-700"
@@ -89,9 +122,7 @@ function StudentSidebar({
               className="flex w-full flex-col items-center gap-2 rounded-2xl px-2 py-3 text-[11px] font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                <span className="material-symbols-outlined text-[22px]">
-                  help
-                </span>
+                <CircleHelp className="h-[22px] w-[22px]" />
               </span>
               <span>Help</span>
             </button>

@@ -1,4 +1,4 @@
-import { Eye } from "lucide-react";
+import { BadgeCheck, Eye } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
 export default function StudentTable({ students, onView }) {
@@ -22,7 +22,15 @@ export default function StudentTable({ students, onView }) {
                   <td className="px-6 py-4 font-semibold text-slate-900">{student.prn}</td>
                   <td className="px-6 py-4">
                     <div>
-                      <p className="font-semibold text-slate-900">{student.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-900">{student.name}</p>
+                        {student.isProfileVerified ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                            <BadgeCheck className="h-3.5 w-3.5" />
+                            Verified
+                          </span>
+                        ) : null}
+                      </div>
                       <p className="mt-1 text-xs text-slate-500">{student.email}</p>
                     </div>
                   </td>

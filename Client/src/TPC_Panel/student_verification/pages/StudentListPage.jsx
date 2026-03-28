@@ -2,7 +2,12 @@ import { CheckCircle2, Clock3, ShieldCheck, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import StudentTable from "../components/StudentTable";
 
-export default function StudentListPage({ students, setSelectedStudent }) {
+export default function StudentListPage({
+  students,
+  isLoading = false,
+  errorMessage = "",
+  setSelectedStudent,
+}) {
   const navigate = useNavigate();
 
   const handleViewStudent = (student) => {
@@ -12,6 +17,26 @@ export default function StudentListPage({ students, setSelectedStudent }) {
 
   const verifiedCount = students.filter((student) => student.status === "Verified").length;
   const remainingCount = students.length - verifiedCount;
+
+  if (isLoading) {
+    return (
+      <section className="rounded-[28px] border border-slate-200/80 bg-white p-8 shadow-lg shadow-slate-200/60">
+        <p className="text-lg font-semibold text-slate-900">Loading students...</p>
+        <p className="mt-2 text-sm text-slate-500">
+          Fetching student verification records from the database.
+        </p>
+      </section>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <section className="rounded-[28px] border border-red-200 bg-red-50 p-8 shadow-lg shadow-red-100/60">
+        <p className="text-lg font-semibold text-red-700">Unable to load students</p>
+        <p className="mt-2 text-sm text-red-600">{errorMessage}</p>
+      </section>
+    );
+  }
 
   return (
     <div className="space-y-6">

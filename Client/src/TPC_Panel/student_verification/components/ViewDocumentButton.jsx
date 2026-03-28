@@ -1,12 +1,28 @@
 import { ExternalLink, X } from "lucide-react";
 import { useState } from "react";
 
+function isImageDocument(url) {
+  const normalizedUrl = String(url || "").toLowerCase().split("?")[0];
+
+  return [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"].some((extension) =>
+    normalizedUrl.endsWith(extension),
+  );
+}
+
+function isPdfDocument(url) {
+  const normalizedUrl = String(url || "").toLowerCase().split("?")[0];
+  return normalizedUrl.endsWith(".pdf");
+}
+
 export default function ViewDocumentButton({ documentUrl }) {
   const [isOpen, setIsOpen] = useState(false);
 
   if (!documentUrl) {
     return null;
   }
+
+  const imageDocument = isImageDocument(documentUrl);
+  const pdfDocument = isPdfDocument(documentUrl);
 
   return (
     <>
@@ -50,12 +66,30 @@ export default function ViewDocumentButton({ documentUrl }) {
               </div>
             </div>
 
-            <div className="flex-1 bg-slate-100">
-              <iframe
-                src={documentUrl}
-                title="Document Preview"
-                className="h-full w-full border-0"
-              />
+            <div className="flex flex-1 items-center justify-center bg-slate-100 p-4">
+              {imageDocument ? (
+                <img
+                  src={documentUrl}
+                  alt="Document Preview"
+                  className="h-full w-full rounded-2xl object-contain"
+                />
+              ) : pdfDocument ? (
+                <object
+                  data={documentUrl}
+                  type="application/pdf"
+                  className="h-full w-full rounded-2xl border-0 bg-white"
+                >
+                  <div className="flex h-full items-center justify-center rounded-2xl bg-white p-6 text-center text-sm text-slate-500">
+                    PDF preview is not available in this browser view. Use "Open New Tab" for full-size reading.
+                  </div>
+                </object>
+              ) : (
+                <iframe
+                  src={documentUrl}
+                  title="Document Preview"
+                  className="h-full w-full rounded-2xl border-0 bg-white"
+                />
+              )}
             </div>
           </div>
         </div>

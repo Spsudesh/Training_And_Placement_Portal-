@@ -8,8 +8,18 @@ import {
 } from "./FormUI";
 
 const gapOptions = ["No", "Yes"];
+const educationTrackOptions = [
+  { label: "12th Student", value: "twelfth" },
+  { label: "Diploma Student", value: "diploma" },
+];
 
 function EducationalDetailsSection({ data, onFieldChange, onFileChange, onSave, isSaved }) {
+  const selectedTrack =
+    data.educationTrack ||
+    (data.diplomaInstitute || data.diplomaMarks || data.diplomaYear
+      ? "diploma"
+      : "twelfth");
+
   return (
     <SectionCard
       title="Educational Details"
@@ -37,40 +47,56 @@ function EducationalDetailsSection({ data, onFieldChange, onFileChange, onSave, 
 
       <div className="space-y-5">
         <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Higher Secondary Education
+          Academic Path After 10th
         </h3>
-        <UploadRow
-          label="12th Marksheet"
-          name="marksheet12"
-          fileName={data.marksheet12}
-          onChange={onFileChange}
-          accept=".pdf,.jpg,.jpeg,.png"
-          helperText="If applicable, upload 12th standard marksheet"
+        <SelectInput
+          label="Select Education Path"
+          name="educationTrack"
+          value={selectedTrack}
+          onChange={onFieldChange}
+          options={educationTrackOptions}
+          placeholder="Choose 12th or Diploma"
         />
-        <FieldGrid columns={3}>
-          <TextInput label="12th Marks" name="marks12" value={data.marks12} onChange={onFieldChange} placeholder="Percentage / CGPA" />
-          <TextInput label="12th Board" name="board12" value={data.board12} onChange={onFieldChange} placeholder="Board name" />
-          <TextInput label="12th Passing Year" name="year12" value={data.year12} onChange={onFieldChange} placeholder="Year" />
-        </FieldGrid>
-      </div>
 
-      <div className="space-y-5">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Diploma Details
-        </h3>
-        <UploadRow
-          label="Diploma Marksheet"
-          name="diplomaMarksheet"
-          fileName={data.diplomaMarksheet}
-          onChange={onFileChange}
-          accept=".pdf,.jpg,.jpeg,.png"
-          helperText="Upload only if diploma is applicable"
-        />
-        <FieldGrid columns={3}>
-          <TextInput label="Diploma Institute" name="diplomaInstitute" value={data.diplomaInstitute} onChange={onFieldChange} placeholder="Institute name" />
-          <TextInput label="Diploma Percentage" name="diplomaMarks" value={data.diplomaMarks} onChange={onFieldChange} placeholder="Percentage / CGPA" />
-          <TextInput label="Diploma Passing Year" name="diplomaYear" value={data.diplomaYear} onChange={onFieldChange} placeholder="Year" />
-        </FieldGrid>
+        {selectedTrack === "diploma" ? (
+          <div className="space-y-5">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Diploma Details
+            </h3>
+            <UploadRow
+              label="Diploma Marksheet"
+              name="diplomaMarksheet"
+              fileName={data.diplomaMarksheet}
+              onChange={onFileChange}
+              accept=".pdf,.jpg,.jpeg,.png"
+              helperText="Upload diploma marksheet"
+            />
+            <FieldGrid columns={3}>
+              <TextInput label="Diploma Institute" name="diplomaInstitute" value={data.diplomaInstitute} onChange={onFieldChange} placeholder="Institute name" />
+              <TextInput label="Diploma Percentage" name="diplomaMarks" value={data.diplomaMarks} onChange={onFieldChange} placeholder="Percentage / CGPA" />
+              <TextInput label="Diploma Passing Year" name="diplomaYear" value={data.diplomaYear} onChange={onFieldChange} placeholder="Year" />
+            </FieldGrid>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Higher Secondary Education
+            </h3>
+            <UploadRow
+              label="12th Marksheet"
+              name="marksheet12"
+              fileName={data.marksheet12}
+              onChange={onFileChange}
+              accept=".pdf,.jpg,.jpeg,.png"
+              helperText="Upload 12th standard marksheet"
+            />
+            <FieldGrid columns={3}>
+              <TextInput label="12th Marks" name="marks12" value={data.marks12} onChange={onFieldChange} placeholder="Percentage / CGPA" />
+              <TextInput label="12th Board" name="board12" value={data.board12} onChange={onFieldChange} placeholder="Board name" />
+              <TextInput label="12th Passing Year" name="year12" value={data.year12} onChange={onFieldChange} placeholder="Year" />
+            </FieldGrid>
+          </div>
+        )}
       </div>
 
       <div className="space-y-5">

@@ -9,7 +9,9 @@ export default function VerifySection({
   const sectionLabel =
     section.id === "education" ? "Verification Section" : "Profile Section";
   const hasVerifiableFields = section.fields.some((field) => field.verifiable);
-  const sectionGridClass = hasVerifiableFields
+  const sectionGridClass = section.id === "projects"
+    ? "grid gap-4"
+    : hasVerifiableFields
     ? "grid gap-4"
     : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3";
 

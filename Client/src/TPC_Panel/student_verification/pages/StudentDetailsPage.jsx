@@ -1,8 +1,12 @@
-import { ArrowLeft, CheckCheck, CircleAlert, MapPin, Mail, Phone } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { ArrowLeft, BadgeCheck, CheckCheck, CircleAlert, MapPin, Mail, Phone } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import StatusBadge from "../components/StatusBadge";
 import VerifySection from "../components/VerifySection";
+import {
+  verifyStudentField,
+  verifyStudentProfile,
+} from "../services/studentVerificationApi";
 
 function getAllFieldIds(student) {
   return student.sections.flatMap((section) =>
@@ -21,12 +25,15 @@ function createVerifiedFieldMap(student) {
 
 export default function StudentDetailsPage({
   students,
+  isLoading = false,
+  errorMessage = "",
   selectedStudent,
   setSelectedStudent,
   setStudents,
 }) {
   const navigate = useNavigate();
   const { prn } = useParams();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const currentStudent = useMemo(
     () =>
       selectedStudent?.prn === prn
@@ -40,6 +47,33 @@ export default function StudentDetailsPage({
       setSelectedStudent(currentStudent);
     }
   }, [currentStudent, selectedStudent, setSelectedStudent]);
+
+  if (isLoading) {
+    return (
+      <section className="rounded-[28px] border border-slate-200/80 bg-white p-8 text-center shadow-lg shadow-slate-200/60">
+        <p className="text-lg font-semibold text-slate-900">Loading student details...</p>
+        <p className="mt-2 text-sm text-slate-500">
+          Fetching student verification data from the database.
+        </p>
+      </section>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <section className="rounded-[28px] border border-red-200 bg-red-50 p-8 text-center shadow-lg shadow-red-100/60">
+        <p className="text-lg font-semibold text-red-700">Unable to load student details</p>
+        <p className="mt-2 text-sm text-red-600">{errorMessage}</p>
+        <button
+          type="button"
+          onClick={() => navigate("/tpc-dashboard/student-verification")}
+          className="mt-6 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+        >
+          Back to Student List
+        </button>
+      </section>
+    );
+  }
 
   if (!currentStudent) {
     return (
@@ -63,50 +97,90 @@ export default function StudentDetailsPage({
   const isProfileVerified = currentStudent.status === "Verified";
 
   const handleVerifyField = (fieldId) => {
-    if (isProfileVerified) {
+    if (isProfileVerified || isSubmitting) {
       return;
     }
 
-    const nextVerifiedFields = {
-      ...verifiedFields,
-      [fieldId]: true,
-    };
+    setIsSubmitting(true);
 
-    setStudents((currentStudents) =>
-      currentStudents.map((student) =>
-        student.prn === currentStudent.prn
-          ? { ...student, verifiedFields: nextVerifiedFields }
-          : student
-      )
-    );
-    setSelectedStudent((currentStudent) =>
-      currentStudent ? { ...currentStudent, verifiedFields: nextVerifiedFields } : currentStudent
-    );
+    verifyStudentField(currentStudent.prn, fieldId)
+      .then(() => {
+        const nextVerifiedFields = {
+          ...verifiedFields,
+          [fieldId]: true,
+        };
+
+        setStudents((currentStudents) =>
+          currentStudents.map((student) =>
+            student.prn === currentStudent.prn
+              ? { ...student, verifiedFields: nextVerifiedFields }
+              : student
+          )
+        );
+        setSelectedStudent((currentStudentValue) =>
+          currentStudentValue
+            ? { ...currentStudentValue, verifiedFields: nextVerifiedFields }
+            : currentStudentValue
+        );
+      })
+      .catch((error) => {
+        window.alert(
+          error?.response?.data?.message ||
+            error?.response?.data?.error ||
+            error?.message ||
+            "Failed to verify the selected field.",
+        );
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
   const handleMarkProfileVerified = () => {
-    if (isProfileVerified) {
+    if (isProfileVerified || isSubmitting) {
       return;
     }
 
-    const allVerifiedFields = createVerifiedFieldMap(currentStudent);
+    setIsSubmitting(true);
 
-    setStudents((currentStudents) =>
-      currentStudents.map((student) =>
-        student.prn === currentStudent.prn
-          ? { ...student, status: "Verified", verifiedFields: allVerifiedFields }
-          : student
-      )
-    );
-    setSelectedStudent((currentStudent) =>
-      currentStudent
-        ? {
-            ...currentStudent,
-            status: "Verified",
-            verifiedFields: allVerifiedFields,
-          }
-        : currentStudent
-    );
+    verifyStudentProfile(currentStudent.prn)
+      .then(() => {
+        const allVerifiedFields = createVerifiedFieldMap(currentStudent);
+
+        setStudents((currentStudents) =>
+          currentStudents.map((student) =>
+            student.prn === currentStudent.prn
+              ? {
+                  ...student,
+                  status: "Verified",
+                  isProfileVerified: true,
+                  verifiedFields: allVerifiedFields,
+                }
+              : student
+          )
+        );
+        setSelectedStudent((currentStudentValue) =>
+          currentStudentValue
+            ? {
+                ...currentStudentValue,
+                status: "Verified",
+                isProfileVerified: true,
+                verifiedFields: allVerifiedFields,
+              }
+            : currentStudentValue
+        );
+      })
+      .catch((error) => {
+        window.alert(
+          error?.response?.data?.message ||
+            error?.response?.data?.error ||
+            error?.message ||
+            "Failed to mark the profile as verified.",
+        );
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
   return (
@@ -132,9 +206,17 @@ export default function StudentDetailsPage({
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">
                 Student Details
               </p>
-              <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-                {currentStudent.name}
-              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-semibold text-slate-900">
+                  {currentStudent.name}
+                </h1>
+                {currentStudent.isProfileVerified ? (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700">
+                    <BadgeCheck className="h-4 w-4" />
+                    Verified
+                  </span>
+                ) : null}
+              </div>
               <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-500">
                 <span className="inline-flex items-center gap-2">
                   <Mail className="h-4 w-4" />

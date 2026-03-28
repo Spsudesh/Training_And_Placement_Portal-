@@ -1,7 +1,7 @@
 import {
-  BriefcaseBusiness,
   CalendarDays,
   ClipboardList,
+  FileText,
   GraduationCap,
   LayoutDashboard,
   Users,
@@ -14,7 +14,7 @@ const navItems = [
   { label: "Students", icon: Users, to: "/tpc-dashboard/student-verification" },
   { label: "Drive Tasks", icon: ClipboardList, to: "/tpc-dashboard", fallback: true },
   { label: "Schedules", icon: CalendarDays, to: "/tpc-dashboard", fallback: true },
-  { label: "Companies", icon: BriefcaseBusiness, to: "/tpc-dashboard", fallback: true },
+  { label: "Reports", icon: FileText, to: "/tpc-dashboard", fallback: true },
 ];
 
 const linkBaseClass =

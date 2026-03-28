@@ -3,7 +3,7 @@ import {
   Building2,
   GraduationCap,
   LayoutDashboard,
-  Settings,
+  FileText,
   Users,
   X,
 } from "lucide-react";
@@ -11,10 +11,10 @@ import { NavLink } from "react-router-dom";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/tpo-dashboard" },
-  { label: "Students", icon: Users, to: "/tpo-dashboard", fallback: true },
-  { label: "Companies", icon: Building2, to: "/tpo-dashboard", fallback: true },
+  { label: "Students", icon: Users, to: "/tpo-dashboard/students" },
+  { label: "Opportunities", icon: Building2, to: "/tpo-dashboard/placements" },
   { label: "Placements", icon: BriefcaseBusiness, to: "/tpo-dashboard/placements" },
-  { label: "Settings", icon: Settings, to: "/tpo-dashboard", fallback: true },
+  { label: "Reports", icon: FileText, to: "/tpo-dashboard", fallback: true },
 ];
 
 const linkBaseClass =

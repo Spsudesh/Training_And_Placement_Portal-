@@ -1,5 +1,106 @@
 export const PLACEMENTS_STORAGE_KEY = "training-placement-jobs";
 
+function addDays(dateString, days) {
+  const date = new Date(dateString);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatWorkflowDate(dateString) {
+  return new Date(dateString).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function buildDefaultWorkflow(job) {
+  const isClosed = !isPlacementActive(job);
+  const selectedBase = isClosed ? 420 : 520;
+
+  if (isClosed) {
+    return [
+      {
+        stage: "Applications Received",
+        date: formatWorkflowDate(addDays(job.deadline, -14)),
+        selectedCount: selectedBase,
+        status: "completed",
+      },
+      {
+        stage: "Eligibility Screening",
+        date: formatWorkflowDate(addDays(job.deadline, -11)),
+        selectedCount: Math.round(selectedBase * 0.68),
+        status: "completed",
+      },
+      {
+        stage: "Assessment Round",
+        date: formatWorkflowDate(addDays(job.deadline, -8)),
+        selectedCount: Math.round(selectedBase * 0.36),
+        status: "completed",
+      },
+      {
+        stage: "Technical Interview",
+        date: formatWorkflowDate(addDays(job.deadline, -5)),
+        selectedCount: Math.round(selectedBase * 0.18),
+        status: "completed",
+      },
+      {
+        stage: "Final HR Round",
+        date: formatWorkflowDate(addDays(job.deadline, -2)),
+        selectedCount: Math.round(selectedBase * 0.09),
+        status: "completed",
+      },
+      {
+        stage: "Students Selected",
+        date: formatWorkflowDate(job.deadline),
+        selectedCount: Math.round(selectedBase * 0.05),
+        status: "completed",
+      },
+    ];
+  }
+
+  return [
+    {
+      stage: "Applications Opened",
+      date: formatWorkflowDate(addDays(job.deadline, -16)),
+      selectedCount: selectedBase,
+      status: "completed",
+    },
+    {
+      stage: "Eligibility Screening",
+      date: formatWorkflowDate(addDays(job.deadline, -10)),
+      selectedCount: Math.round(selectedBase * 0.7),
+      status: "completed",
+    },
+    {
+      stage: "Online Assessment",
+      date: formatWorkflowDate(addDays(job.deadline, -5)),
+      selectedCount: Math.round(selectedBase * 0.42),
+      status: "current",
+    },
+    {
+      stage: "Technical Interview",
+      date: formatWorkflowDate(addDays(job.deadline, -2)),
+      selectedCount: 0,
+      status: "upcoming",
+    },
+    {
+      stage: "Final Selection",
+      date: formatWorkflowDate(job.deadline),
+      selectedCount: 0,
+      status: "upcoming",
+    },
+  ];
+}
+
+function normalizeWorkflow(job) {
+  if (Array.isArray(job?.workflow) && job.workflow.length > 0) {
+    return job.workflow;
+  }
+
+  return buildDefaultWorkflow(job);
+}
+
 export const initialPlacementJobs = [
   {
     id: "job-1",
@@ -41,6 +142,10 @@ export const initialPlacementJobs = [
       extraInfo:
         "BE/BTech students from CS and IT-related branches with no active backlogs are preferred.",
     },
+    workflow: buildDefaultWorkflow({
+      deadline: "2026-04-10",
+      id: "job-1",
+    }),
   },
   {
     id: "job-2",
@@ -75,6 +180,44 @@ export const initialPlacementJobs = [
       extraInfo:
         "BE/BTech and MCA students with consistent academics and no significant education gap are eligible.",
     },
+    workflow: [
+      {
+        stage: "Applications Received",
+        date: "12 Mar 2026",
+        selectedCount: 620,
+        status: "completed",
+      },
+      {
+        stage: "Eligibility Screening",
+        date: "15 Mar 2026",
+        selectedCount: 438,
+        status: "completed",
+      },
+      {
+        stage: "NQT Assessment",
+        date: "19 Mar 2026",
+        selectedCount: 214,
+        status: "completed",
+      },
+      {
+        stage: "Technical Interview",
+        date: "23 Mar 2026",
+        selectedCount: 96,
+        status: "completed",
+      },
+      {
+        stage: "Managerial Round",
+        date: "26 Mar 2026",
+        selectedCount: 42,
+        status: "completed",
+      },
+      {
+        stage: "Offer Released",
+        date: "28 Mar 2026",
+        selectedCount: 28,
+        status: "completed",
+      },
+    ],
   },
   {
     id: "job-3",
@@ -109,6 +252,44 @@ export const initialPlacementJobs = [
       extraInfo:
         "Students should not have active backlogs at the time of joining and must meet final eligibility checks.",
     },
+    workflow: [
+      {
+        stage: "Applications Received",
+        date: "22 Feb 2026",
+        selectedCount: 410,
+        status: "completed",
+      },
+      {
+        stage: "Profile Shortlisting",
+        date: "25 Feb 2026",
+        selectedCount: 268,
+        status: "completed",
+      },
+      {
+        stage: "Assessment Round",
+        date: "01 Mar 2026",
+        selectedCount: 140,
+        status: "completed",
+      },
+      {
+        stage: "Technical Discussion",
+        date: "05 Mar 2026",
+        selectedCount: 64,
+        status: "completed",
+      },
+      {
+        stage: "Final HR Round",
+        date: "08 Mar 2026",
+        selectedCount: 31,
+        status: "completed",
+      },
+      {
+        stage: "Students Selected",
+        date: "10 Mar 2026",
+        selectedCount: 18,
+        status: "completed",
+      },
+    ],
   },
 ];
 
@@ -176,22 +357,36 @@ export function normalizePlacementAttachment(attachment) {
 
 export function loadPlacementJobs() {
   if (typeof window === "undefined") {
-    return initialPlacementJobs;
+    return initialPlacementJobs.map((job) => ({
+      ...job,
+      workflow: normalizeWorkflow(job),
+    }));
   }
 
   const storedJobs = window.localStorage.getItem(PLACEMENTS_STORAGE_KEY);
 
   if (!storedJobs) {
-    return initialPlacementJobs;
+    return initialPlacementJobs.map((job) => ({
+      ...job,
+      workflow: normalizeWorkflow(job),
+    }));
   }
 
   try {
     const parsedJobs = JSON.parse(storedJobs);
-    return Array.isArray(parsedJobs) && parsedJobs.length > 0
+    const jobs = Array.isArray(parsedJobs) && parsedJobs.length > 0
       ? parsedJobs
       : initialPlacementJobs;
+
+    return jobs.map((job) => ({
+      ...job,
+      workflow: normalizeWorkflow(job),
+    }));
   } catch {
-    return initialPlacementJobs;
+    return initialPlacementJobs.map((job) => ({
+      ...job,
+      workflow: normalizeWorkflow(job),
+    }));
   }
 }
 
@@ -241,6 +436,9 @@ export function buildPlacementPayload(formData) {
     type: formData.type,
     deadline: formData.deadline,
     attachment: attachment.length > 0 ? attachment : null,
+    workflow: buildDefaultWorkflow({
+      deadline: formData.deadline,
+    }),
     overview: {
       category: formData.category.trim(),
       level: formData.level.trim(),

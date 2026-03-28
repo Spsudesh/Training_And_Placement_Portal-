@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 const credentials = {
   "2453011": { password: "2453011", panel: "student", route: "/student-panel" },
   "2453012": { password: "2453012", panel: "student", route: "/student-panel" },
+  "2453014": { password: "2453014", panel: "student", route: "/student-panel" },
+  "24530122": { password: "24530122", panel: "student", route: "/student-panel" },
   TPO: { password: "TPO", panel: "tpo", route: "/tpo-dashboard" },
   TPC: { password: "TPC", panel: "tpc", route: "/tpc-dashboard" },
 };
@@ -89,6 +91,8 @@ function LoginPage({ onLogin }) {
               <p className="font-semibold text-slate-800">Dummy panel credentials</p>
               <p className="mt-1">Student: 2453011 / 2453011</p>
               <p className="mt-1">Student: 2453012 / 2453012</p>
+              <p className="mt-1">Student: 2453014 / 2453014</p>
+              <p className="mt-1">Student: 24530122 / 24530122</p>
               <p className="mt-1">TPO: TPO / TPO</p>
               <p className="mt-1">TPC: TPC / TPC</p>
             </div>
