@@ -1,7 +1,7 @@
 const typeOptions = [
   { label: "All Types", value: "all" },
   { label: "Announcement", value: "announcement" },
-  { label: "Job Opportunity", value: "job" },
+  { label: "Placement Opportunity", value: "placement" },
   { label: "Internship", value: "internship" },
 ];
 

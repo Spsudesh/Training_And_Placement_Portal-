@@ -5,7 +5,7 @@ const postTypes = [
     description: "Share circulars, campus updates, and general notices.",
   },
   {
-    value: "job",
+    value: "placement",
     label: "Placement Opportunity",
     description: "Publish placement drives and full-time hiring updates.",
   },

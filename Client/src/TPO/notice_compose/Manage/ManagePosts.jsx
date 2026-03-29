@@ -8,6 +8,7 @@ export default function ManagePosts({
   onEdit,
   onDelete,
   onCloseView,
+  isLoading = false,
 }) {
   return (
     <>
@@ -25,6 +26,11 @@ export default function ManagePosts({
         </div>
 
         <div className="mt-6">
+          {isLoading ? (
+            <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+              Loading posts...
+            </p>
+          ) : null}
           <PostTable
             posts={posts}
             onView={onView}

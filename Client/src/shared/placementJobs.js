@@ -14,6 +14,97 @@ function formatWorkflowDate(dateString) {
   });
 }
 
+function toWorkflowInputDate(dateString) {
+  if (!dateString) {
+    return "";
+  }
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function createEmptyWorkflowStage() {
+  return {
+    roundName: "",
+    roundDate: "",
+  };
+}
+
+function inferWorkflowStatuses(workflowEntries) {
+  const today = normalizePlacementDate(new Date().toISOString());
+  const datedEntries = workflowEntries
+    .map((entry, index) => ({
+      index,
+      date: entry.roundDate ? normalizePlacementDate(entry.roundDate) : null,
+    }))
+    .filter((entry) => entry.date);
+
+  const firstUpcomingIndex = datedEntries.find((entry) => entry.date >= today)?.index ?? -1;
+
+  return workflowEntries.map((entry, index) => {
+    if (!entry.roundDate) {
+      return index === 0 ? "current" : "upcoming";
+    }
+
+    if (firstUpcomingIndex === -1) {
+      return "completed";
+    }
+
+    if (index < firstUpcomingIndex) {
+      return "completed";
+    }
+
+    if (index === firstUpcomingIndex) {
+      return "current";
+    }
+
+    return "upcoming";
+  });
+}
+
+export function normalizePlacementWorkflow(workflow) {
+  if (!Array.isArray(workflow)) {
+    return [];
+  }
+
+  const sanitizedWorkflow = workflow
+    .map((item) => ({
+      roundName: String(item?.roundName ?? item?.stage ?? item?.stage_name ?? "").trim(),
+      roundDate: toWorkflowInputDate(item?.roundDate ?? item?.rawDate ?? item?.date ?? item?.stage_date),
+      selectedCount:
+        item?.selectedCount === null || item?.selectedCount === undefined || item?.selectedCount === ""
+          ? null
+          : Number(item.selectedCount),
+      status: String(item?.status ?? item?.stageStatus ?? item?.stage_status ?? "").trim().toLowerCase(),
+      studentStatus: String(item?.studentStatus ?? item?.student_status ?? "").trim().toLowerCase(),
+      studentUpdatedAt: item?.studentUpdatedAt ?? item?.student_updated_at ?? null,
+    }))
+    .filter((item) => item.roundName || item.roundDate);
+
+  if (!sanitizedWorkflow.length) {
+    return [];
+  }
+
+  const inferredStatuses = inferWorkflowStatuses(sanitizedWorkflow);
+
+  return sanitizedWorkflow.map((item, index) => ({
+    roundName: item.roundName,
+    roundDate: item.roundDate,
+    stage: item.roundName,
+    date: item.roundDate ? formatWorkflowDate(item.roundDate) : "Date not scheduled",
+    rawDate: item.roundDate,
+    selectedCount: item.selectedCount,
+    status: item.status || inferredStatuses[index],
+    studentStatus: item.studentStatus || "pending",
+    studentUpdatedAt: item.studentUpdatedAt,
+  }));
+}
+
 function buildDefaultWorkflow(job) {
   const isClosed = !isPlacementActive(job);
   const selectedBase = isClosed ? 420 : 520;
@@ -94,8 +185,8 @@ function buildDefaultWorkflow(job) {
 }
 
 function normalizeWorkflow(job) {
-  if (Array.isArray(job?.workflow) && job.workflow.length > 0) {
-    return job.workflow;
+  if (Array.isArray(job?.workflow)) {
+    return job.workflow.length > 0 ? normalizePlacementWorkflow(job.workflow) : [];
   }
 
   return buildDefaultWorkflow(job);
@@ -139,6 +230,10 @@ export const initialPlacementJobs = [
     },
     additional: {
       requiredSkills: ["Java", "Python", "SQL", "Problem Solving"],
+      minCgpa: "6.5",
+      maxBacklogs: "0",
+      allowedDepartments: "CSE, IT",
+      passingYear: "2026",
       extraInfo:
         "BE/BTech students from CS and IT-related branches with no active backlogs are preferred.",
     },
@@ -177,6 +272,10 @@ export const initialPlacementJobs = [
     },
     additional: {
       requiredSkills: ["Communication", "Analytical Thinking", "Engineering Basics"],
+      minCgpa: "6.0",
+      maxBacklogs: "1",
+      allowedDepartments: "CSE, IT, ECE, EE, MCA",
+      passingYear: "2026",
       extraInfo:
         "BE/BTech and MCA students with consistent academics and no significant education gap are eligible.",
     },
@@ -249,6 +348,10 @@ export const initialPlacementJobs = [
     },
     additional: {
       requiredSkills: ["Documentation", "Communication", "Client Coordination"],
+      minCgpa: "6.0",
+      maxBacklogs: "0",
+      allowedDepartments: "CSE, IT, AIDS",
+      passingYear: "2026",
       extraInfo:
         "Students should not have active backlogs at the time of joining and must meet final eligibility checks.",
     },
@@ -310,8 +413,13 @@ export const emptyPlacementForm = {
   offer: "",
   disclaimer: "",
   requiredSkills: "",
+  minCgpa: "",
+  maxBacklogs: "",
+  allowedDepartments: "",
+  passingYear: "",
   extraInfo: "",
   attachment: null,
+  workflow: [createEmptyWorkflowStage()],
 };
 
 export function normalizePlacementAttachment(attachment) {
@@ -341,8 +449,9 @@ export function normalizePlacementAttachment(attachment) {
         type: item?.type ?? "",
         url: item?.url ?? "",
         notice: item?.notice ?? "",
+        file: item?.file ?? null,
       }))
-      .filter((item) => item.name || item.type || item.url || item.notice);
+      .filter((item) => item.name || item.type || item.url || item.notice || item.file);
   }
 
   return [
@@ -351,25 +460,32 @@ export function normalizePlacementAttachment(attachment) {
       type: attachment.type ?? "",
       url: attachment.url ?? "",
       notice: attachment.notice ?? "",
+      file: attachment.file ?? null,
     },
-  ].filter((item) => item.name || item.type || item.url || item.notice);
+  ].filter((item) => item.name || item.type || item.url || item.notice || item.file);
+}
+
+export function hydratePlacementJob(job) {
+  if (!job) {
+    return job;
+  }
+
+  return {
+    ...job,
+    workflow: normalizeWorkflow(job),
+    attachment: normalizePlacementAttachment(job.attachment),
+  };
 }
 
 export function loadPlacementJobs() {
   if (typeof window === "undefined") {
-    return initialPlacementJobs.map((job) => ({
-      ...job,
-      workflow: normalizeWorkflow(job),
-    }));
+    return initialPlacementJobs.map(hydratePlacementJob);
   }
 
   const storedJobs = window.localStorage.getItem(PLACEMENTS_STORAGE_KEY);
 
   if (!storedJobs) {
-    return initialPlacementJobs.map((job) => ({
-      ...job,
-      workflow: normalizeWorkflow(job),
-    }));
+    return initialPlacementJobs.map(hydratePlacementJob);
   }
 
   try {
@@ -378,15 +494,9 @@ export function loadPlacementJobs() {
       ? parsedJobs
       : initialPlacementJobs;
 
-    return jobs.map((job) => ({
-      ...job,
-      workflow: normalizeWorkflow(job),
-    }));
+    return jobs.map(hydratePlacementJob);
   } catch {
-    return initialPlacementJobs.map((job) => ({
-      ...job,
-      workflow: normalizeWorkflow(job),
-    }));
+    return initialPlacementJobs.map(hydratePlacementJob);
   }
 }
 
@@ -403,6 +513,11 @@ export function getPlacementFormFromJob(job) {
   if (!job) {
     return emptyPlacementForm;
   }
+
+  const workflow = normalizePlacementWorkflow(job.workflow).map((item) => ({
+    roundName: item.roundName,
+    roundDate: item.roundDate,
+  }));
 
   return {
     company: job.company ?? "",
@@ -421,13 +536,24 @@ export function getPlacementFormFromJob(job) {
     offer: job.description?.offer ?? "",
     disclaimer: job.description?.disclaimer ?? "",
     requiredSkills: (job.additional?.requiredSkills ?? []).join(", "),
+    minCgpa: job.additional?.minCgpa ?? "",
+    maxBacklogs: job.additional?.maxBacklogs ?? "",
+    allowedDepartments: job.additional?.allowedDepartments ?? "",
+    passingYear: job.additional?.passingYear ?? "",
     extraInfo: job.additional?.extraInfo ?? "",
     attachment: normalizePlacementAttachment(job.attachment),
+    workflow: workflow.length > 0 ? workflow : [createEmptyWorkflowStage()],
   };
 }
 
 export function buildPlacementPayload(formData) {
   const attachment = normalizePlacementAttachment(formData.attachment);
+  const workflow = normalizePlacementWorkflow(formData.workflow).map((item, index) => ({
+    stage: item.roundName,
+    date: item.roundDate,
+    status: item.status,
+    order: index + 1,
+  }));
 
   return {
     company: formData.company.trim(),
@@ -436,9 +562,7 @@ export function buildPlacementPayload(formData) {
     type: formData.type,
     deadline: formData.deadline,
     attachment: attachment.length > 0 ? attachment : null,
-    workflow: buildDefaultWorkflow({
-      deadline: formData.deadline,
-    }),
+    workflow,
     overview: {
       category: formData.category.trim(),
       level: formData.level.trim(),
@@ -458,6 +582,10 @@ export function buildPlacementPayload(formData) {
         .split(",")
         .map((skill) => skill.trim())
         .filter(Boolean),
+      minCgpa: formData.minCgpa.trim(),
+      maxBacklogs: formData.maxBacklogs.trim(),
+      allowedDepartments: formData.allowedDepartments.trim(),
+      passingYear: formData.passingYear.trim(),
       extraInfo: formData.extraInfo.trim(),
     },
   };

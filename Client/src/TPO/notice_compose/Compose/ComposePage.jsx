@@ -9,17 +9,15 @@ export default function ComposePage({
   onTypeChange,
   onFieldChange,
   onFileChange,
-  onStageChange,
-  onAddStage,
-  onRemoveStage,
-  onSaveDraft,
+  onRemoveFile,
   onPublish,
   onCancelEdit,
+  isSaving = false,
   title = "Create Post",
   description = "Choose a post type and fill only the fields needed for that format.",
 }) {
   const isAnnouncement = formData.type === "announcement";
-  const isJob = formData.type === "job";
+  const isPlacement = formData.type === "placement";
   const hasSelection = Boolean(formData.type);
 
   return (
@@ -50,43 +48,36 @@ export default function ComposePage({
                 formData={formData}
                 onFieldChange={onFieldChange}
                 onFileChange={onFileChange}
+                onRemoveFile={onRemoveFile}
               />
             ) : null}
 
-            {isJob ? (
+            {isPlacement ? (
               <JobForm
                 formData={formData}
                 onFieldChange={onFieldChange}
-                onStageChange={onStageChange}
-                onAddStage={onAddStage}
-                onRemoveStage={onRemoveStage}
+                onFileChange={onFileChange}
+                onRemoveFile={onRemoveFile}
               />
             ) : null}
 
-            {!isAnnouncement && !isJob ? (
+            {!isAnnouncement && !isPlacement ? (
               <InternshipForm
                 formData={formData}
                 onFieldChange={onFieldChange}
-                onStageChange={onStageChange}
-                onAddStage={onAddStage}
-                onRemoveStage={onRemoveStage}
+                onFileChange={onFileChange}
+                onRemoveFile={onRemoveFile}
               />
             ) : null}
 
             <div className="mt-5 flex flex-wrap gap-3 border-t border-slate-200 pt-5">
               <button
                 type="button"
-                onClick={onSaveDraft}
-                className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-md"
-              >
-                Save Draft
-              </button>
-              <button
-                type="button"
                 onClick={onPublish}
+                disabled={isSaving}
                 className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg"
               >
-                {editMode ? "Update" : "Post"}
+                {isSaving ? "Saving..." : editMode ? "Update" : "Post"}
               </button>
               {editMode ? (
                 <button

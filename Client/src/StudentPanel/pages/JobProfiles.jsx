@@ -1,13 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
+import { Calendar, CheckCheck, CircleDot, FileText, Users, XCircle } from "lucide-react";
 import {
   formatPlacementDeadline,
+  hydratePlacementJob,
   isPlacementActive,
-  loadPlacementJobs,
-  PLACEMENTS_STORAGE_KEY,
   splitLines,
 } from "../../shared/placementJobs";
+import { fetchPlacements } from "../../shared/placementApi";
 
-function TextWithShowMore({ text, limit = 260 }) {
+const STUDENT_ID_STORAGE_KEY = "training-placement-active-student";
+
+const listTabs = [
+  { key: "all", label: "All Jobs" },
+  { key: "ongoing", label: "Ongoing Jobs" },
+];
+
+const detailTabs = [
+  { key: "job-description", label: "Job Description" },
+  { key: "eligibility", label: "Eligibility Criteria" },
+  { key: "workflow", label: "Hiring Workflow" },
+];
+
+function TextWithShowMore({ text, limit = 240 }) {
   const [expanded, setExpanded] = useState(false);
 
   if (!text) {
@@ -19,7 +33,7 @@ function TextWithShowMore({ text, limit = 260 }) {
 
   return (
     <div>
-      <p className="whitespace-pre-line text-sm leading-7 text-slate-700">{content}</p>
+      <p className="whitespace-pre-line text-sm leading-6 text-slate-700">{content}</p>
       {isLong ? (
         <button
           type="button"
@@ -33,51 +47,417 @@ function TextWithShowMore({ text, limit = 260 }) {
   );
 }
 
-function SectionTitle({ children }) {
+function InlineDetail({ label, value }) {
   return (
-    <div className="border-b border-slate-200 pb-3">
-      <h3 className="text-base font-semibold text-slate-900">{children}</h3>
+    <div className="grid gap-1 py-3 sm:grid-cols-[150px_1fr] sm:gap-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+        {label}
+      </p>
+      <p className="text-sm leading-6 text-slate-700">{value || "Not specified"}</p>
     </div>
   );
 }
 
-function DetailLine({ label, value }) {
+function SectionHeader({ title }) {
   return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-700">{value || "Not specified"}</p>
+    <div className="border-b border-slate-200/80 pb-3">
+      <h3 className="text-base font-semibold text-slate-900">{title}</h3>
     </div>
+  );
+}
+
+function EligibilityMetricCard({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-slate-900">{value || "Not specified"}</p>
+    </div>
+  );
+}
+
+function getStudentWorkflowStyles(status) {
+  if (status === "qualified") {
+    return {
+      dot: "border-emerald-500 bg-emerald-500",
+      line: "bg-emerald-200",
+      badge: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+      card: "border-emerald-200 bg-emerald-50/60",
+    };
+  }
+
+  if (status === "rejected") {
+    return {
+      dot: "border-rose-500 bg-rose-500",
+      line: "bg-rose-200",
+      badge: "border border-rose-200 bg-rose-50 text-rose-700",
+      card: "border-rose-200 bg-rose-50/60",
+    };
+  }
+
+  return {
+    dot: "border-amber-400 bg-amber-400",
+    line: "bg-slate-200",
+    badge: "border border-amber-200 bg-amber-50 text-amber-700",
+    card: "border-slate-200 bg-slate-50/60",
+  };
+}
+
+function getStudentWorkflowIcon(status) {
+  if (status === "qualified") {
+    return CheckCheck;
+  }
+
+  if (status === "rejected") {
+    return XCircle;
+  }
+
+  if (status === "pending") {
+    return CircleDot;
+  }
+
+  return Calendar;
+}
+
+function StudentWorkflowTimeline({ workflow = [] }) {
+  if (!workflow.length) {
+    return <p className="text-sm leading-6 text-slate-500">No workflow data available.</p>;
+  }
+
+  const qualifiedCount = workflow.filter((item) => item.studentStatus === "qualified").length;
+  const pendingCount = workflow.filter((item) => item.studentStatus === "pending").length;
+  const rejectedStage = workflow.find((item) => item.studentStatus === "rejected")?.stage || "None";
+
+  return (
+    <section className="space-y-5">
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+            Personal Progress
+          </p>
+          <h4 className="mt-2 text-lg font-semibold text-slate-900">
+            Your stage-wise application journey
+          </h4>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Each round below shows your current result for that stage, based on your personal workflow record.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Total Rounds
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{workflow.length}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Qualified
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{qualifiedCount}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Pending
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{pendingCount}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          Qualified
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
+          <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+          Pending
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
+          <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+          Rejected
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+          Rejection Stage: {rejectedStage}
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {workflow.map((item, index) => {
+          const styles = getStudentWorkflowStyles(item.studentStatus);
+          const Icon = getStudentWorkflowIcon(item.studentStatus);
+          const isLast = index === workflow.length - 1;
+
+          return (
+            <div key={`${item.stage}-${item.date}-${index}`} className="flex gap-4">
+              <div className="flex w-5 flex-col items-center">
+                <span className={`mt-2 h-4 w-4 rounded-full border-2 ${styles.dot}`} />
+                {!isLast ? <span className={`mt-2 w-0.5 flex-1 ${styles.line}`} /> : null}
+              </div>
+
+              <div className={`flex-1 rounded-2xl border p-5 ${styles.card}`}>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-start gap-3">
+                    <span className="rounded-2xl bg-white p-3 text-slate-600 shadow-sm">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-base font-semibold text-slate-900">{item.stage}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Round Date: {item.date || "Date not scheduled"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${styles.badge}`}>
+                      {item.studentStatus || "pending"}
+                    </span>
+                    {item.studentUpdatedAt ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+                        <Users className="h-3.5 w-3.5" />
+                        Updated
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
 export default function JobProfiles() {
-  const [jobs, setJobs] = useState(() => loadPlacementJobs());
-  const [selectedJobId, setSelectedJobId] = useState(() => loadPlacementJobs()[0]?.id ?? null);
+  const [jobs, setJobs] = useState([]);
+  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [activeListTab, setActiveListTab] = useState("all");
+  const [activeDetailTab, setActiveDetailTab] = useState("job-description");
+  const [activeAttachment, setActiveAttachment] = useState(null);
 
   useEffect(() => {
-    function syncJobs() {
-      const nextJobs = loadPlacementJobs();
-      setJobs(nextJobs);
-      setSelectedJobId((currentId) => {
-        const stillExists = nextJobs.some((job) => job.id === currentId);
-        return stillExists ? currentId : nextJobs[0]?.id ?? null;
-      });
+    let isMounted = true;
+
+    async function loadJobs() {
+      try {
+        const studentPrn = window.localStorage.getItem(STUDENT_ID_STORAGE_KEY) || "";
+        const nextJobs = await fetchPlacements("student", studentPrn ? { studentPrn } : {});
+
+        if (!isMounted) {
+          return;
+        }
+
+        setJobs(nextJobs);
+        setSelectedJobId((currentId) => {
+          const stillExists = nextJobs.some((job) => String(job.id) === String(currentId));
+          return stillExists ? currentId : nextJobs[0]?.id ?? null;
+        });
+        setLoadError("");
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setJobs([]);
+        setLoadError(error.response?.data?.message || "Unable to load placements from the server.");
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     }
 
-    syncJobs();
-    window.addEventListener("storage", syncJobs);
-    window.addEventListener(PLACEMENTS_STORAGE_KEY, syncJobs);
+    loadJobs();
 
     return () => {
-      window.removeEventListener("storage", syncJobs);
-      window.removeEventListener(PLACEMENTS_STORAGE_KEY, syncJobs);
+      isMounted = false;
     };
   }, []);
 
-  const selectedJob = useMemo(
-    () => jobs.find((job) => job.id === selectedJobId) ?? jobs[0] ?? null,
-    [jobs, selectedJobId],
+  const ongoingCount = useMemo(
+    () => jobs.filter((job) => isPlacementActive(job)).length,
+    [jobs],
   );
+
+  const filteredJobs = useMemo(() => {
+    if (activeListTab === "ongoing") {
+      return jobs.filter((job) => isPlacementActive(job));
+    }
+
+    return jobs;
+  }, [activeListTab, jobs]);
+
+  const selectedJob = useMemo(() => {
+    const bySelection = jobs.find((job) => job.id === selectedJobId);
+    return bySelection ?? filteredJobs[0] ?? null;
+  }, [filteredJobs, jobs, selectedJobId]);
+
+  const selectedAttachment = selectedJob ? hydratePlacementJob(selectedJob).attachment?.[0] : null;
+
+  function openAttachmentPreview() {
+    if (!selectedAttachment?.url) {
+      return;
+    }
+
+    setActiveAttachment({
+      url: selectedAttachment.url,
+      title: selectedAttachment.name || selectedJob?.title || "Attachment Preview",
+    });
+  }
+
+  function closeAttachmentPreview() {
+    setActiveAttachment(null);
+  }
+
+  function renderJobDetailsContent() {
+    if (!selectedJob) {
+      return null;
+    }
+
+    if (activeDetailTab === "eligibility") {
+      return (
+        <section className="space-y-6 py-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <EligibilityMetricCard label="Min CGPA" value={selectedJob.additional?.minCgpa} />
+            <EligibilityMetricCard label="Max Backlogs" value={selectedJob.additional?.maxBacklogs} />
+            <EligibilityMetricCard label="Allowed Departments" value={selectedJob.additional?.allowedDepartments} />
+            <EligibilityMetricCard label="Passing Year" value={selectedJob.additional?.passingYear} />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+              <h4 className="text-sm font-semibold text-slate-900">Required Skills</h4>
+              <div className="mt-3">
+                {selectedJob.additional?.requiredSkills?.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedJob.additional.requiredSkills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">No skills specified.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+              <h4 className="text-sm font-semibold text-slate-900">Additional Eligibility Notes</h4>
+              <div className="mt-3">
+                <TextWithShowMore text={selectedJob.additional?.extraInfo} limit={180} />
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    if (activeDetailTab === "workflow") {
+      return <StudentWorkflowTimeline workflow={selectedJob.workflow} />;
+    }
+
+    return (
+      <section className="space-y-8">
+        <div className="space-y-4 border-b border-slate-200/70 pb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Opening Overview
+          </p>
+          <div className="divide-y divide-slate-200/70">
+            <InlineDetail label="Category" value={selectedJob.overview.category} />
+            <InlineDetail label="Level" value={selectedJob.overview.level} />
+            <InlineDetail label="Job Functions" value={selectedJob.overview.functions} />
+            <InlineDetail
+              label="CTC"
+              value={selectedJob.overview.ctc ? `${selectedJob.overview.ctc} LPA` : ""}
+            />
+            <InlineDetail label="Other Info" value={selectedJob.overview.otherInfo} />
+          </div>
+        </div>
+
+        <div className="space-y-3 border-b border-slate-200/70 pb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Role Overview
+          </p>
+          <TextWithShowMore text={selectedJob.description.roleOverview} />
+        </div>
+
+        <div className="space-y-3 border-b border-slate-200/70 pb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Key Responsibilities
+          </p>
+          {splitLines(selectedJob.description.responsibilities).length > 0 ? (
+            <ul className="space-y-2 text-sm leading-6 text-slate-700">
+              {splitLines(selectedJob.description.responsibilities).map((item, index) => (
+                <li key={`${selectedJob.id}-responsibility-${index}`} className="flex gap-2">
+                  <span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-400" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-500">No responsibilities listed.</p>
+          )}
+        </div>
+
+        <div className="space-y-3 border-b border-slate-200/70 pb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Required Skills & Attributes
+          </p>
+          <TextWithShowMore text={selectedJob.description.skills} />
+        </div>
+
+        <div className="space-y-3 border-b border-slate-200/70 pb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            What We Offer
+          </p>
+          <TextWithShowMore text={selectedJob.description.offer} />
+        </div>
+
+        <div className="space-y-3 border-b border-slate-200/70 pb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Disclaimer
+          </p>
+          <TextWithShowMore text={selectedJob.description.disclaimer} />
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Attached Documents
+          </p>
+          {selectedAttachment?.url ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl bg-white p-2 text-slate-500 shadow-sm">
+                  <FileText className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={openAttachmentPreview}
+                    className="text-sm font-semibold text-blue-700 hover:text-blue-800"
+                  >
+                    {selectedAttachment.name || "Open attached document"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">No attachment provided.</p>
+          )}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <div className="w-full">
@@ -86,20 +466,39 @@ export default function JobProfiles() {
           <div className="flex flex-col gap-5 lg:h-[78vh] lg:flex-row">
             <div className="min-w-0 lg:w-[30%] lg:border-r lg:border-slate-200 lg:pr-4">
               <div className="flex h-full flex-col overflow-hidden">
-                <div className="border-b border-slate-200 pb-4">
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Job Profiles
-                  </p>
-                  <h2 className="mt-2 text-2xl font-bold text-slate-900">
-                    Active placements and internships
-                  </h2>
+                <div className="flex items-center gap-4 border-b border-slate-200/80 pb-2">
+                  {listTabs.map((tab) => {
+                    const count = tab.key === "all" ? jobs.length : ongoingCount;
+                    const active = activeListTab === tab.key;
+
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setActiveListTab(tab.key)}
+                        className={`border-b-2 pb-2 text-sm font-medium transition ${
+                          active
+                            ? "border-blue-600 text-blue-700"
+                            : "border-transparent text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {tab.label} ({count})
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-                  {jobs.length === 0 ? (
+                <div className="mt-3 min-h-0 flex-1 overflow-y-auto scroll-smooth pr-1">
+                  {loading ? (
+                    <p className="py-8 text-sm text-slate-500">Loading jobs...</p>
+                  ) : null}
+                  {!loading && loadError ? (
+                    <p className="py-8 text-sm text-rose-600">{loadError}</p>
+                  ) : null}
+                  {!loading && !loadError && filteredJobs.length === 0 ? (
                     <p className="py-8 text-sm text-slate-500">No jobs available right now.</p>
                   ) : (
-                    jobs.map((job) => {
+                    filteredJobs.map((job) => {
                       const active = selectedJob?.id === job.id;
                       const status = isPlacementActive(job) ? "Active" : "Closed";
 
@@ -108,18 +507,18 @@ export default function JobProfiles() {
                           key={job.id}
                           type="button"
                           onClick={() => setSelectedJobId(job.id)}
-                          className={`mb-2 w-full rounded-2xl px-4 py-3 text-left transition ${
-                            active ? "bg-blue-50" : "hover:bg-slate-50"
+                          className={`mb-1.5 w-full rounded-lg px-3 py-2 text-left transition ${
+                            active
+                              ? "bg-blue-50 text-slate-900"
+                              : "text-slate-700 hover:bg-slate-100/80"
                           }`}
                         >
-                          <p className="text-sm font-semibold text-slate-900">
+                          <p className="truncate text-sm font-semibold text-slate-900">
                             {job.company} | {job.title}
                           </p>
-                          <p className="mt-1 text-xs text-slate-600">
-                            {job.location} | {job.type}
-                          </p>
+                          <p className="mt-0.5 truncate text-xs text-slate-600">{job.location}</p>
                           <p
-                            className={`mt-2 text-xs font-medium ${
+                            className={`mt-1 text-xs font-medium ${
                               status === "Active" ? "text-emerald-600" : "text-rose-600"
                             }`}
                           >
@@ -134,134 +533,89 @@ export default function JobProfiles() {
             </div>
 
             <div className="min-w-0 lg:w-[70%]">
-              {!selectedJob ? (
-                <p className="text-sm text-slate-500">Select a job to view details.</p>
-              ) : (
-                <div className="flex h-full flex-col overflow-hidden">
-                  <header className="border-b border-slate-200 pb-4">
-                    <h1 className="text-2xl font-bold text-slate-900">{selectedJob.title}</h1>
-                    <p className="mt-2 text-sm text-slate-600">
-                      {selectedJob.company} | {selectedJob.location} | {selectedJob.type}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Deadline: {formatPlacementDeadline(selectedJob.deadline)}
-                    </p>
-                  </header>
-
-                  <div className="mt-6 min-h-0 flex-1 space-y-8 overflow-y-auto pr-1">
-                    <section className="space-y-4">
-                      <SectionTitle>Opening Overview</SectionTitle>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <DetailLine label="Category" value={selectedJob.overview.category} />
-                        <DetailLine label="Level" value={selectedJob.overview.level} />
-                        <DetailLine label="Job Functions" value={selectedJob.overview.functions} />
-                        <DetailLine
-                          label="CTC"
-                          value={
-                            selectedJob.overview.ctc
-                              ? `${selectedJob.overview.ctc} LPA`
-                              : "Not specified"
-                          }
-                        />
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                          Other Info
+              <div className="flex h-full flex-col overflow-hidden">
+                {!selectedJob ? (
+                  <p className="text-sm text-slate-500">Select a job to view details.</p>
+                ) : (
+                  <>
+                    <header className="border-b border-slate-200/80 pb-4">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-xl font-semibold text-slate-900">
+                          {selectedJob.title}
+                        </h3>
+                        <p className="mt-1 truncate text-sm text-slate-600">
+                          {selectedJob.company} | {selectedJob.location} | {selectedJob.type}
                         </p>
-                        <div className="mt-2">
-                          <TextWithShowMore text={selectedJob.overview.otherInfo} />
-                        </div>
-                      </div>
-                    </section>
-
-                    <section className="space-y-4">
-                      <SectionTitle>Job Description</SectionTitle>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">Role Overview</p>
-                        <div className="mt-2">
-                          <TextWithShowMore text={selectedJob.description.roleOverview} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          Key Responsibilities
+                        <p className="mt-1 text-sm text-slate-500">
+                          Deadline: {formatPlacementDeadline(selectedJob.deadline)}
                         </p>
-                        {splitLines(selectedJob.description.responsibilities).length > 0 ? (
-                          <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
-                            {splitLines(selectedJob.description.responsibilities).map(
-                              (responsibility, index) => (
-                                <li key={`${selectedJob.id}-responsibility-${index}`} className="flex gap-2">
-                                  <span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-400" />
-                                  <span>{responsibility}</span>
-                                </li>
-                              ),
-                            )}
-                          </ul>
-                        ) : (
-                          <p className="mt-2 text-sm text-slate-500">No responsibilities listed.</p>
-                        )}
                       </div>
+                    </header>
 
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          Required Skills & Attributes
-                        </p>
-                        <div className="mt-2">
-                          <TextWithShowMore text={selectedJob.description.skills} />
-                        </div>
-                      </div>
+                    <div className="mt-5 min-h-0 flex-1 overflow-y-auto scroll-smooth pr-1">
+                      <div className="flex flex-wrap gap-6 border-b border-slate-200/80 pb-3">
+                        {detailTabs.map((tab) => {
+                          const active = activeDetailTab === tab.key;
 
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">What We Offer</p>
-                        <div className="mt-2">
-                          <TextWithShowMore text={selectedJob.description.offer} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">Disclaimer</p>
-                        <div className="mt-2">
-                          <TextWithShowMore text={selectedJob.description.disclaimer} />
-                        </div>
-                      </div>
-                    </section>
-
-                    <section className="space-y-4">
-                      <SectionTitle>Required Skills</SectionTitle>
-                      {selectedJob.additional.requiredSkills.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {selectedJob.additional.requiredSkills.map((skill) => (
-                            <span
-                              key={skill}
-                              className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-700"
+                          return (
+                            <button
+                              key={tab.key}
+                              type="button"
+                              onClick={() => setActiveDetailTab(tab.key)}
+                              className={`pb-2 text-sm font-medium transition ${
+                                active
+                                  ? "border-b-2 border-blue-600 text-blue-700"
+                                  : "border-b-2 border-transparent text-slate-500 hover:text-slate-700"
+                              }`}
                             >
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-slate-500">No skills listed.</p>
-                      )}
-                    </section>
-
-                    <section className="space-y-4">
-                      <SectionTitle>Additional Information</SectionTitle>
-                      <TextWithShowMore text={selectedJob.additional.extraInfo} />
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">Attached Documents</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-700">
-                          {selectedJob.attachment || "No attachment provided."}
-                        </p>
+                              {tab.label}
+                            </button>
+                          );
+                        })}
                       </div>
-                    </section>
-                  </div>
-                </div>
-              )}
+
+                      <div className="mt-6">{renderJobDetailsContent()}</div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </section>
       </div>
+
+      {activeAttachment ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6">
+          <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Attachment Preview
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                  {activeAttachment.title}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeAttachmentPreview}
+                className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 bg-slate-100 p-4">
+              <iframe
+                src={activeAttachment.url}
+                title={activeAttachment.title}
+                className="h-full w-full rounded-2xl border border-slate-200 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

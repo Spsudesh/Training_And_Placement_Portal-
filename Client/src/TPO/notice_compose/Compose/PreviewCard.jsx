@@ -1,12 +1,12 @@
 const typeBadgeClasses = {
   announcement: "bg-slate-100 text-slate-700",
-  job: "bg-emerald-100 text-emerald-700",
+  placement: "bg-emerald-100 text-emerald-700",
   internship: "bg-amber-100 text-amber-700",
 };
 
 const typeLabels = {
   announcement: "Announcement",
-  job: "Job Opportunity",
+  placement: "Placement Opportunity",
   internship: "Internship",
 };
 
@@ -24,7 +24,7 @@ function DetailRow({ label, value }) {
 }
 
 export default function PreviewCard({ formData, editMode }) {
-  const attachmentLabel = formData.file?.name || formData.attachmentName;
+  const attachmentLabel = formData.files?.[0]?.name || formData.attachmentName;
 
   return (
     <div className="sticky top-24 rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/70">
@@ -76,15 +76,15 @@ export default function PreviewCard({ formData, editMode }) {
           <DetailRow label="Company" value={formData.companyName} />
           <DetailRow label="Role" value={formData.role} />
           <DetailRow label="Location" value={formData.location} />
-          {formData.type === "job" ? (
+          {formData.type === "placement" ? (
             <DetailRow label="CTC" value={formData.ctc} />
           ) : null}
           <DetailRow
             label="Eligibility"
             value={
-              formData.cgpa || formData.backlogs
-                ? `CGPA: ${formData.cgpa || "-"} | Backlogs: ${
-                    formData.backlogs || "-"
+              formData.minCgpa || formData.maxBacklogs
+                ? `CGPA: ${formData.minCgpa || "-"} | Backlogs: ${
+                    formData.maxBacklogs || "-"
                   }`
                 : ""
             }
@@ -93,27 +93,6 @@ export default function PreviewCard({ formData, editMode }) {
         </div>
       ) : null}
 
-      {formData.hiringProcess.some((stage) => stage.trim()) &&
-      formData.type !== "announcement" ? (
-        <div className="mt-5 rounded-[28px] border border-slate-200 p-4">
-          <p className="text-sm font-semibold text-slate-900">Hiring Process</p>
-          <div className="mt-3 space-y-2">
-            {formData.hiringProcess
-              .filter((stage) => stage.trim())
-              .map((stage, index) => (
-                <div
-                  key={`${stage}-${index}`}
-                  className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
-                    {index + 1}
-                  </span>
-                  <span className="text-sm text-slate-700">{stage}</span>
-                </div>
-              ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import PostCard from "./PostCard";
 
-export default function PostList({ posts }) {
+export default function PostList({ posts, isLoading = false }) {
   return (
     <section className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -19,7 +19,14 @@ export default function PostList({ posts }) {
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-2">
-        {posts.length ? (
+        {isLoading ? (
+          <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center xl:col-span-2">
+            <p className="text-base font-semibold text-slate-800">Loading posts</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Fetching the latest notice records from the backend.
+            </p>
+          </div>
+        ) : posts.length ? (
           posts.map((post) => <PostCard key={post.id} post={post} />)
         ) : (
           <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center xl:col-span-2">

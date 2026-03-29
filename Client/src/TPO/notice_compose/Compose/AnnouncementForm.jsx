@@ -1,3 +1,5 @@
+import FileAttachmentsField from "./FileAttachmentsField";
+
 const departmentOptions = [
   "All Departments",
   "CSE",
@@ -8,6 +10,8 @@ const departmentOptions = [
   "Civil",
   "MBA",
 ];
+
+const yearOptions = ["All Years", "1", "2", "3", "4"];
 
 function Field({ label, children, hint }) {
   return (
@@ -29,6 +33,7 @@ export default function AnnouncementForm({
   formData,
   onFieldChange,
   onFileChange,
+  onRemoveFile,
 }) {
   return (
     <div className="grid gap-5 rounded-[28px] border border-slate-200 bg-slate-50/60 p-5">
@@ -63,6 +68,20 @@ export default function AnnouncementForm({
             ))}
           </select>
         </Field>
+
+        <Field label="Target Year">
+          <select
+            value={formData.year}
+            onChange={(event) => onFieldChange("year", event.target.value)}
+            className={inputClassName()}
+          >
+            {yearOptions.map((year) => (
+              <option key={year} value={year === "All Years" ? "" : year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </Field>
       </div>
 
       <Field label="Description" hint="Required">
@@ -75,18 +94,11 @@ export default function AnnouncementForm({
         />
       </Field>
 
-      <Field label="File Upload" hint="Optional">
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
-          <input
-            type="file"
-            onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800"
-          />
-          <p className="mt-3 text-xs text-slate-500">
-            {formData.attachmentName || formData.file?.name || "No file selected"}
-          </p>
-        </div>
-      </Field>
+      <FileAttachmentsField
+        files={formData.files}
+        onFileChange={onFileChange}
+        onRemoveFile={onRemoveFile}
+      />
     </div>
   );
 }

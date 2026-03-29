@@ -8,13 +8,13 @@ function formatDate(value) {
 
 const badgeClasses = {
   announcement: "bg-slate-100 text-slate-700",
-  job: "bg-slate-900 text-white",
+  placement: "bg-slate-900 text-white",
   internship: "bg-emerald-100 text-emerald-800",
 };
 
 const typeLabels = {
   announcement: "Announcement",
-  job: "Job Opportunity",
+  placement: "Placement Opportunity",
   internship: "Internship",
 };
 
@@ -56,7 +56,9 @@ export default function PostTable({ posts, onView, onEdit, onDelete }) {
                 <td className="px-5 py-4">
                   <div>
                     <p className="font-semibold text-slate-900">{post.title}</p>
-                    <p className="mt-1 text-sm text-slate-500">{post.department}</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {post.department}{post.year ? ` | Year ${post.year}` : ""}
+                    </p>
                   </div>
                 </td>
                 <td className="px-5 py-4">

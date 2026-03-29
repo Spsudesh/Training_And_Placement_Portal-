@@ -1,12 +1,12 @@
 const badgeClasses = {
   announcement: "bg-slate-100 text-slate-700",
-  job: "bg-slate-900 text-white",
+  placement: "bg-slate-900 text-white",
   internship: "bg-emerald-100 text-emerald-800",
 };
 
 const typeLabels = {
   announcement: "Announcement",
-  job: "Job Opportunity",
+  placement: "Placement Opportunity",
   internship: "Internship",
 };
 
@@ -42,7 +42,7 @@ export default function ViewModal({ post, onClose }) {
                 {typeLabels[post.type]}
               </span>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                {post.department}
+                {post.department}{post.year ? ` | Year ${post.year}` : ""}
               </span>
             </div>
             <h3 className="mt-4 text-2xl font-bold text-slate-900">{post.title}</h3>
@@ -63,36 +63,26 @@ export default function ViewModal({ post, onClose }) {
             <InfoBlock label="Company" value={post.companyName} />
             <InfoBlock label="Role" value={post.role} />
             <InfoBlock label="Location" value={post.location} />
-            {post.type === "job" ? <InfoBlock label="CTC" value={post.ctc} /> : null}
-            <InfoBlock label="CGPA" value={post.cgpa} />
-            <InfoBlock label="Backlogs" value={post.backlogs} />
+            {post.type === "placement" ? <InfoBlock label="CTC" value={post.ctc} /> : null}
+            {post.type === "internship" ? <InfoBlock label="Stipend" value={post.stipend} /> : null}
+            {post.type === "internship" ? <InfoBlock label="Duration" value={post.duration} /> : null}
+            <InfoBlock label="Min CGPA" value={post.minCgpa} />
+            <InfoBlock label="Max Backlogs" value={post.maxBacklogs} />
             <InfoBlock label="Deadline" value={post.deadline} />
           </div>
         ) : null}
 
-        {post.hiringProcess?.length && post.type !== "announcement" ? (
-          <div className="mt-6 rounded-[28px] border border-slate-200 p-5">
-            <p className="text-sm font-semibold text-slate-900">Hiring Process</p>
-            <div className="mt-4 space-y-3">
-              {post.hiringProcess.map((stage, index) => (
-                <div
-                  key={`${stage}-${index}`}
-                  className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                    {index + 1}
-                  </span>
-                  <span className="text-sm text-slate-700">{stage}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {post.attachmentName ? (
+        {post.attachmentUrl ? (
           <div className="mt-6 rounded-[28px] border border-dashed border-slate-300 bg-slate-50 px-5 py-4">
             <p className="text-sm font-semibold text-slate-900">Attachment</p>
-            <p className="mt-2 text-sm text-slate-600">{post.attachmentName}</p>
+            <a
+              href={post.attachmentUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex text-sm font-medium text-cyan-700 hover:text-cyan-800"
+            >
+              Open attached file
+            </a>
           </div>
         ) : null}
       </div>

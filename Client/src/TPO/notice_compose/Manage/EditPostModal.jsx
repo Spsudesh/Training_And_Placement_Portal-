@@ -7,11 +7,9 @@ export default function EditPostModal({
   onTypeChange,
   onFieldChange,
   onFileChange,
-  onStageChange,
-  onAddStage,
-  onRemoveStage,
-  onSaveDraft,
+  onRemoveFile,
   onPublish,
+  isSaving,
 }) {
   if (!post) {
     return null;
@@ -26,12 +24,10 @@ export default function EditPostModal({
           onTypeChange={onTypeChange}
           onFieldChange={onFieldChange}
           onFileChange={onFileChange}
-          onStageChange={onStageChange}
-          onAddStage={onAddStage}
-          onRemoveStage={onRemoveStage}
-          onSaveDraft={onSaveDraft}
+          onRemoveFile={onRemoveFile}
           onPublish={onPublish}
           onCancelEdit={onClose}
+          isSaving={isSaving}
           title="Edit Post"
           description="Update the selected notice in the same compose format and save when ready."
         />

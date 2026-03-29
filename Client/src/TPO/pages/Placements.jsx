@@ -13,17 +13,20 @@ import {
 } from "lucide-react";
 import TpoSidebar from "./Tpo_sidebar";
 import {
-  buildPlacementPayload,
   emptyPlacementForm,
   formatPlacementDeadline,
   getPlacementFormFromJob,
   isPlacementActive,
   isPlacementFormValid,
-  loadPlacementJobs,
   normalizePlacementAttachment,
-  savePlacementJobs,
   splitLines,
 } from "../../shared/placementJobs";
+import {
+  createPlacement,
+  deletePlacement,
+  fetchPlacements,
+  updatePlacement,
+} from "../../shared/placementApi";
 
 const listTabs = [
   { key: "all", label: "All Jobs" },
@@ -168,6 +171,17 @@ function InlineDetail({ label, value }) {
   );
 }
 
+function EligibilityMetricCard({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-slate-900">{value || "Not specified"}</p>
+    </div>
+  );
+}
+
 function getWorkflowStyles(status) {
   if (status === "completed") {
     return {
@@ -216,12 +230,17 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
     return <p className="text-sm leading-6 text-slate-500">No workflow data available.</p>;
   }
 
-  const firstStageCount = workflow[0]?.selectedCount ?? 0;
-  const finalStageCount = workflow[workflow.length - 1]?.selectedCount ?? 0;
   const currentStage = workflow.find((item) => item.status === "current")?.stage || "Completed";
-  const conversionRate = firstStageCount > 0
+  const completedStages = workflow.filter((item) => item.status === "completed").length;
+  const upcomingStages = workflow.filter((item) => item.status === "upcoming").length;
+  const hasSelectionCounts = workflow.some(
+    (item) => item.selectedCount !== null && item.selectedCount !== undefined,
+  );
+  const firstStageCount = hasSelectionCounts ? workflow[0]?.selectedCount ?? 0 : 0;
+  const finalStageCount = hasSelectionCounts ? workflow[workflow.length - 1]?.selectedCount ?? 0 : 0;
+  const conversionRate = hasSelectionCounts && firstStageCount > 0
     ? `${Math.round((finalStageCount / firstStageCount) * 100)}%`
-    : "0%";
+    : null;
 
   return (
     <section className="space-y-5">
@@ -243,21 +262,23 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Applied Pool
+              Total Rounds
             </p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{firstStageCount}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{workflow.length}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Final Selected
+              Completed
             </p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{finalStageCount}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{completedStages}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Selection Rate
+              {conversionRate ? "Selection Rate" : "Upcoming"}
             </p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{conversionRate}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {conversionRate || upcomingStages}
+            </p>
           </div>
         </div>
       </div>
@@ -301,7 +322,9 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
                     </span>
                     <div>
                       <p className="text-base font-semibold text-slate-900">{item.stage}</p>
-                      <p className="mt-1 text-sm text-slate-500">{item.date}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Round Date: {item.date || "Date not scheduled"}
+                      </p>
                     </div>
                   </div>
 
@@ -309,10 +332,12 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
                     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${styles.badge}`}>
                       {item.status}
                     </span>
-                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
-                      <Users className="h-3.5 w-3.5" />
-                      {item.selectedCount} students
-                    </span>
+                    {item.selectedCount !== null && item.selectedCount !== undefined ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+                        <Users className="h-3.5 w-3.5" />
+                        {item.selectedCount} students
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -327,13 +352,16 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
 export default function Placements({ onLogout }) {
   const fileInputRef = useRef(null);
   const formRef = useRef(null);
-  const [jobs, setJobs] = useState(() => loadPlacementJobs());
-  const [selectedJobId, setSelectedJobId] = useState(() => loadPlacementJobs()[0]?.id ?? null);
+  const [jobs, setJobs] = useState([]);
+  const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeListTab, setActiveListTab] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingJobId, setEditingJobId] = useState(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [attachmentError, setAttachmentError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState("job-description");
   const [formData, setFormData] = useState(emptyPlacementForm);
 
@@ -356,8 +384,42 @@ export default function Placements({ onLogout }) {
   }, [filteredJobs, jobs, selectedJobId]);
 
   useEffect(() => {
-    savePlacementJobs(jobs);
-  }, [jobs]);
+    let isMounted = true;
+
+    async function loadJobs() {
+      try {
+        const nextJobs = await fetchPlacements();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setJobs(nextJobs);
+        setSelectedJobId((currentId) => {
+          const stillExists = nextJobs.some((job) => String(job.id) === String(currentId));
+          return stillExists ? currentId : nextJobs[0]?.id ?? null;
+        });
+        setLoadError("");
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setJobs([]);
+        setLoadError(error.response?.data?.message || "Unable to load placements from the server.");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadJobs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!feedbackMessage) {
@@ -390,13 +452,44 @@ export default function Placements({ onLogout }) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
-  function updateAttachmentNotice(index, value) {
+  function handleWorkflowChange(index, field, value) {
     setFormData((prev) => ({
       ...prev,
-      attachment: normalizePlacementAttachment(prev.attachment).map((item, itemIndex) =>
-        itemIndex === index ? { ...item, notice: value } : item,
-      ),
+      workflow: (prev.workflow ?? []).map((item, itemIndex) => (
+        itemIndex === index
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item
+      )),
     }));
+  }
+
+  function addWorkflowStage() {
+    setFormData((prev) => ({
+      ...prev,
+      workflow: [...(prev.workflow ?? []), { roundName: "", roundDate: "" }],
+    }));
+  }
+
+  function removeWorkflowStage(index) {
+    setFormData((prev) => {
+      const nextWorkflow = (prev.workflow ?? []).filter((_, itemIndex) => itemIndex !== index);
+
+      return {
+        ...prev,
+        workflow: nextWorkflow.length > 0 ? nextWorkflow : [{ roundName: "", roundDate: "" }],
+      };
+    });
+  }
+
+  function openAttachmentInWindow(url) {
+    if (!url) {
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer,width=1100,height=800");
   }
 
   function handleDeviceUpload(event) {
@@ -409,8 +502,8 @@ export default function Placements({ onLogout }) {
     const allowedExtensions = ["pdf", "doc", "docx"];
     const currentAttachments = normalizePlacementAttachment(formData.attachment);
 
-    if (currentAttachments.length + files.length > 3) {
-      setAttachmentError("You can attach up to 3 files only.");
+    if (currentAttachments.length + files.length > 6) {
+      setAttachmentError("You can attach up to 6 documents for one placement.");
       event.target.value = "";
       return;
     }
@@ -426,40 +519,23 @@ export default function Placements({ onLogout }) {
       return;
     }
 
-    Promise.all(
-      files.map(
-        (file) =>
-          new Promise((resolve, reject) => {
-            const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-            const reader = new FileReader();
+    const nextAttachments = files.map((file) => {
+      const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
 
-            reader.onload = () => {
-              resolve({
-                name: file.name,
-                type: file.type || extension.toUpperCase(),
-                url: typeof reader.result === "string" ? reader.result : "",
-                notice: "",
-              });
-            };
+      return {
+        name: file.name,
+        type: file.type || extension.toUpperCase(),
+        url: URL.createObjectURL(file),
+        notice: "",
+        file,
+      };
+    });
 
-            reader.onerror = () => {
-              reject(new Error("Unable to read the selected file."));
-            };
-
-            reader.readAsDataURL(file);
-          }),
-      ),
-    )
-      .then((nextAttachments) => {
-        setFormData((prev) => ({
-          ...prev,
-          attachment: [...normalizePlacementAttachment(prev.attachment), ...nextAttachments],
-        }));
-        setAttachmentError("");
-      })
-      .catch(() => {
-        setAttachmentError("Unable to read the selected file.");
-      });
+    setFormData((prev) => ({
+      ...prev,
+      attachment: [...normalizePlacementAttachment(prev.attachment), ...nextAttachments],
+    }));
+    setAttachmentError("");
 
     event.target.value = "";
   }
@@ -506,7 +582,7 @@ export default function Placements({ onLogout }) {
     setShowAddForm(true);
   }
 
-  function handleDeletePlacement() {
+  async function handleDeletePlacement() {
     if (!selectedJob) {
       return;
     }
@@ -520,52 +596,65 @@ export default function Placements({ onLogout }) {
     }
 
     const deletedJobId = selectedJob.id;
-    const deletedIndex = jobs.findIndex((job) => job.id === deletedJobId);
-    const updatedJobs = jobs.filter((job) => job.id !== deletedJobId);
-    const nextJob =
-      updatedJobs[deletedIndex] ??
-      updatedJobs[Math.max(deletedIndex - 1, 0)] ??
-      null;
 
-    setJobs(updatedJobs);
-    setSelectedJobId(nextJob?.id ?? null);
-    setFeedbackMessage("Placement deleted");
+    try {
+      await deletePlacement(deletedJobId);
 
-    if (editingJobId === deletedJobId) {
-      resetFormState();
+      const deletedIndex = jobs.findIndex((job) => job.id === deletedJobId);
+      const updatedJobs = jobs.filter((job) => job.id !== deletedJobId);
+      const nextJob =
+        updatedJobs[deletedIndex] ??
+        updatedJobs[Math.max(deletedIndex - 1, 0)] ??
+        null;
+
+      setJobs(updatedJobs);
+      setSelectedJobId(nextJob?.id ?? null);
+      setFeedbackMessage("Placement deleted");
+      setLoadError("");
+
+      if (editingJobId === deletedJobId) {
+        resetFormState();
+      }
+    } catch (error) {
+      setLoadError(error.response?.data?.message || "Unable to delete placement.");
     }
   }
 
-  function handlePlacementSubmit(event) {
+  async function handlePlacementSubmit(event) {
     event.preventDefault();
 
-    if (!isPlacementFormValid(formData)) {
+    if (!isPlacementFormValid(formData) || isSubmitting) {
       return;
     }
 
-    const jobPayload = buildPlacementPayload(formData);
+    setIsSubmitting(true);
 
-    if (editingJobId) {
-      setJobs((prev) =>
-        prev.map((job) =>
-          job.id === editingJobId ? { ...job, ...jobPayload, id: editingJobId } : job,
-        ),
-      );
-      setSelectedJobId(editingJobId);
-      setFeedbackMessage("Placement updated successfully");
-    } else {
-      const newJob = {
-        id: `job-${Date.now()}`,
-        ...jobPayload,
-      };
+    try {
+      if (editingJobId) {
+        const existingPlacement = jobs.find((job) => String(job.id) === String(editingJobId)) ?? null;
+        const updatedPlacement = await updatePlacement(editingJobId, formData, existingPlacement);
 
-      setJobs((prev) => [newJob, ...prev]);
-      setSelectedJobId(newJob.id);
-      setFeedbackMessage("Placement published successfully");
+        setJobs((prev) =>
+          prev.map((job) => (String(job.id) === String(editingJobId) ? updatedPlacement : job)),
+        );
+        setSelectedJobId(updatedPlacement.id);
+        setFeedbackMessage("Placement updated successfully");
+      } else {
+        const createdPlacement = await createPlacement(formData);
+
+        setJobs((prev) => [createdPlacement, ...prev]);
+        setSelectedJobId(createdPlacement.id);
+        setFeedbackMessage("Placement published successfully");
+      }
+
+      setActiveListTab("all");
+      setLoadError("");
+      resetFormState();
+    } catch (error) {
+      setLoadError(error.response?.data?.message || "Unable to save placement.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setActiveListTab("all");
-    resetFormState();
   }
 
   function renderJobDetailsContent() {
@@ -575,8 +664,54 @@ export default function Placements({ onLogout }) {
 
     if (activeDetailTab === "eligibility") {
       return (
-        <section className="py-8">
-          <p className="text-sm leading-6 text-slate-500">Eligibility criteria will be added soon.</p>
+        <section className="space-y-6 py-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <EligibilityMetricCard
+              label="Min CGPA"
+              value={selectedJob.additional?.minCgpa}
+            />
+            <EligibilityMetricCard
+              label="Max Backlogs"
+              value={selectedJob.additional?.maxBacklogs}
+            />
+            <EligibilityMetricCard
+              label="Allowed Departments"
+              value={selectedJob.additional?.allowedDepartments}
+            />
+            <EligibilityMetricCard
+              label="Passing Year"
+              value={selectedJob.additional?.passingYear}
+            />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+              <h4 className="text-sm font-semibold text-slate-900">Required Skills</h4>
+              <div className="mt-3">
+                {selectedJob.additional?.requiredSkills?.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedJob.additional.requiredSkills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">No skills specified.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+              <h4 className="text-sm font-semibold text-slate-900">Additional Eligibility Notes</h4>
+              <div className="mt-3">
+                <TextWithShowMore text={selectedJob.additional?.extraInfo} limit={180} />
+              </div>
+            </div>
+          </div>
         </section>
       );
     }
@@ -734,6 +869,9 @@ export default function Placements({ onLogout }) {
 
         {feedbackMessage ? (
           <p className="mt-4 text-sm font-medium text-emerald-600">{feedbackMessage}</p>
+        ) : null}
+        {loadError ? (
+          <p className="mt-2 text-sm font-medium text-rose-600">{loadError}</p>
         ) : null}
 
         {showAddForm ? (
@@ -942,6 +1080,59 @@ export default function Placements({ onLogout }) {
               </section>
 
               <section>
+                <SectionHeader title="Eligibility Criteria" />
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <label className="text-sm font-medium text-slate-700">
+                    Minimum CGPA
+                    <input
+                      name="minCgpa"
+                      type="number"
+                      step="0.01"
+                      value={formData.minCgpa}
+                      onChange={handleInputChange}
+                      placeholder="6.5"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
+                    />
+                  </label>
+
+                  <label className="text-sm font-medium text-slate-700">
+                    Maximum Backlogs
+                    <input
+                      name="maxBacklogs"
+                      type="number"
+                      value={formData.maxBacklogs}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
+                    />
+                  </label>
+
+                  <label className="text-sm font-medium text-slate-700">
+                    Allowed Departments
+                    <input
+                      name="allowedDepartments"
+                      value={formData.allowedDepartments}
+                      onChange={handleInputChange}
+                      placeholder="CSE, IT, MECH"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
+                    />
+                  </label>
+
+                  <label className="text-sm font-medium text-slate-700">
+                    Passing Year
+                    <input
+                      name="passingYear"
+                      type="number"
+                      value={formData.passingYear}
+                      onChange={handleInputChange}
+                      placeholder="2026"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section>
                 <SectionHeader title="Additional Details" />
                 <div className="mt-4 grid gap-4 lg:grid-cols-2">
                   <label className="text-sm font-medium text-slate-700">
@@ -974,7 +1165,7 @@ export default function Placements({ onLogout }) {
                           Upload placement documents
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          Add notices alongside each uploaded file.
+                          Attach multiple PDF, DOC, or DOCX files for this opportunity.
                         </p>
                       </div>
 
@@ -1016,28 +1207,32 @@ export default function Placements({ onLogout }) {
                                 </p>
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() => clearAttachment(index)}
-                                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
-                              >
-                                Remove
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openAttachmentInWindow(item.url)}
+                                  disabled={!item.url}
+                                  className="rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                                >
+                                  View
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => clearAttachment(index)}
+                                  className="rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                                >
+                                  Remove
+                                </button>
+                              </div>
                             </div>
 
-                            <textarea
-                              value={item.notice}
-                              onChange={(event) => updateAttachmentNotice(index, event.target.value)}
-                              rows={3}
-                              placeholder={`Add notice for attachment ${index + 1}.`}
-                              className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
-                            />
                           </div>
                         ))}
                       </div>
                     ) : (
                       <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-6 text-center text-sm text-slate-500">
-                        Upload documents to attach notices, brochures, or placement instructions.
+                        Upload placement documents for students.
                       </div>
                     )}
 
@@ -1058,6 +1253,73 @@ export default function Placements({ onLogout }) {
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
                   />
                 </label>
+              </section>
+
+              <section>
+                <SectionHeader title="Hiring Workflow" />
+                <div className="mt-4 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Add hiring rounds</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Enter each round name and its scheduled date in order.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={addWorkflowStage}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      Add Round
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {(formData.workflow ?? []).map((item, index) => (
+                      <div
+                        key={`workflow-stage-${index}`}
+                        className="rounded-3xl border border-slate-200 bg-white p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="grid min-w-0 flex-1 gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                            <label className="text-sm font-medium text-slate-700">
+                              Round Name
+                              <input
+                                value={item.roundName}
+                                onChange={(event) => handleWorkflowChange(index, "roundName", event.target.value)}
+                                placeholder="Technical Interview"
+                                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
+                              />
+                            </label>
+
+                            <label className="text-sm font-medium text-slate-700">
+                              Round Date
+                              <div className="relative mt-2">
+                                <input
+                                  type="date"
+                                  value={item.roundDate}
+                                  onChange={(event) => handleWorkflowChange(index, "roundDate", event.target.value)}
+                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
+                                />
+                                <Calendar className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+                              </div>
+                            </label>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeWorkflowStage(index)}
+                            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </section>
             </div>
 
@@ -1081,10 +1343,15 @@ export default function Placements({ onLogout }) {
 
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="inline-flex items-center gap-2 rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700"
                 >
                   <SendHorizonal className="h-4 w-4" />
-                  {editingJobId ? "Update Placement" : "Publish Opportunity"}
+                  {isSubmitting
+                    ? "Saving..."
+                    : editingJobId
+                      ? "Update Placement"
+                      : "Publish Opportunity"}
                 </button>
               </div>
             </div>
@@ -1119,7 +1386,10 @@ export default function Placements({ onLogout }) {
               </div>
 
               <div className="mt-3 min-h-0 flex-1 overflow-y-auto scroll-smooth pr-1">
-                {filteredJobs.length === 0 ? (
+                {isLoading ? (
+                  <p className="py-8 text-sm text-slate-500">Loading placements...</p>
+                ) : null}
+                {!isLoading && filteredJobs.length === 0 ? (
                   <p className="py-8 text-sm text-slate-500">No jobs available.</p>
                 ) : (
                   filteredJobs.map((job) => {

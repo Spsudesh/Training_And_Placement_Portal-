@@ -22,19 +22,20 @@ const departmentOptions = [
   "MBA",
 ];
 
+const yearOptions = ["All Years", "1", "2", "3", "4"];
+
 export default function JobForm({
   formData,
   onFieldChange,
-  onStageChange,
-  onAddStage,
-  onRemoveStage,
+  onFileChange,
+  onRemoveFile,
 }) {
   return (
     <div className="space-y-5 rounded-[28px] border border-slate-200 bg-slate-50/60 p-5">
       <div>
-        <p className="text-sm font-semibold text-slate-900">Job Opportunity Details</p>
+        <p className="text-sm font-semibold text-slate-900">Placement Opportunity Details</p>
         <p className="mt-1 text-sm text-slate-500">
-          Add recruiter-specific information and the full process flow.
+          Add recruiter-specific information for the placement notice.
         </p>
       </div>
 
@@ -107,22 +108,37 @@ export default function JobForm({
 
         <Field label="CGPA">
           <input
-            type="text"
-            value={formData.cgpa}
-            onChange={(event) => onFieldChange("cgpa", event.target.value)}
-            placeholder="7.0 and above"
+            type="number"
+            step="0.01"
+            value={formData.minCgpa}
+            onChange={(event) => onFieldChange("minCgpa", event.target.value)}
+            placeholder="7.0"
             className={inputClassName()}
           />
         </Field>
 
-        <Field label="Backlogs">
+        <Field label="Max Backlogs">
           <input
-            type="text"
-            value={formData.backlogs}
-            onChange={(event) => onFieldChange("backlogs", event.target.value)}
-            placeholder="No active backlogs"
+            type="number"
+            value={formData.maxBacklogs}
+            onChange={(event) => onFieldChange("maxBacklogs", event.target.value)}
+            placeholder="0"
             className={inputClassName()}
           />
+        </Field>
+
+        <Field label="Target Year">
+          <select
+            value={formData.year}
+            onChange={(event) => onFieldChange("year", event.target.value)}
+            className={inputClassName()}
+          >
+            {yearOptions.map((year) => (
+              <option key={year} value={year === "All Years" ? "" : year}>
+                {year}
+              </option>
+            ))}
+          </select>
         </Field>
       </div>
 
@@ -136,50 +152,11 @@ export default function JobForm({
         />
       </Field>
 
-      <Field label="File Upload">
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
-          <input
-            type="file"
-            onChange={(event) => onFieldChange("file", event.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800"
-          />
-          <p className="mt-3 text-xs text-slate-500">
-            {formData.attachmentName || formData.file?.name || "No file selected"}
-          </p>
-        </div>
-      </Field>
-
-      <Field label="Hiring Process">
-        <div className="space-y-3">
-          {formData.hiringProcess.map((stage, index) => (
-            <div key={`${stage}-${index}`} className="flex gap-3">
-              <input
-                type="text"
-                value={stage}
-                onChange={(event) => onStageChange(index, event.target.value)}
-                placeholder={`Stage ${index + 1}`}
-                className={`${inputClassName()} flex-1`}
-              />
-              <button
-                type="button"
-                onClick={() => onRemoveStage(index)}
-                className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={formData.hiringProcess.length === 1}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            onClick={onAddStage}
-            className="rounded-2xl border border-dashed border-slate-400 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
-            Add Stage
-          </button>
-        </div>
-      </Field>
+      <FileAttachmentsField
+        files={formData.files}
+        onFileChange={onFileChange}
+        onRemoveFile={onRemoveFile}
+      />
 
       <Field label="Deadline">
         <input
@@ -192,3 +169,4 @@ export default function JobForm({
     </div>
   );
 }
+import FileAttachmentsField from "./FileAttachmentsField";

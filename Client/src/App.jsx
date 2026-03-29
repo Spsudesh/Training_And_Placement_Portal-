@@ -286,6 +286,23 @@ function TpoNoticeBoardApp() {
   return <Dashboard onLogout={handleLogout} />;
 }
 
+function TpcNoticeBoardApp() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    clearActivePanel();
+    navigate("/login", { replace: true });
+  };
+
+  return (
+    <Dashboard
+      onLogout={handleLogout}
+      panelScope="tpc"
+      pageTitle="Notice Compose Center"
+    />
+  );
+}
+
 function TpoPlacementsApp() {
   const navigate = useNavigate();
 
@@ -480,6 +497,14 @@ function App() {
           element={
             <ProtectedRoute allowedPanel="tpo">
               <TpoPlacementsApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tpc-dashboard/notice-board"
+          element={
+            <ProtectedRoute allowedPanel="tpc">
+              <TpcNoticeBoardApp />
             </ProtectedRoute>
           }
         />

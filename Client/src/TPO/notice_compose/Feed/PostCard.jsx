@@ -1,12 +1,12 @@
 const badgeClasses = {
   announcement: "bg-slate-100 text-slate-700",
-  job: "bg-slate-900 text-white",
+  placement: "bg-slate-900 text-white",
   internship: "bg-emerald-100 text-emerald-800",
 };
 
 const typeLabels = {
   announcement: "Announcement",
-  job: "Job Opportunity",
+  placement: "Placement Opportunity",
   internship: "Internship",
 };
 
@@ -22,7 +22,7 @@ export default function PostCard({ post }) {
           {typeLabels[post.type]}
         </span>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-          {post.department}
+          {post.department}{post.year ? ` | Year ${post.year}` : ""}
         </span>
         {post.status === "draft" ? (
           <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
@@ -53,7 +53,7 @@ export default function PostCard({ post }) {
               Eligibility
             </p>
             <p className="mt-2 text-sm font-semibold text-slate-800">
-              CGPA: {post.cgpa || "-"} | Backlogs: {post.backlogs || "-"}
+              CGPA: {post.minCgpa || "-"} | Backlogs: {post.maxBacklogs || "-"}
             </p>
           </div>
           <div className="rounded-2xl bg-slate-50 px-4 py-3">
@@ -73,12 +73,20 @@ export default function PostCard({ post }) {
             year: "numeric",
           })}
         </p>
-        <button
-          type="button"
-          className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-        >
-          {post.attachmentName ? "View Attachment" : "No Attachment"}
-        </button>
+        {post.attachmentUrl ? (
+          <a
+            href={post.attachmentUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            View Attachment
+          </a>
+        ) : (
+          <span className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-400">
+            No Attachment
+          </span>
+        )}
       </div>
     </article>
   );
