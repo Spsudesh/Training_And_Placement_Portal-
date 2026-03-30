@@ -1,8 +1,4 @@
-import axios from "axios";
-
-const tpoApi = axios.create({
-  baseURL: "http://localhost:3000/tpo/dashboard",
-});
+import { apiClient } from "../../shared/apiClient";
 
 const dashboardSnapshot = {
   overview: {
@@ -71,7 +67,7 @@ const dashboardSnapshot = {
 
 export const getDashboardData = async () => {
   try {
-    const response = await tpoApi.get("/");
+    const response = await apiClient.get("/tpo/dashboard");
     return response.data?.data ?? response.data;
   } catch {
     // Keep the current dashboard visible until the backend endpoints are ready.

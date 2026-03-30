@@ -8,6 +8,12 @@ import {
   useNavigate,
 } from "react-router-dom";
 import "./index.css";
+import { continueUserSession, logoutUser } from "./shared/authApi";
+import {
+  AUTH_SESSION_EVENT,
+  getRefreshTokenExpiresAt,
+  hasActiveSession,
+} from "./shared/authSession";
 import LoginPage from "./components/loginPage/LoginPage";
 import SignupPage from "./components/loginPage/SignupPage";
 import Overview from "./TPO/pages/Overview";
@@ -26,12 +32,16 @@ import StudentListPage from "./TPC_Panel/student_verification/pages/StudentListP
 import { getStudentVerificationRecords } from "./TPC_Panel/student_verification/services/studentVerificationApi";
 import TpoStudentDetailsPage from "./TPO_Panel/student_management/pages/StudentDetailsPage";
 import TpoStudentListPage from "./TPO_Panel/student_management/pages/StudentListPage";
-import { studentManagementData } from "./TPO_Panel/student_management/utils/dummyData";
+import {
+  getTpoStudentManagementRecord,
+  getTpoStudentManagementRecords,
+} from "./TPO_Panel/student_management/services/studentManagementApi";
 
 const AUTH_STORAGE_KEY = "training-placement-active-panel";
 const STUDENT_ID_STORAGE_KEY = "training-placement-active-student";
 const STUDENT_FORM_STATUS_KEY = "training-placement-student-form-status";
 const ACTIVE_USER_EMAIL_STORAGE_KEY = "training-placement-active-user-email";
+const REFRESH_WARNING_WINDOW_MS = 2 * 60 * 1000;
 
 function getActivePanel() {
   return window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -99,10 +109,16 @@ function clearActivePanel() {
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
+function clearClientSessionState() {
+  clearActivePanel();
+  clearActiveStudentId();
+  clearActiveUserEmail();
+}
+
 function ProtectedRoute({ allowedPanel, children }) {
   const activePanel = getActivePanel();
 
-  if (activePanel !== allowedPanel) {
+  if (!hasActiveSession() || activePanel !== allowedPanel) {
     return <Navigate to="/login" replace />;
   }
 
@@ -165,10 +181,10 @@ function StudentApp() {
   const isProfileFormRoute = location.pathname.startsWith("/student-panel/profile-form");
 
   const handleLogout = () => {
-    clearActivePanel();
-    clearActiveStudentId();
-    clearActiveUserEmail();
-    navigate("/login", { replace: true });
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
   };
 
   return (
@@ -276,9 +292,10 @@ function TpoOverviewApp() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    clearActivePanel();
-    clearActiveUserEmail();
-    navigate("/login", { replace: true });
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
   };
 
   return <Overview onLogout={handleLogout} />;
@@ -288,9 +305,10 @@ function TpoNoticeBoardApp() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    clearActivePanel();
-    clearActiveUserEmail();
-    navigate("/login", { replace: true });
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
   };
 
   return <Dashboard onLogout={handleLogout} />;
@@ -300,9 +318,10 @@ function TpcNoticeBoardApp() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    clearActivePanel();
-    clearActiveUserEmail();
-    navigate("/login", { replace: true });
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
   };
 
   return (
@@ -318,9 +337,10 @@ function TpoPlacementsApp() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    clearActivePanel();
-    clearActiveUserEmail();
-    navigate("/login", { replace: true });
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
   };
 
   return <Placements onLogout={handleLogout} />;
@@ -328,13 +348,52 @@ function TpoPlacementsApp() {
 
 function TpoStudentsApp() {
   const navigate = useNavigate();
-  const [students, setStudents] = useState(studentManagementData);
+  const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+  const [studentsError, setStudentsError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadStudents() {
+      try {
+        setIsLoadingStudents(true);
+        setStudentsError("");
+        const records = await getTpoStudentManagementRecords();
+
+        if (isMounted) {
+          setStudents(records);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setStudents([]);
+          setStudentsError(
+            error?.response?.data?.message ||
+              error?.response?.data?.error ||
+              error?.message ||
+              "Failed to fetch TPO student management records.",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingStudents(false);
+        }
+      }
+    }
+
+    loadStudents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleLogout = () => {
-    clearActivePanel();
-    clearActiveUserEmail();
-    navigate("/login", { replace: true });
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
   };
 
   return (
@@ -345,6 +404,8 @@ function TpoStudentsApp() {
           element={
             <TpoStudentListPage
               students={students}
+              isLoading={isLoadingStudents}
+              errorMessage={studentsError}
               setStudents={setStudents}
               setSelectedStudent={setSelectedStudent}
             />
@@ -355,6 +416,9 @@ function TpoStudentsApp() {
           element={
             <TpoStudentDetailsPage
               students={students}
+              isLoading={isLoadingStudents}
+              errorMessage={studentsError}
+              getStudentRecord={getTpoStudentManagementRecord}
               selectedStudent={selectedStudent}
               setSelectedStudent={setSelectedStudent}
             />
@@ -375,8 +439,10 @@ function TpcApp() {
   const [studentsError, setStudentsError] = useState("");
 
   const handleLogout = () => {
-    clearActivePanel();
-    navigate("/login", { replace: true });
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
   };
 
   const isStudentVerificationRoute = location.pathname.startsWith(
@@ -456,9 +522,121 @@ function TpcApp() {
   );
 }
 
-function App() {
+function SessionExpiryModal({ isOpen, onContinue, onLogout, isRefreshing }) {
+  if (!isOpen) {
+    return null;
+  }
+
   return (
-    <Router>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-600">
+          Session Expiring
+        </p>
+        <h2 className="mt-2 text-2xl font-bold text-slate-900">Continue your session?</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          Your refresh session will expire in under 2 minutes. Choose continue to stay signed in,
+          or logout to end the session now.
+        </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Logout
+          </button>
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={isRefreshing}
+            className="rounded-xl bg-blue-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-70"
+          >
+            {isRefreshing ? "Continuing..." : "Continue Session"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppShell() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isSessionPromptOpen, setIsSessionPromptOpen] = useState(false);
+  const [isRefreshingSession, setIsRefreshingSession] = useState(false);
+
+  useEffect(() => {
+    let warningTimeoutId;
+    let expiryTimeoutId;
+
+    function syncSessionTimers() {
+      const refreshTokenExpiresAt = getRefreshTokenExpiresAt();
+
+      window.clearTimeout(warningTimeoutId);
+      window.clearTimeout(expiryTimeoutId);
+
+      if (!hasActiveSession() || !refreshTokenExpiresAt) {
+        setIsSessionPromptOpen(false);
+
+        if (location.pathname !== "/login" && location.pathname !== "/signup") {
+          navigate("/login", { replace: true });
+        }
+
+        return;
+      }
+
+      const currentTime = Date.now();
+      const warningDelay = Math.max(refreshTokenExpiresAt - currentTime - REFRESH_WARNING_WINDOW_MS, 0);
+      const expiryDelay = Math.max(refreshTokenExpiresAt - currentTime, 0);
+
+      warningTimeoutId = window.setTimeout(() => {
+        setIsSessionPromptOpen(true);
+      }, warningDelay);
+
+      expiryTimeoutId = window.setTimeout(() => {
+        setIsSessionPromptOpen(false);
+        clearClientSessionState();
+        logoutUser().finally(() => {
+          navigate("/login", { replace: true });
+        });
+      }, expiryDelay);
+    }
+
+    syncSessionTimers();
+    window.addEventListener(AUTH_SESSION_EVENT, syncSessionTimers);
+
+    return () => {
+      window.clearTimeout(warningTimeoutId);
+      window.clearTimeout(expiryTimeoutId);
+      window.removeEventListener(AUTH_SESSION_EVENT, syncSessionTimers);
+    };
+  }, [location.pathname, navigate]);
+
+  async function handleContinueSession() {
+    try {
+      setIsRefreshingSession(true);
+      await continueUserSession();
+      setIsSessionPromptOpen(false);
+    } catch {
+      setIsSessionPromptOpen(false);
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    } finally {
+      setIsRefreshingSession(false);
+    }
+  }
+
+  function handleLogout() {
+    setIsSessionPromptOpen(false);
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
+  }
+
+  return (
+    <>
       <Routes>
         <Route
           path="/"
@@ -544,6 +722,21 @@ function App() {
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+
+      <SessionExpiryModal
+        isOpen={isSessionPromptOpen}
+        isRefreshing={isRefreshingSession}
+        onContinue={handleContinueSession}
+        onLogout={handleLogout}
+      />
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppShell />
     </Router>
   );
 }

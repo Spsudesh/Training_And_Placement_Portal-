@@ -71,7 +71,10 @@ studentProfileGetRoutes.get('/document', async (req, res) => {
 });
 
 async function handleGetStudentProfile(req, res) {
-  const prn = req.params.prn || req.query.prn || DEFAULT_PRN;
+  const prn =
+    req.auth?.role === 'student'
+      ? req.auth.prn
+      : req.params.prn || req.query.prn || DEFAULT_PRN;
 
   try {
     const personalRows = await query(

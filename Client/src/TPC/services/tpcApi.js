@@ -1,8 +1,4 @@
-import axios from "axios";
-
-const tpcApi = axios.create({
-  baseURL: "http://localhost:3000/tpc/dashboard",
-});
+import { apiClient } from "../../shared/apiClient";
 
 const dashboardSnapshot = {
   overview: {
@@ -71,7 +67,7 @@ const dashboardSnapshot = {
 
 export const getDashboardData = async () => {
   try {
-    const response = await tpcApi.get("/");
+    const response = await apiClient.get("/tpc/dashboard");
     return response.data?.data ?? response.data;
   } catch {
     return structuredClone(dashboardSnapshot);

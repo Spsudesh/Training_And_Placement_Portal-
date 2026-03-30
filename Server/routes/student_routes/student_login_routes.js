@@ -1,5 +1,12 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const {
+  attachRefreshTokenCookie,
+  clearRefreshTokenCookie,
+  createAuthResponse,
+  getRefreshTokenFromRequest,
+  verifyRefreshToken,
+} = require('../../utils/tokenService');
 const router = express.Router();
 const db = require('../../config/db').db;
 
@@ -21,6 +28,28 @@ function normalizeEmail(email = '') {
 
 function isAllowedInstitutionEmail(email) {
   return normalizeEmail(email).endsWith(ALLOWED_EMAIL_DOMAIN);
+}
+
+function buildLoginResponse(res, user, message = 'Login successful.') {
+  const authPayload = createAuthResponse(user);
+  const refreshToken = getRefreshTokenFromAuthPayload(authPayload);
+
+  attachRefreshTokenCookie(res, refreshToken);
+
+  return {
+    success: true,
+    message,
+    ...sanitizeAuthPayload(authPayload),
+  };
+}
+
+function getRefreshTokenFromAuthPayload(authPayload) {
+  return authPayload.refreshToken || '';
+}
+
+function sanitizeAuthPayload(authPayload) {
+  const { refreshToken, ...publicAuthPayload } = authPayload;
+  return publicAuthPayload;
 }
 
 router.post('/signup', async (req, res) => {
@@ -146,16 +175,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    return res.json({
-      success: true,
-      message: 'Login successful.',
-      user: {
-        PRN: STATIC_TPO_ACCOUNT.PRN,
-        email: STATIC_TPO_ACCOUNT.email,
-        role: STATIC_TPO_ACCOUNT.role,
-        isProfileVerified: Boolean(STATIC_TPO_ACCOUNT.is_profile_verified),
-      },
-    });
+    return res.json(buildLoginResponse(res, STATIC_TPO_ACCOUNT));
   }
 
   try {
@@ -200,16 +220,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    return res.json({
-      success: true,
-      message: 'Login successful.',
-      user: {
-        PRN: user.PRN,
-        email: user.email,
-        role: user.role,
-        isProfileVerified: Boolean(user.is_profile_verified),
-      },
-    });
+    return res.json(buildLoginResponse(res, user));
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -217,6 +228,71 @@ router.post('/login', async (req, res) => {
       error: error.message,
     });
   }
+});
+
+router.post('/refresh', async (req, res) => {
+  const refreshToken = getRefreshTokenFromRequest(req);
+
+  if (!refreshToken) {
+    clearRefreshTokenCookie(res);
+    return res.status(401).json({
+      success: false,
+      message: 'Refresh token is required.',
+    });
+  }
+
+  try {
+    const decodedToken = verifyRefreshToken(refreshToken);
+    const normalizedEmail = normalizeEmail(decodedToken.email);
+
+    if (normalizedEmail === STATIC_TPO_ACCOUNT.email) {
+      return res.json(buildLoginResponse(res, STATIC_TPO_ACCOUNT, 'Session refreshed successfully.'));
+    }
+
+    const promiseDb = db.promise();
+    const [rows] = await promiseDb.query(
+      `SELECT PRN, email, role, is_profile_verified, is_active
+       FROM Student_Credentials
+       WHERE PRN = ? AND LOWER(email) = ?
+       LIMIT 1`,
+      [decodedToken.prn, normalizedEmail],
+    );
+
+    if (rows.length === 0) {
+      clearRefreshTokenCookie(res);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid refresh token.',
+      });
+    }
+
+    const user = rows[0];
+
+    if (!user.is_active) {
+      clearRefreshTokenCookie(res);
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is inactive. Please contact the administrator.',
+      });
+    }
+
+    return res.json(buildLoginResponse(res, user, 'Session refreshed successfully.'));
+  } catch (error) {
+    clearRefreshTokenCookie(res);
+    return res.status(401).json({
+      success: false,
+      message: error.name === 'TokenExpiredError' ? 'Refresh token expired.' : 'Invalid refresh token.',
+    });
+  }
+});
+
+router.post('/logout', (req, res) => {
+  clearRefreshTokenCookie(res);
+
+  return res.json({
+    success: true,
+    message: 'Logged out successfully.',
+  });
 });
 
 module.exports = router;

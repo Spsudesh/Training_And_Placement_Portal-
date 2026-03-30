@@ -1,8 +1,4 @@
-import axios from "axios";
-
-const api = axios.create({
-  baseURL: "http://localhost:3000/student/form",
-});
+import { apiClient } from "../../shared/apiClient";
 
 function appendFileIfPresent(formData, fieldName, fileValue) {
   if (fileValue?.file instanceof File) {
@@ -136,7 +132,7 @@ function createCertificationsFormData(prn, certifications) {
 }
 
 async function postFormData(endpoint, formData) {
-  const response = await api.post(endpoint, formData, {
+  const response = await apiClient.post(`/student/form${endpoint}`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -188,7 +184,7 @@ async function saveProfileSummaryDetails(prn, summary) {
 }
 
 async function getStudentProfileProgress(prn) {
-  const response = await api.get(`/progress/${prn}`);
+  const response = await apiClient.get(`/student/form/progress/${prn}`);
   return response.data?.data ?? null;
 }
 

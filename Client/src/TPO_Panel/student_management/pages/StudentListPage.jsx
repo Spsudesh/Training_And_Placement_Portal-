@@ -4,11 +4,6 @@ import { useNavigate } from "react-router-dom";
 import BlacklistModal from "../components/BlacklistModal";
 import FilterBar from "../components/FilterBar";
 import StudentTable from "../components/StudentTable";
-import {
-  departmentOptions,
-  statusOptions,
-  yearOptions,
-} from "../utils/dummyData";
 
 const initialFilters = {
   year: "All",
@@ -19,12 +14,26 @@ const initialFilters = {
 
 export default function StudentListPage({
   students,
+  isLoading,
+  errorMessage,
   setStudents,
   setSelectedStudent,
 }) {
   const navigate = useNavigate();
   const [filters, setFilters] = useState(initialFilters);
   const [blacklistTarget, setBlacklistTarget] = useState(null);
+  const yearOptions = useMemo(
+    () => ["All", ...new Set(students.map((student) => student.year).filter(Boolean))],
+    [students],
+  );
+  const departmentOptions = useMemo(
+    () => ["All", ...new Set(students.map((student) => student.department).filter(Boolean))],
+    [students],
+  );
+  const statusOptions = useMemo(
+    () => ["All", ...new Set(students.map((student) => student.status).filter(Boolean))],
+    [students],
+  );
 
   const filteredStudents = useMemo(() => {
     const searchValue = filters.search.trim().toLowerCase();
@@ -152,6 +161,8 @@ export default function StudentListPage({
       <section className="grid gap-4 xl:grid-cols-[1fr_300px]">
         <StudentTable
           students={filteredStudents}
+          isLoading={isLoading}
+          errorMessage={errorMessage}
           onView={handleView}
           onBlacklist={setBlacklistTarget}
         />
@@ -164,8 +175,8 @@ export default function StudentListPage({
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Management notes</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Blacklisting is handled locally in this frontend flow. Profile view
-                stays available, while the table badge updates immediately.
+                Student records on this page now come from the backend. The blacklist
+                badge is still handled locally until a dedicated backend action is added.
               </p>
             </div>
           </div>

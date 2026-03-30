@@ -1,16 +1,12 @@
-import axios from "axios";
-
-const verificationApi = axios.create({
-  baseURL: "http://localhost:3000/tpc/verification",
-});
+import { apiClient } from "../../../shared/apiClient";
 
 async function getStudentVerificationRecords() {
-  const response = await verificationApi.get("/students");
+  const response = await apiClient.get("/tpc/verification/students");
   return response.data?.data ?? [];
 }
 
 async function verifyStudentField(prn, fieldId) {
-  const response = await verificationApi.post(`/students/${prn}/verify-field`, {
+  const response = await apiClient.post(`/tpc/verification/students/${prn}/verify-field`, {
     fieldId,
   });
 
@@ -18,7 +14,7 @@ async function verifyStudentField(prn, fieldId) {
 }
 
 async function verifyStudentProfile(prn) {
-  const response = await verificationApi.post(`/students/${prn}/verify-profile`);
+  const response = await apiClient.post(`/tpc/verification/students/${prn}/verify-profile`);
   return response.data;
 }
 

@@ -6,6 +6,28 @@ const db = require('../../config/db').db;
 const studentFormRoutes = express.Router();
 
 studentFormRoutes.use(upload.any());
+studentFormRoutes.use((req, res, next) => {
+  const requestedPrn =
+    req.params?.prn ||
+    req.body?.prn ||
+    req.body?.PRN ||
+    req.query?.prn ||
+    '';
+
+  if (req.auth?.role === 'student') {
+    if (requestedPrn && String(requestedPrn).trim() !== String(req.auth.prn || '').trim()) {
+      return res.status(403).json({
+        message: 'You can access only your own profile data.',
+      });
+    }
+
+    if (!req.body.prn && req.method !== 'GET') {
+      req.body.prn = req.auth.prn;
+    }
+  }
+
+  return next();
+});
 
 function query(sql, values = []) {
   return new Promise((resolve, reject) => {

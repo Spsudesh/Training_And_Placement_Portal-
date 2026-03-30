@@ -1,6 +1,4 @@
-import axios from "axios";
-
-const API_ROOT = "http://localhost:3000";
+import { apiClient } from "../../shared/apiClient";
 
 function toArray(value) {
   return Array.isArray(value) ? value : value ? [value] : [];
@@ -131,7 +129,7 @@ function mapNotice(notice) {
 }
 
 export async function fetchNotices(scope = "tpo", filters = {}) {
-  const response = await axios.get(`${API_ROOT}/${scope}/notices`, {
+  const response = await apiClient.get(`/${scope}/notices`, {
     params: filters,
   });
 
@@ -140,7 +138,7 @@ export async function fetchNotices(scope = "tpo", filters = {}) {
 }
 
 export async function createNotice(scope, values, status) {
-  const response = await axios.post(`${API_ROOT}/${scope}/notices`, createNoticeFormData(values, status, scope), {
+  const response = await apiClient.post(`/${scope}/notices`, createNoticeFormData(values, status, scope), {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -150,8 +148,8 @@ export async function createNotice(scope, values, status) {
 }
 
 export async function updateNotice(scope, id, values, status, options = {}) {
-  const response = await axios.put(
-    `${API_ROOT}/${scope}/notices/${id}`,
+  const response = await apiClient.put(
+    `/${scope}/notices/${id}`,
     createNoticeFormData(values, status, scope, options),
     {
       headers: {
@@ -164,5 +162,5 @@ export async function updateNotice(scope, id, values, status, options = {}) {
 }
 
 export async function deleteNotice(scope, id) {
-  await axios.delete(`${API_ROOT}/${scope}/notices/${id}`);
+  await apiClient.delete(`/${scope}/notices/${id}`);
 }

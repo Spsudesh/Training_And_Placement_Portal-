@@ -1,8 +1,4 @@
-import axios from "axios";
-
-const profileApi = axios.create({
-  baseURL: "http://localhost:3000/student/profile",
-});
+import { apiClient } from "../../../shared/apiClient";
 
 const DEFAULT_PRN = "2453014";
 const ACTIVE_STUDENT_STORAGE_KEY = "training-placement-active-student";
@@ -14,7 +10,7 @@ function getStoredStudentPrn() {
 }
 
 async function getStudentProfile(prn = getStoredStudentPrn()) {
-  const response = await profileApi.get("/", {
+  const response = await apiClient.get("/student/profile", {
     params: { prn },
   });
 

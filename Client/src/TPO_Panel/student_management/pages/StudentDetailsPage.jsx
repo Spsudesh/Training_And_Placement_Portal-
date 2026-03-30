@@ -1,23 +1,29 @@
 import { ArrowLeft, CircleAlert, Mail, MapPin, Phone } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import StatusBadge from "../components/StatusBadge";
 import StudentProfileView from "../components/StudentProfileView";
 
 export default function StudentDetailsPage({
   students,
+  isLoading,
+  errorMessage,
+  getStudentRecord,
   selectedStudent,
   setSelectedStudent,
 }) {
   const navigate = useNavigate();
   const { prn } = useParams();
+  const [studentFromApi, setStudentFromApi] = useState(null);
+  const [isLoadingStudent, setIsLoadingStudent] = useState(false);
+  const [studentError, setStudentError] = useState("");
 
   const currentStudent = useMemo(
     () =>
       selectedStudent?.prn === prn
         ? selectedStudent
-        : students.find((student) => student.prn === prn) ?? null,
-    [prn, selectedStudent, students],
+        : students.find((student) => student.prn === prn) ?? studentFromApi ?? null,
+    [prn, selectedStudent, studentFromApi, students],
   );
 
   useEffect(() => {
@@ -25,6 +31,77 @@ export default function StudentDetailsPage({
       setSelectedStudent(currentStudent);
     }
   }, [currentStudent, selectedStudent, setSelectedStudent]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (selectedStudent?.prn === prn || students.some((student) => student.prn === prn)) {
+      setStudentFromApi(null);
+      setStudentError("");
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    async function loadStudent() {
+      try {
+        setIsLoadingStudent(true);
+        setStudentError("");
+        const record = await getStudentRecord(prn);
+
+        if (isMounted) {
+          setStudentFromApi(record);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setStudentFromApi(null);
+          setStudentError(
+            error?.response?.data?.message ||
+              error?.response?.data?.error ||
+              error?.message ||
+              "Failed to load student profile.",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingStudent(false);
+        }
+      }
+    }
+
+    loadStudent();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [getStudentRecord, prn, selectedStudent, students]);
+
+  if (isLoading || isLoadingStudent) {
+    return (
+      <section className="rounded-[28px] border border-slate-200/80 bg-white p-8 text-center shadow-lg shadow-slate-200/60">
+        <p className="text-lg font-semibold text-slate-900">Loading student profile...</p>
+        <p className="mt-2 text-sm text-slate-500">
+          Fetching the latest record from the database.
+        </p>
+      </section>
+    );
+  }
+
+  if (errorMessage || studentError) {
+    return (
+      <section className="rounded-[28px] border border-slate-200/80 bg-white p-8 text-center shadow-lg shadow-slate-200/60">
+        <p className="text-lg font-semibold text-rose-700">Unable to load student profile</p>
+        <p className="mt-2 text-sm text-slate-500">{errorMessage || studentError}</p>
+        <button
+          type="button"
+          onClick={() => navigate("/tpo-dashboard/students")}
+          className="mt-6 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700"
+        >
+          Back to Student List
+        </button>
+      </section>
+    );
+  }
 
   if (!currentStudent) {
     return (

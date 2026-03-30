@@ -1,13 +1,9 @@
-import axios from "axios";
+import { apiClient } from "./apiClient";
 import {
   buildPlacementPayload,
   hydratePlacementJob,
   normalizePlacementAttachment,
 } from "./placementJobs";
-
-const placementApi = axios.create({
-  baseURL: "http://localhost:3000",
-});
 
 function appendPlacementFields(target, payload) {
   target.append("company", payload.company);
@@ -72,7 +68,7 @@ function mapApiPlacement(responseData) {
 }
 
 export async function fetchPlacements(scope = "tpo", options = {}) {
-  const response = await placementApi.get(`/${scope}/placements`, {
+  const response = await apiClient.get(`/${scope}/placements`, {
     params: options,
   });
   const placements = Array.isArray(response.data?.data) ? response.data.data : [];
@@ -80,7 +76,7 @@ export async function fetchPlacements(scope = "tpo", options = {}) {
 }
 
 export async function createPlacement(formValues) {
-  const response = await placementApi.post(
+  const response = await apiClient.post(
     "/tpo/placements",
     createPlacementFormData(formValues),
     {
@@ -94,7 +90,7 @@ export async function createPlacement(formValues) {
 }
 
 export async function updatePlacement(id, formValues, existingPlacement = null) {
-  const response = await placementApi.put(
+  const response = await apiClient.put(
     `/tpo/placements/${id}`,
     createPlacementFormData(formValues, existingPlacement),
     {
@@ -108,5 +104,5 @@ export async function updatePlacement(id, formValues, existingPlacement = null) 
 }
 
 export async function deletePlacement(id) {
-  await placementApi.delete(`/tpo/placements/${id}`);
+  await apiClient.delete(`/tpo/placements/${id}`);
 }

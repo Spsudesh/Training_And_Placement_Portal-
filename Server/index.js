@@ -7,13 +7,18 @@ const tpcStudentVerificationRoutes = require('./routes/tpc_routes/tpc_student_ve
 const tpcOpportunitiesRoutes = require('./routes/tpc_routes/tpc_opportunities_routes');
 const tpoPlacementsRoutes = require('./routes/tpo_routes/tpo_placements_routes');
 const tpoNoticeRoutes = require('./routes/tpo_routes/tpo_notice_routes');
+const tpoStudentManagementRoutes = require('./routes/tpo_routes/tpo_student_management_routes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const errorHandler = require('./middleware/errorHandler');
+const { requireAuth, requireRole } = require('./middleware/authMiddleware');
 require('dotenv').config();
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -21,17 +26,18 @@ app.get('/', (req, res) => {
     res.send('Hello from the server!');
 });
 
-app.use('/upload', uploadRoutes);
-app.use('/student/form', studentFormRoutes);
-app.use('/student/profile', studentProfileGetRoutes);
 app.use('/student', studentLoginRoutes);
-app.use('/student/placements', tpoPlacementsRoutes);
-app.use('/tpc/verification', tpcStudentVerificationRoutes);
-app.use('/tpc/opportunities', tpcOpportunitiesRoutes);
-app.use('/tpc/notices', tpoNoticeRoutes);
-app.use('/tpo/opportunities', tpcOpportunitiesRoutes);
-app.use('/tpo/placements', tpoPlacementsRoutes);
-app.use('/tpo/notices', tpoNoticeRoutes);
+app.use('/upload', requireAuth, uploadRoutes);
+app.use('/student/form', requireAuth, requireRole('student'), studentFormRoutes);
+app.use('/student/profile', requireAuth, requireRole('student'), studentProfileGetRoutes);
+app.use('/student/placements', requireAuth, requireRole('student'), tpoPlacementsRoutes);
+app.use('/tpc/verification', requireAuth, requireRole('tpc'), tpcStudentVerificationRoutes);
+app.use('/tpc/opportunities', requireAuth, requireRole('tpc'), tpcOpportunitiesRoutes);
+app.use('/tpc/notices', requireAuth, requireRole('tpc'), tpoNoticeRoutes);
+app.use('/tpo/opportunities', requireAuth, requireRole('tpo'), tpcOpportunitiesRoutes);
+app.use('/tpo/placements', requireAuth, requireRole('tpo'), tpoPlacementsRoutes);
+app.use('/tpo/notices', requireAuth, requireRole('tpo'), tpoNoticeRoutes);
+app.use('/tpo', requireAuth, requireRole('tpo'), tpoStudentManagementRoutes);
 
 app.use(errorHandler);
 

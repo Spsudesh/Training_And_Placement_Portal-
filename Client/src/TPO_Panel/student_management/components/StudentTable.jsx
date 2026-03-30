@@ -2,6 +2,8 @@ import StatusBadge from "./StatusBadge";
 
 export default function StudentTable({
   students,
+  isLoading,
+  errorMessage,
   onView,
   onBlacklist,
 }) {
@@ -27,7 +29,19 @@ export default function StudentTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {students.length === 0 ? (
+            {isLoading ? (
+              <tr>
+                <td colSpan="6" className="px-6 py-10 text-center text-sm text-slate-500">
+                  Loading students from the database...
+                </td>
+              </tr>
+            ) : errorMessage ? (
+              <tr>
+                <td colSpan="6" className="px-6 py-10 text-center text-sm text-rose-600">
+                  {errorMessage}
+                </td>
+              </tr>
+            ) : students.length === 0 ? (
               <tr>
                 <td colSpan="6" className="px-6 py-10 text-center text-sm text-slate-500">
                   No students match the selected filters.
