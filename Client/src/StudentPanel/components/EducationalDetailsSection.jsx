@@ -12,6 +12,16 @@ const educationTrackOptions = [
   { label: "12th Student", value: "twelfth" },
   { label: "Diploma Student", value: "diploma" },
 ];
+const departmentOptions = [
+  "Computer Engineering",
+  "Computer Engineering and Information Technology",
+  "Artificial Intelligence and Machine Learning",
+  "Mechatronics Engineering",
+  "Robotics Engineering",
+  "Mechanical Engineering",
+  "Electrical Engineering",
+  "Civil Engineering",
+];
 
 function EducationalDetailsSection({ data, onFieldChange, onFileChange, onSave, isSaved }) {
   const selectedTrack =
@@ -141,7 +151,14 @@ function EducationalDetailsSection({ data, onFieldChange, onFileChange, onSave, 
         <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
           Current Degree Details
         </h3>
-        <TextInput label="Department" name="department" value={data.department} onChange={onFieldChange} placeholder="Current department" />
+        <SelectInput
+          label="Department"
+          name="department"
+          value={data.department}
+          onChange={onFieldChange}
+          options={departmentOptions}
+          placeholder="Select department"
+        />
         <FieldGrid columns={3}>
           <TextInput label="Current CGPA" name="cgpa" value={data.cgpa} onChange={onFieldChange} placeholder="CGPA" />
           <TextInput label="Backlogs" name="backlogs" value={data.backlogs} onChange={onFieldChange} placeholder="Number of active backlogs" />

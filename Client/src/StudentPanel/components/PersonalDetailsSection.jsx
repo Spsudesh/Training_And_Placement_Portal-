@@ -60,13 +60,23 @@ function PersonalDetailsSection({
       </FieldGrid>
 
       <TextInput
-        label="Email"
+        label="Personal Email"
         name="email"
         type="email"
         value={data.email}
         onChange={onFieldChange}
-        placeholder="student@example.com"
+        placeholder="Enter your personal email"
         required
+      />
+
+      <TextInput
+        label="College Email"
+        name="collegeEmail"
+        type="email"
+        value={data.collegeEmail}
+        onChange={onFieldChange}
+        placeholder="yourname@ritindia.edu"
+        disabled
       />
 
       <TextInput
@@ -134,6 +144,8 @@ function PersonalDetailsSection({
           value={data.age}
           onChange={onFieldChange}
           placeholder="Age"
+          disabled
+          hint="Age is calculated automatically from Date of Birth."
         />
       </FieldGrid>
 

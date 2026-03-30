@@ -114,6 +114,14 @@ function normalizeTextValue(value) {
   return String(value).trim();
 }
 
+function normalizeEmailValue(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  return String(value).trim().toLowerCase();
+}
+
 function valuesMatch(currentValue, nextValue) {
   return normalizeTextValue(currentValue) === normalizeTextValue(nextValue);
 }
@@ -142,6 +150,60 @@ function asyncHandler(handler) {
   };
 }
 
+const progressColumns = {
+  personal: 'personal_details_completed',
+  education: 'education_details_completed',
+  experience: 'experience_completed',
+  projects: 'projects_completed',
+  skills: 'skills_completed',
+  certifications: 'certifications_completed',
+  activities: 'activities_completed',
+  consent: 'consent_completed',
+};
+
+async function ensureProfileProgressRow(prn) {
+  if (!prn) {
+    return;
+  }
+
+  await query(
+    `
+      INSERT INTO student_profile_progress (PRN)
+      VALUES (?)
+      ON DUPLICATE KEY UPDATE
+        updated_at = CURRENT_TIMESTAMP
+    `,
+    [prn]
+  );
+}
+
+async function updateProfileProgress(prn, stepKey) {
+  const progressColumn = progressColumns[stepKey];
+
+  if (!prn || !progressColumn) {
+    return;
+  }
+
+  await ensureProfileProgressRow(prn);
+
+  const isFinalStep = stepKey === 'consent';
+
+  await query(
+    `
+      UPDATE student_profile_progress
+      SET ${progressColumn} = TRUE,
+          last_completed_step = ?,
+          is_completed = ?,
+          completed_at = CASE
+            WHEN ? THEN COALESCE(completed_at, CURRENT_TIMESTAMP)
+            ELSE NULL
+          END
+      WHERE PRN = ?
+    `,
+    [stepKey, isFinalStep ? 1 : 0, isFinalStep ? 1 : 0, prn]
+  );
+}
+
 async function resetProfileVerification(prn) {
   if (!prn) {
     return;
@@ -159,6 +221,7 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
     middleName,
     lastName,
     email,
+    collegeEmail,
     mobile,
     address,
     country,
@@ -174,17 +237,37 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
     aadhaar,
   } = req.body;
 
+  const normalizedCollegeEmail = normalizeEmailValue(collegeEmail);
+
+  if (normalizedCollegeEmail) {
+    if (!normalizedCollegeEmail.endsWith('@ritindia.edu')) {
+      res.status(400).json({ message: 'College email must use the @ritindia.edu domain.' });
+      return;
+    }
+
+    const duplicateCredentialRows = await query(
+      'SELECT PRN FROM student_credentials WHERE LOWER(email) = ? AND PRN <> ? LIMIT 1',
+      [normalizedCollegeEmail, prn]
+    );
+
+    if (duplicateCredentialRows.length) {
+      res.status(409).json({ message: 'College email is already used by another account.' });
+      return;
+    }
+  }
+
   await query(
     `
       INSERT INTO student_personal
-      (PRN, first_name, middle_name, last_name, email, mobile, address, country, city, district, state, pincode,
+      (PRN, first_name, middle_name, last_name, personal_email, college_email, mobile, address, country, city, district, state, pincode,
        dob, age, gender, category, handicap, aadhaar, profile_photo_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         first_name = VALUES(first_name),
         middle_name = VALUES(middle_name),
         last_name = VALUES(last_name),
-        email = VALUES(email),
+        personal_email = VALUES(personal_email),
+        college_email = VALUES(college_email),
         mobile = VALUES(mobile),
         address = VALUES(address),
         country = VALUES(country),
@@ -206,6 +289,7 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
       middleName || null,
       lastName || null,
       email || null,
+      normalizedCollegeEmail,
       mobile || null,
       address || null,
       normalizeLocationValue(country),
@@ -223,6 +307,18 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
     ]
   );
 
+  if (normalizedCollegeEmail) {
+    await query(
+      `
+        UPDATE student_credentials
+        SET email = ?
+        WHERE PRN = ?
+      `,
+      [normalizedCollegeEmail, prn]
+    );
+  }
+
+  await updateProfileProgress(prn, 'personal');
   await resetProfileVerification(prn);
 
   res.json({ message: 'Personal details saved' });
@@ -402,6 +498,7 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
     ]
   );
 
+  await updateProfileProgress(prn, 'education');
   await resetProfileVerification(prn);
 
   res.json({ message: 'Education details saved' });
@@ -429,6 +526,7 @@ studentFormRoutes.post('/skills', asyncHandler(async (req, res) => {
   await query('DELETE FROM student_skills WHERE PRN = ?', [prn]);
 
   if (!uniqueSkills.length) {
+    await updateProfileProgress(prn, 'skills');
     await resetProfileVerification(prn);
     res.json({ message: 'Skills saved' });
     return;
@@ -455,6 +553,7 @@ studentFormRoutes.post('/skills', asyncHandler(async (req, res) => {
     ]),
   ]);
 
+  await updateProfileProgress(prn, 'skills');
   await resetProfileVerification(prn);
 
   res.json({ message: 'Skills saved' });
@@ -472,6 +571,7 @@ studentFormRoutes.post('/projects', asyncHandler(async (req, res) => {
   await query('DELETE FROM student_projects WHERE PRN = ?', [prn]);
 
   if (!parsedProjects.length) {
+    await updateProfileProgress(prn, 'projects');
     await resetProfileVerification(prn);
     res.json({ message: 'Projects saved' });
     return;
@@ -496,6 +596,7 @@ studentFormRoutes.post('/projects', asyncHandler(async (req, res) => {
     ]
   );
 
+  await updateProfileProgress(prn, 'projects');
   await resetProfileVerification(prn);
 
   res.json({ message: 'Projects saved' });
@@ -554,6 +655,7 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
   await query('DELETE FROM student_experience WHERE PRN = ?', [prn]);
 
   if (!normalizedExperience.length) {
+    await updateProfileProgress(prn, 'experience');
     await resetProfileVerification(prn);
     res.json({ message: 'Experience saved' });
     return;
@@ -580,6 +682,7 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
     ]
   );
 
+  await updateProfileProgress(prn, 'experience');
   await resetProfileVerification(prn);
 
   res.json({ message: 'Experience saved' });
@@ -624,6 +727,7 @@ studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
   await query('DELETE FROM student_certifications WHERE PRN = ?', [prn]);
 
   if (!normalizedCertifications.length) {
+    await updateProfileProgress(prn, 'certifications');
     await resetProfileVerification(prn);
     res.json({ message: 'Certifications saved' });
     return;
@@ -647,6 +751,7 @@ studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
     ]
   );
 
+  await updateProfileProgress(prn, 'certifications');
   await resetProfileVerification(prn);
 
   res.json({ message: 'Certifications saved' });
@@ -689,6 +794,7 @@ studentFormRoutes.post('/activities', asyncHandler(async (req, res) => {
   await query('DELETE FROM student_activities WHERE PRN = ?', [prn]);
 
   if (!normalizedActivities.length) {
+    await updateProfileProgress(prn, 'activities');
     await resetProfileVerification(prn);
     res.json({ message: 'Activities saved' });
     return;
@@ -712,9 +818,50 @@ studentFormRoutes.post('/activities', asyncHandler(async (req, res) => {
     ]
   );
 
+  await updateProfileProgress(prn, 'activities');
   await resetProfileVerification(prn);
 
   res.json({ message: 'Activities saved' });
+}));
+
+studentFormRoutes.post('/consent', asyncHandler(async (req, res) => {
+  const { prn, accepted } = req.body;
+
+  if (!prn) {
+    res.status(400).json({ message: 'PRN is required' });
+    return;
+  }
+
+  if (!toNullableBoolean(accepted)) {
+    res.status(400).json({ message: 'Consent must be accepted before final submission.' });
+    return;
+  }
+
+  await updateProfileProgress(prn, 'consent');
+  await resetProfileVerification(prn);
+
+  res.json({ message: 'Consent saved' });
+}));
+
+studentFormRoutes.get('/progress/:prn', asyncHandler(async (req, res) => {
+  const { prn } = req.params;
+
+  await ensureProfileProgressRow(prn);
+
+  const rows = await query(
+    `
+      SELECT *
+      FROM student_profile_progress
+      WHERE PRN = ?
+      LIMIT 1
+    `,
+    [prn]
+  );
+
+  res.json({
+    message: 'Student profile progress fetched successfully',
+    data: rows[0] || null,
+  });
 }));
 
 module.exports = studentFormRoutes;

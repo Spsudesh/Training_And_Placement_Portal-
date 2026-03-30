@@ -18,6 +18,7 @@ function createPersonalFormData(personal) {
   formData.append("middleName", personal.middleName ?? "");
   formData.append("lastName", personal.lastName ?? "");
   formData.append("email", personal.email ?? "");
+  formData.append("collegeEmail", personal.collegeEmail ?? "");
   formData.append("mobile", personal.mobile ?? "");
   formData.append("address", personal.address ?? "");
   formData.append("country", personal.country ?? "");
@@ -172,6 +173,13 @@ async function saveActivitiesDetails(prn, activities) {
   return postFormData("/activities", createJsonArrayFormData(prn, "activities", activities));
 }
 
+async function saveConsentDetails(prn, accepted) {
+  const formData = new FormData();
+  formData.append("prn", prn ?? "");
+  formData.append("accepted", accepted ? "true" : "false");
+  return postFormData("/consent", formData);
+}
+
 async function saveProfileSummaryDetails(prn, summary) {
   const formData = new FormData();
   formData.append("prn", prn ?? "");
@@ -179,11 +187,18 @@ async function saveProfileSummaryDetails(prn, summary) {
   return postFormData("/summary", formData);
 }
 
+async function getStudentProfileProgress(prn) {
+  const response = await api.get(`/progress/${prn}`);
+  return response.data?.data ?? null;
+}
+
 export {
   saveActivitiesDetails,
   saveCertificationDetails,
+  saveConsentDetails,
   saveEducationDetails,
   saveExperienceDetails,
+  getStudentProfileProgress,
   savePersonalDetails,
   saveProfileSummaryDetails,
   saveProjectsDetails,

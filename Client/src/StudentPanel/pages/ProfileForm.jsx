@@ -1,4 +1,4 @@
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import CertificationsSection from "../components/CertificationsSection";
 import ConsentSection from "../components/ConsentSection";
 import EducationalDetailsSection from "../components/EducationalDetailsSection";
@@ -9,14 +9,63 @@ import ProjectsSection from "../components/ProjectsSection";
 import StepIndicator from "../components/StepIndicator";
 import TechnicalSkillsSection from "../components/TechnicalSkillsSection";
 import {
+  getStudentProfileProgress,
   saveActivitiesDetails,
   saveCertificationDetails,
+  saveConsentDetails,
   saveEducationDetails,
   saveExperienceDetails,
   savePersonalDetails,
   saveProjectsDetails,
   saveSkillsDetails,
 } from "../services/studentFormApi";
+import { getStudentProfile } from "../profile/services/studentProfileApi";
+
+const LOCATION_FIELD_NAMES = new Set(["country", "state", "district", "city"]);
+const progressColumnToStepIndex = {
+  personal_details_completed: 0,
+  education_details_completed: 1,
+  experience_completed: 2,
+  projects_completed: 3,
+  skills_completed: 4,
+  certifications_completed: 5,
+  activities_completed: 6,
+  consent_completed: 7,
+};
+
+function calculateAgeFromDob(dobValue) {
+  if (!dobValue) {
+    return "";
+  }
+
+  const birthDate = new Date(dobValue);
+
+  if (Number.isNaN(birthDate.getTime())) {
+    return "";
+  }
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDifference = today.getMonth() - birthDate.getMonth();
+
+  if (
+    monthDifference < 0 ||
+    (monthDifference === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age -= 1;
+  }
+
+  return age >= 0 ? String(age) : "";
+}
+
+function normalizeLocationInput(value) {
+  const normalizedValue = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trimStart()
+    .toLowerCase();
+
+  return normalizedValue.replace(/\b\w/g, (character) => character.toUpperCase());
+}
 
 const steps = [
   "Personal",
@@ -58,6 +107,146 @@ const createActivity = () => ({
   links: "",
 });
 
+function createProfilePhotoValue(profilePhotoUrl) {
+  if (!profilePhotoUrl) {
+    return "";
+  }
+
+  return {
+    name: "Profile Photo",
+    type: "",
+    url: profilePhotoUrl,
+  };
+}
+
+function mapProfileToPersonalForm(profileData = {}) {
+  return {
+    prn: profileData.prn ?? "",
+    firstName: profileData.firstName ?? "",
+    middleName: profileData.middleName ?? "",
+    lastName: profileData.lastName ?? "",
+    email: profileData.email ?? "",
+    collegeEmail: profileData.collegeEmail ?? "",
+    mobile: profileData.mobile ?? "",
+    address: profileData.address ?? "",
+    country: profileData.country ?? "",
+    state: profileData.state ?? "",
+    district: profileData.district ?? "",
+    city: profileData.city ?? "",
+    pincode: profileData.pincode ?? "",
+    dob: profileData.dob ?? "",
+    age:
+      profileData.age !== undefined && profileData.age !== null && profileData.age !== ""
+        ? String(profileData.age)
+        : calculateAgeFromDob(profileData.dob),
+    gender: profileData.gender ?? "",
+    category: profileData.category ?? "",
+    handicap: profileData.handicap ?? "",
+    aadhaar: profileData.aadhaar ?? "",
+    profilePhoto: createProfilePhotoValue(profileData.profilePhotoUrl),
+  };
+}
+
+function mapProfileToEducationForm(profileData = {}) {
+  return {
+    educationTrack: profileData.education?.diploma?.year ? "diploma" : "twelfth",
+    marks10: profileData.education?.tenth?.marks ?? "",
+    marksheet10: "",
+    board10: profileData.education?.tenth?.board ?? "",
+    year10: profileData.education?.tenth?.year ?? "",
+    marks12: profileData.education?.twelfth?.marks ?? "",
+    marksheet12: "",
+    board12: profileData.education?.twelfth?.board ?? "",
+    year12: profileData.education?.twelfth?.year ?? "",
+    diplomaInstitute: profileData.education?.diploma?.institute ?? "",
+    diplomaMarks: profileData.education?.diploma?.marks ?? "",
+    diplomaYear: profileData.education?.diploma?.year ?? "",
+    diplomaMarksheet: "",
+    gapStatus: profileData.gap === "YES" ? "Yes" : "No",
+    gapReason: profileData.gapReason ?? "",
+    gapCertificate: "",
+    department: profileData.department ?? "",
+    cgpa: profileData.currentCgpa ?? "",
+    backlogs: profileData.backlogs ?? "",
+    graduationYear: profileData.passingYear ?? "",
+  };
+}
+
+function mapProfileToExperienceForm(profileData = {}) {
+  return profileData.experience?.length
+    ? profileData.experience.map((entry) => ({
+        expNumber: entry.expNumber,
+        type: entry.type ?? "",
+        companyName: entry.companyName ?? "",
+        role: entry.role ?? "",
+        duration: entry.duration ?? "",
+        description: entry.description ?? "",
+        certificate: "",
+      }))
+    : [createExperience()];
+}
+
+function mapProfileToProjectsForm(profileData = {}) {
+  return profileData.projects?.length
+    ? profileData.projects.map((project) => ({
+        projectNumber: project.projectNumber,
+        title: project.title ?? "",
+        description: project.description ?? "",
+        techStack: project.techStack ?? "",
+        githubLink: project.githubLink ?? "",
+        liveLink: project.liveLink ?? "",
+      }))
+    : [createProject()];
+}
+
+function mapProfileToSkillsForm(profileData = {}) {
+  return {
+    languages: profileData.skills?.languages ?? [],
+    tools: profileData.skills?.tools ?? [],
+    frameworks: profileData.skills?.frameworks ?? [],
+    otherSkills: profileData.skills?.otherSkills ?? [],
+  };
+}
+
+function mapProfileToCertificationsForm(profileData = {}) {
+  return profileData.certifications?.length
+    ? profileData.certifications.map((entry) => ({
+        certNumber: entry.certNumber,
+        name: entry.name ?? "",
+        platform: entry.platform ?? "",
+        certificate: "",
+      }))
+    : [createCertification()];
+}
+
+function mapProfileToActivitiesForm(profileData = {}) {
+  return profileData.activities?.length
+    ? profileData.activities.map((entry) => ({
+        actNumber: entry.actNumber,
+        title: entry.title ?? "",
+        description: entry.description ?? "",
+        links: entry.link ?? "",
+      }))
+    : [createActivity()];
+}
+
+function getCompletedStepsFromProgress(progress) {
+  return Object.entries(progressColumnToStepIndex)
+    .filter(([columnName]) => Boolean(progress?.[columnName]))
+    .map(([, stepIndex]) => stepIndex)
+    .sort((left, right) => left - right);
+}
+
+function getNextStepIndex(completedSteps) {
+  for (let index = 0; index < steps.length; index += 1) {
+    if (!completedSteps.includes(index)) {
+      return index;
+    }
+  }
+
+  return steps.length - 1;
+}
+
 const initialState = {
   currentStep: 0,
   completedSteps: [],
@@ -68,6 +257,7 @@ const initialState = {
       middleName: "",
       lastName: "",
       email: "",
+      collegeEmail: "",
       mobile: "",
       address: "",
       country: "",
@@ -214,6 +404,17 @@ function reducer(state, action) {
         currentStep: action.stepIndex,
       };
 
+    case "INITIALIZE_FORM":
+      return {
+        ...state,
+        currentStep: action.currentStep,
+        completedSteps: action.completedSteps,
+        formData: {
+          ...state.formData,
+          ...action.formData,
+        },
+      };
+
     default:
       return state;
   }
@@ -225,8 +426,100 @@ function ProfileForm({ onComplete }) {
   const { currentStep, completedSteps, formData } = state;
   const isCurrentStepSaved = completedSteps.includes(currentStep);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadStudentFormContext() {
+      try {
+        const activePrn =
+          window.localStorage.getItem("training-placement-active-student") || "";
+        const [progressData, profileData] = await Promise.all([
+          activePrn ? getStudentProfileProgress(activePrn) : Promise.resolve(null),
+          getStudentProfile().catch(() => null),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const completedStepsFromProgress = getCompletedStepsFromProgress(progressData);
+
+        dispatch({
+          type: "INITIALIZE_FORM",
+          currentStep: getNextStepIndex(completedStepsFromProgress),
+          completedSteps: completedStepsFromProgress,
+          formData: profileData
+            ? {
+                personal: mapProfileToPersonalForm(profileData),
+                education: mapProfileToEducationForm(profileData),
+                experience: mapProfileToExperienceForm(profileData),
+                projects: mapProfileToProjectsForm(profileData),
+                skills: mapProfileToSkillsForm(profileData),
+                certifications: mapProfileToCertificationsForm(profileData),
+                activities: mapProfileToActivitiesForm(profileData),
+                consent: {
+                  accepted: Boolean(progressData?.consent_completed),
+                },
+              }
+            : {
+                personal: {
+                  ...initialState.formData.personal,
+                  prn: activePrn,
+                },
+                consent: {
+                  accepted: Boolean(progressData?.consent_completed),
+                },
+              },
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        dispatch({
+          type: "INITIALIZE_FORM",
+          currentStep: 0,
+          completedSteps: [],
+          formData: {
+            personal: {
+              ...initialState.formData.personal,
+              prn: window.localStorage.getItem("training-placement-active-student") || "",
+            },
+          },
+        });
+      }
+    }
+
+    loadStudentFormContext();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const updateSectionField = (section, stepIndex) => (event) => {
-    const { name, value } = event.target;
+    const { name } = event.target;
+    let { value } = event.target;
+
+    if (section === "personal") {
+      if (LOCATION_FIELD_NAMES.has(name)) {
+        value = normalizeLocationInput(value);
+      }
+
+      if (name === "dob") {
+        dispatch({
+          type: "UPDATE_SECTION_FIELDS",
+          section,
+          stepIndex,
+          updates: {
+            dob: value,
+            age: calculateAgeFromDob(value),
+          },
+        });
+        return;
+      }
+    }
+
     dispatch({
       type: "UPDATE_SECTION_FIELD",
       section,
@@ -372,6 +665,7 @@ function ProfileForm({ onComplete }) {
           await saveActivitiesDetails(formData.personal.prn, formData.activities);
           break;
         case 7:
+          await saveConsentDetails(formData.personal.prn, formData.consent.accepted);
           dispatch({ type: "SAVE_STEP", stepIndex });
           window.alert("Final submission completed successfully.");
           onComplete?.();
@@ -381,6 +675,9 @@ function ProfileForm({ onComplete }) {
       }
 
       dispatch({ type: "SAVE_STEP", stepIndex });
+      if (stepIndex < steps.length - 1) {
+        dispatch({ type: "GO_TO_STEP", stepIndex: stepIndex + 1 });
+      }
       window.alert(`${stepLabel} details saved successfully.`);
     } catch (error) {
       const errorMessage =
@@ -573,7 +870,13 @@ function ProfileForm({ onComplete }) {
           onStepClick={handleStepClick}
         />
 
-        <div className="mt-6">{renderStep()}</div>
+        <div
+          className={`mt-6 ${
+            completedSteps.includes(currentStep) ? "pointer-events-none opacity-90" : ""
+          }`}
+        >
+          {renderStep()}
+        </div>
 
         <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.08)] sm:flex-row sm:items-center sm:justify-between">
           <button

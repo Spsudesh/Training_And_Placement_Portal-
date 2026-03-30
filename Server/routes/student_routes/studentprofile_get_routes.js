@@ -144,7 +144,7 @@ async function handleGetStudentProfile(req, res) {
 
     const credentialRows = await query(
       `
-        SELECT is_profile_verified
+        SELECT email, is_profile_verified
         FROM student_credentials
         WHERE PRN = ?
         LIMIT 1
@@ -174,7 +174,8 @@ async function handleGetStudentProfile(req, res) {
       middleName: personal.middle_name || '',
       lastName: personal.last_name || '',
       fullName: buildFullName(personal),
-      email: personal.email || '',
+      email: personal.personal_email || '',
+      collegeEmail: personal.college_email || credential.email || '',
       mobile: personal.mobile || '',
       address: personal.address || '',
       country: personal.country || '',

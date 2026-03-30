@@ -9,6 +9,7 @@ import {
 } from "react-router-dom";
 import "./index.css";
 import LoginPage from "./components/loginPage/LoginPage";
+import SignupPage from "./components/loginPage/SignupPage";
 import Overview from "./TPO/pages/Overview";
 import Dashboard from "./TPO/pages/Dashboard";
 import Placements from "./TPO/pages/Placements";
@@ -30,7 +31,7 @@ import { studentManagementData } from "./TPO_Panel/student_management/utils/dumm
 const AUTH_STORAGE_KEY = "training-placement-active-panel";
 const STUDENT_ID_STORAGE_KEY = "training-placement-active-student";
 const STUDENT_FORM_STATUS_KEY = "training-placement-student-form-status";
-const DEFAULT_STUDENT_ID = "2453014";
+const ACTIVE_USER_EMAIL_STORAGE_KEY = "training-placement-active-user-email";
 
 function getActivePanel() {
   return window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -50,6 +51,18 @@ function setActiveStudentId(studentId) {
 
 function clearActiveStudentId() {
   window.localStorage.removeItem(STUDENT_ID_STORAGE_KEY);
+}
+
+function setActiveUserEmail(email) {
+  if (!email) {
+    return;
+  }
+
+  window.localStorage.setItem(ACTIVE_USER_EMAIL_STORAGE_KEY, email);
+}
+
+function clearActiveUserEmail() {
+  window.localStorage.removeItem(ACTIVE_USER_EMAIL_STORAGE_KEY);
 }
 
 function getActiveStudentId() {
@@ -86,11 +99,6 @@ function clearActivePanel() {
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
-function ensureDirectStudentSession() {
-  setActivePanel("student");
-  setActiveStudentId(DEFAULT_STUDENT_ID);
-}
-
 function ProtectedRoute({ allowedPanel, children }) {
   const activePanel = getActivePanel();
 
@@ -102,8 +110,7 @@ function ProtectedRoute({ allowedPanel, children }) {
 }
 
 function DirectStudentEntry() {
-  ensureDirectStudentSession();
-  return <Navigate to="/student-panel" replace />;
+  return <Navigate to="/login" replace />;
 }
 
 function StudentPlaceholderPage({ title, description }) {
@@ -160,6 +167,7 @@ function StudentApp() {
   const handleLogout = () => {
     clearActivePanel();
     clearActiveStudentId();
+    clearActiveUserEmail();
     navigate("/login", { replace: true });
   };
 
@@ -269,6 +277,7 @@ function TpoOverviewApp() {
 
   const handleLogout = () => {
     clearActivePanel();
+    clearActiveUserEmail();
     navigate("/login", { replace: true });
   };
 
@@ -280,6 +289,7 @@ function TpoNoticeBoardApp() {
 
   const handleLogout = () => {
     clearActivePanel();
+    clearActiveUserEmail();
     navigate("/login", { replace: true });
   };
 
@@ -291,6 +301,7 @@ function TpcNoticeBoardApp() {
 
   const handleLogout = () => {
     clearActivePanel();
+    clearActiveUserEmail();
     navigate("/login", { replace: true });
   };
 
@@ -308,6 +319,7 @@ function TpoPlacementsApp() {
 
   const handleLogout = () => {
     clearActivePanel();
+    clearActiveUserEmail();
     navigate("/login", { replace: true });
   };
 
@@ -321,6 +333,7 @@ function TpoStudentsApp() {
 
   const handleLogout = () => {
     clearActivePanel();
+    clearActiveUserEmail();
     navigate("/login", { replace: true });
   };
 
@@ -455,8 +468,9 @@ function App() {
           path="/login"
           element={
             <LoginPage
-              onLogin={(panel, userId) => {
+              onLogin={(panel, userId, email) => {
                 setActivePanel(panel);
+                setActiveUserEmail(email);
 
                 if (panel === "student") {
                   setActiveStudentId(userId);
@@ -467,6 +481,10 @@ function App() {
               }}
             />
           }
+        />
+        <Route
+          path="/signup"
+          element={<SignupPage />}
         />
         <Route
           path="/student-panel/*"

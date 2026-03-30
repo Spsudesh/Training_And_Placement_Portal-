@@ -153,6 +153,42 @@ function normalizeExternalUrl(url) {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
+const LOCATION_FIELD_NAMES = new Set(["country", "state", "district", "city"]);
+
+function calculateAgeFromDob(dobValue) {
+  if (!dobValue) {
+    return "";
+  }
+
+  const birthDate = new Date(dobValue);
+
+  if (Number.isNaN(birthDate.getTime())) {
+    return "";
+  }
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDifference = today.getMonth() - birthDate.getMonth();
+
+  if (
+    monthDifference < 0 ||
+    (monthDifference === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age -= 1;
+  }
+
+  return age >= 0 ? String(age) : "";
+}
+
+function normalizeLocationInput(value) {
+  const normalizedValue = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trimStart()
+    .toLowerCase();
+
+  return normalizedValue.replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function getFileNameFromUrl(fileUrl, fallbackLabel) {
   if (!fileUrl) {
     return fallbackLabel;
@@ -215,6 +251,7 @@ function mapProfileToPersonalForm(profile) {
     middleName: profile.middleName ?? "",
     lastName: profile.lastName ?? "",
     email: profile.email ?? "",
+    collegeEmail: profile.collegeEmail ?? "",
     mobile: profile.mobile ?? "",
     address: profile.address ?? "",
     country: profile.country ?? "",
@@ -585,9 +622,26 @@ function StudentProfilePage() {
   }
 
   const handleEditorFieldChange = (event) => {
-    const { value } = event.target;
+    const { name } = event.target;
+    let { value } = event.target;
+
+    if (editingSection === "personal") {
+      if (LOCATION_FIELD_NAMES.has(name)) {
+        value = normalizeLocationInput(value);
+      }
+
+      if (name === "dob") {
+        setEditorState((current) => ({
+          ...current,
+          dob: value,
+          age: calculateAgeFromDob(value),
+        }));
+        return;
+      }
+    }
+
     setEditorState((current) =>
-      typeof current === "string" ? value : { ...current, [event.target.name]: value },
+      typeof current === "string" ? value : { ...current, [name]: value },
     );
   };
 
@@ -963,7 +1017,8 @@ function StudentProfilePage() {
           >
             <ProfileFieldList
               items={[
-                { label: "Email", value: profile.email },
+                { label: "Personal Email", value: profile.email },
+                { label: "College Email", value: profile.collegeEmail },
                 { label: "Mobile Number", value: profile.mobile },
                 { label: "Current Address", value: currentAddress },
                 { label: "Pincode", value: profile.pincode },
