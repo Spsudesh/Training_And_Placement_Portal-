@@ -66,13 +66,15 @@ export default function ViewDocumentButton({ documentUrl }) {
               </div>
             </div>
 
-            <div className="flex flex-1 items-center justify-center bg-slate-100 p-4">
+            <div className="flex flex-1 items-center justify-center overflow-auto bg-slate-100 p-4">
               {imageDocument ? (
-                <img
-                  src={documentUrl}
-                  alt="Document Preview"
-                  className="h-full w-full rounded-2xl object-contain"
-                />
+                <div className="flex h-full w-full items-center justify-center rounded-2xl bg-white p-3">
+                  <img
+                    src={documentUrl}
+                    alt="Document Preview"
+                    className="block max-h-full max-w-full rounded-2xl object-contain shadow-sm"
+                  />
+                </div>
               ) : pdfDocument ? (
                 <object
                   data={documentUrl}

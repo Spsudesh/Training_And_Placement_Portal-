@@ -11,6 +11,7 @@ import "./index.css";
 import { continueUserSession, logoutUser } from "./shared/authApi";
 import {
   AUTH_SESSION_EVENT,
+  getAuthenticatedUser,
   getRefreshTokenExpiresAt,
   hasActiveSession,
 } from "./shared/authSession";
@@ -32,6 +33,7 @@ import StudentListPage from "./TPC_Panel/student_verification/pages/StudentListP
 import { getStudentVerificationRecords } from "./TPC_Panel/student_verification/services/studentVerificationApi";
 import TpoStudentDetailsPage from "./TPO_Panel/student_management/pages/StudentDetailsPage";
 import TpoStudentListPage from "./TPO_Panel/student_management/pages/StudentListPage";
+import { getStudentProfileProgress } from "./StudentPanel/services/studentFormApi";
 import {
   getTpoStudentManagementRecord,
   getTpoStudentManagementRecords,
@@ -39,9 +41,15 @@ import {
 
 const AUTH_STORAGE_KEY = "training-placement-active-panel";
 const STUDENT_ID_STORAGE_KEY = "training-placement-active-student";
-const STUDENT_FORM_STATUS_KEY = "training-placement-student-form-status";
 const ACTIVE_USER_EMAIL_STORAGE_KEY = "training-placement-active-user-email";
 const REFRESH_WARNING_WINDOW_MS = 2 * 60 * 1000;
+const LEGACY_BROWSER_CACHE_KEYS = [
+  "training-placement-student-form-status",
+  "student-panel-onboarding-complete-v2",
+  "training-placement-demo-form-progress",
+  "training-placement-student-section-verification",
+  "training-placement-student-profile-verified",
+];
 
 function getActivePanel() {
   return window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -79,30 +87,8 @@ function getActiveStudentId() {
   return window.localStorage.getItem(STUDENT_ID_STORAGE_KEY);
 }
 
-function getStudentFormStatusMap() {
-  try {
-    return JSON.parse(window.localStorage.getItem(STUDENT_FORM_STATUS_KEY) || "{}");
-  } catch (error) {
-    return {};
-  }
-}
-
-function isStudentFormSubmitted(studentId) {
-  if (!studentId) {
-    return false;
-  }
-
-  return Boolean(getStudentFormStatusMap()[studentId]);
-}
-
-function markStudentFormSubmitted(studentId) {
-  if (!studentId) {
-    return;
-  }
-
-  const statusMap = getStudentFormStatusMap();
-  statusMap[studentId] = true;
-  window.localStorage.setItem(STUDENT_FORM_STATUS_KEY, JSON.stringify(statusMap));
+function hasStudentCompletedFinalSubmission(progressData) {
+  return Boolean(progressData?.is_completed || progressData?.consent_completed);
 }
 
 function clearActivePanel() {
@@ -113,6 +99,12 @@ function clearClientSessionState() {
   clearActivePanel();
   clearActiveStudentId();
   clearActiveUserEmail();
+}
+
+function clearLegacyStudentBrowserCache() {
+  LEGACY_BROWSER_CACHE_KEYS.forEach((storageKey) => {
+    window.localStorage.removeItem(storageKey);
+  });
 }
 
 function ProtectedRoute({ allowedPanel, children }) {
@@ -176,9 +168,64 @@ function getStudentPageTitle(pathname) {
 function StudentApp() {
   const navigate = useNavigate();
   const location = useLocation();
-  const activeStudentId = getActiveStudentId();
-  const hasSubmittedProfileForm = isStudentFormSubmitted(activeStudentId);
+  const authenticatedUser = getAuthenticatedUser();
+  const storedStudentId = getActiveStudentId();
+  const [activeStudentId, setActiveStudentIdState] = useState(
+    String(authenticatedUser?.PRN || storedStudentId || "").trim(),
+  );
+  const [hasSubmittedProfileForm, setHasSubmittedProfileForm] = useState(
+    Boolean(authenticatedUser?.isProfileFormSubmitted),
+  );
+  const [isCheckingSubmissionStatus, setIsCheckingSubmissionStatus] = useState(true);
   const isProfileFormRoute = location.pathname.startsWith("/student-panel/profile-form");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function syncSubmissionStatus() {
+      setIsCheckingSubmissionStatus(true);
+
+      try {
+        const resolvedStudentId = String(authenticatedUser?.PRN || storedStudentId || "").trim();
+
+        if (!resolvedStudentId) {
+          if (isMounted) {
+            setActiveStudentIdState("");
+            setHasSubmittedProfileForm(false);
+          }
+          return;
+        }
+
+        setActiveStudentId(resolvedStudentId);
+
+        if (isMounted) {
+          setActiveStudentIdState(resolvedStudentId);
+        }
+
+        const progressData = await getStudentProfileProgress(resolvedStudentId).catch(() => null);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setHasSubmittedProfileForm(
+          progressData === null
+            ? Boolean(authenticatedUser?.isProfileFormSubmitted)
+            : hasStudentCompletedFinalSubmission(progressData),
+        );
+      } finally {
+        if (isMounted) {
+          setIsCheckingSubmissionStatus(false);
+        }
+      }
+    }
+
+    syncSubmissionStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authenticatedUser?.PRN, authenticatedUser?.isProfileFormSubmitted, storedStudentId]);
 
   const handleLogout = () => {
     logoutUser().finally(() => {
@@ -193,6 +240,17 @@ function StudentApp() {
       showSidebar={!isProfileFormRoute}
       onLogout={handleLogout}
     >
+      {isCheckingSubmissionStatus ? (
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
+            Student Panel
+          </p>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">Checking profile status</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+            We are verifying your final profile submission before opening the student panel.
+          </p>
+        </div>
+      ) : (
       <Routes>
         <Route
           index
@@ -227,12 +285,16 @@ function StudentApp() {
         <Route
           path="profile-form"
           element={
-            <ProfileForm
-              onComplete={() => {
-                markStudentFormSubmitted(activeStudentId);
-                navigate("/student-panel", { replace: true });
-              }}
-            />
+            hasSubmittedProfileForm ? (
+              <Navigate to="/student-panel" replace />
+            ) : (
+              <ProfileForm
+                onComplete={() => {
+                  setHasSubmittedProfileForm(true);
+                  navigate("/student-panel", { replace: true });
+                }}
+              />
+            )
           }
         />
         <Route
@@ -284,6 +346,7 @@ function StudentApp() {
           }
         />
       </Routes>
+      )}
     </StudentSidebar>
   );
 }
@@ -567,6 +630,10 @@ function AppShell() {
   const [isRefreshingSession, setIsRefreshingSession] = useState(false);
 
   useEffect(() => {
+    clearLegacyStudentBrowserCache();
+  }, []);
+
+  useEffect(() => {
     let warningTimeoutId;
     let expiryTimeoutId;
 
@@ -647,6 +714,7 @@ function AppShell() {
           element={
             <LoginPage
               onLogin={(panel, userId, email) => {
+                clearLegacyStudentBrowserCache();
                 setActivePanel(panel);
                 setActiveUserEmail(email);
 

@@ -52,6 +52,27 @@ function sanitizeAuthPayload(authPayload) {
   return publicAuthPayload;
 }
 
+async function getStudentFormSubmissionStatus(promiseDb, prn) {
+  const normalizedPrn = String(prn || '').trim();
+
+  if (!normalizedPrn) {
+    return false;
+  }
+
+  const [progressRows] = await promiseDb.query(
+    `
+      SELECT is_completed, consent_completed
+      FROM student_profile_progress
+      WHERE PRN = ?
+      LIMIT 1
+    `,
+    [normalizedPrn],
+  );
+
+  const progress = progressRows[0];
+  return Boolean(progress?.is_completed || progress?.consent_completed);
+}
+
 router.post('/signup', async (req, res) => {
   const { PRN, email, password, role } = req.body;
 
@@ -175,7 +196,10 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    return res.json(buildLoginResponse(res, STATIC_TPO_ACCOUNT));
+    return res.json(buildLoginResponse(res, {
+      ...STATIC_TPO_ACCOUNT,
+      is_profile_form_submitted: true,
+    }));
   }
 
   try {
@@ -220,7 +244,15 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    return res.json(buildLoginResponse(res, user));
+    const isProfileFormSubmitted =
+      user.role === 'student'
+        ? await getStudentFormSubmissionStatus(promiseDb, user.PRN)
+        : true;
+
+    return res.json(buildLoginResponse(res, {
+      ...user,
+      is_profile_form_submitted: isProfileFormSubmitted,
+    }));
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -246,7 +278,10 @@ router.post('/refresh', async (req, res) => {
     const normalizedEmail = normalizeEmail(decodedToken.email);
 
     if (normalizedEmail === STATIC_TPO_ACCOUNT.email) {
-      return res.json(buildLoginResponse(res, STATIC_TPO_ACCOUNT, 'Session refreshed successfully.'));
+      return res.json(buildLoginResponse(res, {
+        ...STATIC_TPO_ACCOUNT,
+        is_profile_form_submitted: true,
+      }, 'Session refreshed successfully.'));
     }
 
     const promiseDb = db.promise();
@@ -276,7 +311,15 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
-    return res.json(buildLoginResponse(res, user, 'Session refreshed successfully.'));
+    const isProfileFormSubmitted =
+      user.role === 'student'
+        ? await getStudentFormSubmissionStatus(promiseDb, user.PRN)
+        : true;
+
+    return res.json(buildLoginResponse(res, {
+      ...user,
+      is_profile_form_submitted: isProfileFormSubmitted,
+    }, 'Session refreshed successfully.'));
   } catch (error) {
     clearRefreshTokenCookie(res);
     return res.status(401).json({

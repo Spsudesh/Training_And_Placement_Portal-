@@ -181,13 +181,15 @@ function ProfileDocumentPreviewModal({
           </div>
         </div>
 
-        <div className="flex-1 bg-slate-100 p-4">
+        <div className="flex flex-1 items-center justify-center overflow-auto bg-slate-100 p-4">
           {imagePreview ? (
-            <img
-              src={fileUrl}
-              alt={fileLabel || "Preview"}
-              className="h-full w-full rounded-2xl object-contain"
-            />
+            <div className="flex h-full w-full items-center justify-center rounded-2xl bg-white p-3">
+              <img
+                src={fileUrl}
+                alt={fileLabel || "Preview"}
+                className="block max-h-full max-w-full rounded-2xl object-contain shadow-sm"
+              />
+            </div>
           ) : pdfPreview ? (
             <object
               data={fileUrl}

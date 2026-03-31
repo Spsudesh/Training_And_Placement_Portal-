@@ -32,6 +32,18 @@ const progressColumnToStepIndex = {
   activities_completed: 6,
   consent_completed: 7,
 };
+const progressStepKeyToIndex = {
+  personal: 0,
+  personal_details: 0,
+  education: 1,
+  education_details: 1,
+  experience: 2,
+  projects: 3,
+  skills: 4,
+  certifications: 5,
+  activities: 6,
+  consent: 7,
+};
 
 function calculateAgeFromDob(dobValue) {
   if (!dobValue) {
@@ -139,11 +151,35 @@ function mapProfileToPersonalForm(profileData = {}) {
       profileData.age !== undefined && profileData.age !== null && profileData.age !== ""
         ? String(profileData.age)
         : calculateAgeFromDob(profileData.dob),
+    bloodGroup: profileData.bloodGroup ?? "",
     gender: profileData.gender ?? "",
     category: profileData.category ?? "",
     handicap: profileData.handicap ?? "",
     aadhaar: profileData.aadhaar ?? "",
+    panNumber: profileData.panNumber ?? "",
     profilePhoto: createProfilePhotoValue(profileData.profilePhotoUrl),
+  };
+}
+
+function getFileNameFromUrl(fileUrl, fallbackLabel) {
+  if (!fileUrl) {
+    return fallbackLabel;
+  }
+
+  const normalizedUrl = String(fileUrl).split("?")[0];
+  const urlParts = normalizedUrl.split("/");
+  return urlParts[urlParts.length - 1] || fallbackLabel;
+}
+
+function createExistingFileValue(fileUrl, fallbackLabel) {
+  if (!fileUrl) {
+    return "";
+  }
+
+  return {
+    name: getFileNameFromUrl(fileUrl, fallbackLabel),
+    type: "",
+    url: fileUrl,
   };
 }
 
@@ -151,20 +187,32 @@ function mapProfileToEducationForm(profileData = {}) {
   return {
     educationTrack: profileData.education?.diploma?.year ? "diploma" : "twelfth",
     marks10: profileData.education?.tenth?.marks ?? "",
-    marksheet10: "",
+    marksheet10: createExistingFileValue(
+      profileData.education?.tenth?.marksheetUrl,
+      "10th Marksheet",
+    ),
     board10: profileData.education?.tenth?.board ?? "",
     year10: profileData.education?.tenth?.year ?? "",
     marks12: profileData.education?.twelfth?.marks ?? "",
-    marksheet12: "",
+    marksheet12: createExistingFileValue(
+      profileData.education?.twelfth?.marksheetUrl,
+      "12th Marksheet",
+    ),
     board12: profileData.education?.twelfth?.board ?? "",
     year12: profileData.education?.twelfth?.year ?? "",
     diplomaInstitute: profileData.education?.diploma?.institute ?? "",
     diplomaMarks: profileData.education?.diploma?.marks ?? "",
     diplomaYear: profileData.education?.diploma?.year ?? "",
-    diplomaMarksheet: "",
+    diplomaMarksheet: createExistingFileValue(
+      profileData.education?.diploma?.marksheetUrl,
+      "Diploma Marksheet",
+    ),
     gapStatus: profileData.gap === "YES" ? "Yes" : "No",
     gapReason: profileData.gapReason ?? "",
-    gapCertificate: "",
+    gapCertificate: createExistingFileValue(
+      profileData.education?.gapCertificateUrl,
+      "Gap Certificate",
+    ),
     department: profileData.department ?? "",
     cgpa: profileData.currentCgpa ?? "",
     backlogs: profileData.backlogs ?? "",
@@ -181,7 +229,10 @@ function mapProfileToExperienceForm(profileData = {}) {
         role: entry.role ?? "",
         duration: entry.duration ?? "",
         description: entry.description ?? "",
-        certificate: "",
+        certificate: createExistingFileValue(
+          entry.certificateUrl,
+          `${entry.companyName || "Experience"} Certificate`,
+        ),
       }))
     : [createExperience()];
 }
@@ -214,7 +265,10 @@ function mapProfileToCertificationsForm(profileData = {}) {
         certNumber: entry.certNumber,
         name: entry.name ?? "",
         platform: entry.platform ?? "",
-        certificate: "",
+        certificate: createExistingFileValue(
+          entry.certificateUrl,
+          `${entry.name || "Certificate"}.pdf`,
+        ),
       }))
     : [createCertification()];
 }
@@ -231,10 +285,99 @@ function mapProfileToActivitiesForm(profileData = {}) {
 }
 
 function getCompletedStepsFromProgress(progress) {
-  return Object.entries(progressColumnToStepIndex)
+  const completedFromFlags = Object.entries(progressColumnToStepIndex)
     .filter(([columnName]) => Boolean(progress?.[columnName]))
     .map(([, stepIndex]) => stepIndex)
     .sort((left, right) => left - right);
+
+  const normalizedLastCompletedStep = String(progress?.last_completed_step || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  const lastCompletedStepIndex = progressStepKeyToIndex[normalizedLastCompletedStep];
+
+  if (lastCompletedStepIndex === undefined) {
+    return completedFromFlags;
+  }
+
+  const completedSteps = new Set(completedFromFlags);
+
+  for (let index = 0; index <= lastCompletedStepIndex; index += 1) {
+    completedSteps.add(index);
+  }
+
+  return Array.from(completedSteps).sort((left, right) => left - right);
+}
+
+function hasMeaningfulText(value) {
+  return String(value ?? "").trim() !== "";
+}
+
+function hasExistingFile(value) {
+  return Boolean(value && typeof value === "object" && (value.file || value.url || value.name));
+}
+
+function getCompletedStepsFromProfileData(profileData) {
+  if (!profileData) {
+    return [];
+  }
+
+  const completedSteps = [];
+
+  const hasPersonalDetails =
+    hasMeaningfulText(profileData.firstName) &&
+    hasMeaningfulText(profileData.lastName) &&
+    hasMeaningfulText(profileData.mobile) &&
+    hasMeaningfulText(profileData.address) &&
+    hasMeaningfulText(profileData.dob) &&
+    hasMeaningfulText(profileData.gender) &&
+    hasMeaningfulText(profileData.aadhaar);
+
+  if (hasPersonalDetails) {
+    completedSteps.push(0);
+  }
+
+  const hasEducationDetails = Boolean(
+    profileData.department ||
+      profileData.currentCgpa ||
+      profileData.passingYear ||
+      profileData.education?.tenth?.year ||
+      profileData.education?.twelfth?.year ||
+      profileData.education?.diploma?.year,
+  );
+
+  if (hasEducationDetails) {
+    completedSteps.push(1);
+  }
+
+  if (profileData.experience?.length) {
+    completedSteps.push(2);
+  }
+
+  if (profileData.projects?.length) {
+    completedSteps.push(3);
+  }
+
+  const hasSkills = Boolean(
+    profileData.skills?.languages?.length ||
+      profileData.skills?.tools?.length ||
+      profileData.skills?.frameworks?.length ||
+      profileData.skills?.otherSkills?.length,
+  );
+
+  if (hasSkills) {
+    completedSteps.push(4);
+  }
+
+  if (profileData.certifications?.length) {
+    completedSteps.push(5);
+  }
+
+  if (profileData.activities?.length) {
+    completedSteps.push(6);
+  }
+
+  return completedSteps;
 }
 
 function getNextStepIndex(completedSteps) {
@@ -245,6 +388,53 @@ function getNextStepIndex(completedSteps) {
   }
 
   return steps.length - 1;
+}
+
+const personalRequiredFields = [
+  ["prn", "PRN"],
+  ["firstName", "First Name"],
+  ["middleName", "Middle Name"],
+  ["lastName", "Last Name"],
+  ["email", "Personal Email"],
+  ["collegeEmail", "College Email"],
+  ["mobile", "Mobile Number"],
+  ["address", "Address"],
+  ["country", "Country"],
+  ["state", "State"],
+  ["district", "District"],
+  ["city", "City"],
+  ["pincode", "Pincode"],
+  ["dob", "Date of Birth"],
+  ["age", "Age"],
+  ["bloodGroup", "Blood Group"],
+  ["gender", "Gender"],
+  ["category", "Category"],
+  ["handicap", "Handicap"],
+  ["aadhaar", "Aadhaar Number"],
+  ["panNumber", "PAN Number"],
+  ["profilePhoto", "Profile Photo"],
+];
+
+function hasValue(value) {
+  if (typeof value === "string") {
+    return value.trim() !== "";
+  }
+
+  if (typeof value === "number") {
+    return !Number.isNaN(value);
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Boolean(value.name || value.file || value.url);
+  }
+
+  return Boolean(value);
+}
+
+function getMissingPersonalFields(personal) {
+  return personalRequiredFields
+    .filter(([fieldName]) => !hasValue(personal[fieldName]))
+    .map(([, label]) => label);
 }
 
 const initialState = {
@@ -267,10 +457,12 @@ const initialState = {
       pincode: "",
       dob: "",
       age: "",
+      bloodGroup: "",
       gender: "",
       category: "",
       handicap: "",
       aadhaar: "",
+      panNumber: "",
       profilePhoto: "",
     },
     education: {
@@ -431,23 +623,30 @@ function ProfileForm({ onComplete }) {
 
     async function loadStudentFormContext() {
       try {
-        const activePrn =
-          window.localStorage.getItem("training-placement-active-student") || "";
-        const [progressData, profileData] = await Promise.all([
-          activePrn ? getStudentProfileProgress(activePrn) : Promise.resolve(null),
-          getStudentProfile().catch(() => null),
-        ]);
+        const profileData = await getStudentProfile().catch(() => null);
+        const activePrn = String(
+          profileData?.prn ||
+            window.localStorage.getItem("training-placement-active-student") ||
+            "",
+        ).trim();
+        const progressData = activePrn
+          ? await getStudentProfileProgress(activePrn).catch(() => null)
+          : null;
 
         if (!isMounted) {
           return;
         }
 
         const completedStepsFromProgress = getCompletedStepsFromProgress(progressData);
+        const completedStepsFromProfile = getCompletedStepsFromProfileData(profileData);
+        const completedSteps = Array.from(
+          new Set([...completedStepsFromProgress, ...completedStepsFromProfile]),
+        ).sort((left, right) => left - right);
 
         dispatch({
           type: "INITIALIZE_FORM",
-          currentStep: getNextStepIndex(completedStepsFromProgress),
-          completedSteps: completedStepsFromProgress,
+          currentStep: getNextStepIndex(completedSteps),
+          completedSteps,
           formData: profileData
             ? {
                 personal: mapProfileToPersonalForm(profileData),
@@ -637,6 +836,17 @@ function ProfileForm({ onComplete }) {
     if (stepIndex !== 0 && !formData.personal.prn) {
       window.alert("Please fill and save PRN in Personal Details first.");
       return;
+    }
+
+    if (stepIndex === 0) {
+      const missingFields = getMissingPersonalFields(formData.personal);
+
+      if (missingFields.length > 0) {
+        window.alert(
+          `Please fill all mandatory personal details before saving.\n\nMissing fields: ${missingFields.join(", ")}`
+        );
+        return;
+      }
     }
 
     try {

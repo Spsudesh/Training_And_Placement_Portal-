@@ -48,6 +48,7 @@ function createAuthResponse(user) {
       email: user.email,
       role: user.role,
       isProfileVerified: Boolean(user.is_profile_verified),
+      isProfileFormSubmitted: Boolean(user.is_profile_form_submitted),
     },
   };
 }

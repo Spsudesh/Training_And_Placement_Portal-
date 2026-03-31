@@ -229,7 +229,9 @@ function createStudentManagementPayload(student) {
       createField('Phone', student.personal.mobile),
       createField('Gender', student.personal.gender),
       createField('Date of Birth', formatDate(student.personal.dob)),
+      createField('Blood Group', student.personal.blood_group),
       createField('Category', student.personal.category),
+      createField('PAN Number', student.personal.pan_no),
       createField(
         'Address',
         [

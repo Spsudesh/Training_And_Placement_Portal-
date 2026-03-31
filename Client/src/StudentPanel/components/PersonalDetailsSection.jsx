@@ -10,6 +10,7 @@ import {
 const genderOptions = ["Male", "Female", "Other"];
 const categoryOptions = ["Open", "OBC", "SC", "ST", "EWS", "NT", "SBC"];
 const handicapOptions = ["No", "Yes"];
+const bloodGroupOptions = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 function PersonalDetailsSection({
   data,
@@ -48,6 +49,7 @@ function PersonalDetailsSection({
           value={data.middleName}
           onChange={onFieldChange}
           placeholder="Middle name"
+          required
         />
         <TextInput
           label="Last Name"
@@ -77,6 +79,7 @@ function PersonalDetailsSection({
         onChange={onFieldChange}
         placeholder="yourname@ritindia.edu"
         disabled
+        required
       />
 
       <TextInput
@@ -94,6 +97,7 @@ function PersonalDetailsSection({
         value={data.address}
         onChange={onFieldChange}
         placeholder="Flat / House number, street, locality"
+        required
       />
 
       <FieldGrid columns={4}>
@@ -103,6 +107,7 @@ function PersonalDetailsSection({
           value={data.country}
           onChange={onFieldChange}
           placeholder="Country"
+          required
         />
         <TextInput
           label="State"
@@ -110,6 +115,7 @@ function PersonalDetailsSection({
           value={data.state}
           onChange={onFieldChange}
           placeholder="State"
+          required
         />
         <TextInput
           label="District"
@@ -117,6 +123,7 @@ function PersonalDetailsSection({
           value={data.district}
           onChange={onFieldChange}
           placeholder="District"
+          required
         />
         <TextInput
           label="City"
@@ -124,6 +131,7 @@ function PersonalDetailsSection({
           value={data.city}
           onChange={onFieldChange}
           placeholder="City"
+          required
         />
       </FieldGrid>
 
@@ -133,10 +141,11 @@ function PersonalDetailsSection({
         value={data.pincode}
         onChange={onFieldChange}
         placeholder="Pincode"
+        required
       />
 
-      <FieldGrid columns={2}>
-        <TextInput label="Date of Birth" name="dob" type="date" value={data.dob} onChange={onFieldChange} />
+      <FieldGrid columns={3}>
+        <TextInput label="Date of Birth" name="dob" type="date" value={data.dob} onChange={onFieldChange} required />
         <TextInput
           label="Age"
           name="age"
@@ -147,16 +156,25 @@ function PersonalDetailsSection({
           disabled
           hint="Age is calculated automatically from Date of Birth."
         />
+        <SelectInput
+          label="Blood Group"
+          name="bloodGroup"
+          value={data.bloodGroup}
+          onChange={onFieldChange}
+          options={bloodGroupOptions}
+          required
+        />
       </FieldGrid>
 
       <FieldGrid columns={3}>
-        <SelectInput label="Gender" name="gender" value={data.gender} onChange={onFieldChange} options={genderOptions} />
+        <SelectInput label="Gender" name="gender" value={data.gender} onChange={onFieldChange} options={genderOptions} required />
         <SelectInput
           label="Category"
           name="category"
           value={data.category}
           onChange={onFieldChange}
           options={categoryOptions}
+          required
         />
         <SelectInput
           label="Handicap"
@@ -164,6 +182,7 @@ function PersonalDetailsSection({
           value={data.handicap}
           onChange={onFieldChange}
           options={handicapOptions}
+          required
         />
       </FieldGrid>
 
@@ -173,6 +192,16 @@ function PersonalDetailsSection({
         value={data.aadhaar}
         onChange={onFieldChange}
         placeholder="XXXX XXXX XXXX"
+        required
+      />
+
+      <TextInput
+        label="PAN Number"
+        name="panNumber"
+        value={data.panNumber}
+        onChange={onFieldChange}
+        placeholder="ABCDE1234F"
+        required
       />
 
       <div className="space-y-4">
@@ -183,6 +212,7 @@ function PersonalDetailsSection({
           onChange={onFileChange}
           accept=".jpg,.jpeg,.png"
           helperText="Upload passport-size photograph"
+          required
         />
       </div>
     </SectionCard>

@@ -24,10 +24,12 @@ function createPersonalFormData(personal) {
   formData.append("pincode", personal.pincode ?? "");
   formData.append("dob", personal.dob ?? "");
   formData.append("age", personal.age ?? "");
+  formData.append("bloodGroup", personal.bloodGroup ?? "");
   formData.append("gender", personal.gender ?? "");
   formData.append("category", personal.category ?? "");
   formData.append("handicap", personal.handicap ?? "");
   formData.append("aadhaar", personal.aadhaar ?? "");
+  formData.append("panNumber", personal.panNumber ?? "");
   appendFileIfPresent(formData, "profilePhoto", personal.profilePhoto);
 
   return formData;

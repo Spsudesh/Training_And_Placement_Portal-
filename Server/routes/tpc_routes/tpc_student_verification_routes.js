@@ -110,6 +110,8 @@ function createVerificationPayload(student) {
     createField('personal_email', 'Email', student.personal.email),
     createField('personal_phone', 'Phone', student.personal.mobile),
     createField('personal_dob', 'Date of Birth', formatDate(student.personal.dob)),
+    createField('personal_blood_group', 'Blood Group', student.personal.blood_group),
+    createField('personal_pan', 'PAN Number', student.personal.pan_no),
     createField(
       'personal_address',
       'Address',

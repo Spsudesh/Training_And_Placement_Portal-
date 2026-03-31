@@ -29,7 +29,6 @@ import {
   profileSectionLinks,
 } from "../data/mockStudentProfile";
 import {
-  DEFAULT_PRN,
   getStudentProfile,
   STUDENT_PROFILE_VERIFICATION_EVENT,
   STUDENT_PROFILE_VERIFIED_STORAGE_KEY,
@@ -261,10 +260,12 @@ function mapProfileToPersonalForm(profile) {
     pincode: profile.pincode ?? "",
     dob: profile.dob ?? "",
     age: profile.age ?? "",
+    bloodGroup: profile.bloodGroup ?? "",
     gender: profile.gender ?? "",
     category: profile.category ?? "",
     handicap: profile.handicap ?? "",
     aadhaar: profile.aadhaar ?? "",
+    panNumber: profile.panNumber ?? "",
     profilePhoto: createExistingFileValue(profile.profilePhotoUrl, "Profile Photo"),
   };
 }
@@ -927,9 +928,7 @@ function StudentProfilePage() {
     return (
       <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
         <p className="text-lg font-semibold text-slate-900">Loading profile...</p>
-        <p className="mt-2 text-sm text-slate-500">
-          Fetching student profile data for default PRN {DEFAULT_PRN}.
-        </p>
+        <p className="mt-2 text-sm text-slate-500">Fetching student profile data.</p>
       </div>
     );
   }
@@ -997,9 +996,11 @@ function StudentProfilePage() {
                 { label: "PRN", value: profile.prn },
                 { label: "Full Name", value: profile.fullName },
                 { label: "Date of Birth", value: formatDate(profile.dob) },
+                { label: "Blood Group", value: profile.bloodGroup },
                 { label: "Gender", value: profile.gender },
                 { label: "Category", value: profile.category },
                 { label: "Aadhaar", value: profile.aadhaar },
+                { label: "PAN", value: profile.panNumber },
                 { label: "Handicap", value: profile.handicap },
                 { label: "Department", value: profile.department },
                 { label: "Passing Year", value: profile.passingYear },

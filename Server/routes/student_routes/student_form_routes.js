@@ -253,10 +253,12 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
     pincode,
     dob,
     age,
+    bloodGroup,
     gender,
     category,
     handicap,
     aadhaar,
+    panNumber,
   } = req.body;
 
   const normalizedCollegeEmail = normalizeEmailValue(collegeEmail);
@@ -282,8 +284,8 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
     `
       INSERT INTO student_personal
       (PRN, first_name, middle_name, last_name, personal_email, college_email, mobile, address, country, city, district, state, pincode,
-       dob, age, gender, category, handicap, aadhaar, profile_photo_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       dob, age, blood_group, gender, category, handicap, aadhaar, pan_no, profile_photo_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         first_name = VALUES(first_name),
         middle_name = VALUES(middle_name),
@@ -299,10 +301,12 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
         pincode = VALUES(pincode),
         dob = VALUES(dob),
         age = VALUES(age),
+        blood_group = VALUES(blood_group),
         gender = VALUES(gender),
         category = VALUES(category),
         handicap = VALUES(handicap),
         aadhaar = VALUES(aadhaar),
+        pan_no = VALUES(pan_no),
         profile_photo_url = COALESCE(VALUES(profile_photo_url), profile_photo_url)
     `,
     [
@@ -321,10 +325,12 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
       pincode || null,
       dob || null,
       toNullableNumber(age),
+      normalizeTextValue(bloodGroup),
       gender || null,
       category || null,
       toNullableBoolean(handicap),
       aadhaar || null,
+      normalizeTextValue(panNumber),
       profilePhotoUrl,
     ]
   );

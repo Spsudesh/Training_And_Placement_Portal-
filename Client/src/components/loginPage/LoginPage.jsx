@@ -9,7 +9,6 @@ const roleOptions = [
 ];
 
 const roleRoutes = {
-  student: "/student-panel",
   tpc: "/tpc-dashboard",
   tpo: "/tpo-dashboard",
 };
@@ -42,7 +41,12 @@ function LoginPage({ onLogin }) {
 
       const panel = response?.user?.role;
       const studentId = response?.user?.PRN ? String(response.user.PRN) : "";
-      const route = roleRoutes[panel];
+      const route =
+        panel === "student"
+          ? response?.user?.isProfileFormSubmitted
+            ? "/student-panel"
+            : "/student-panel/profile-form"
+          : roleRoutes[panel];
 
       if (!response?.success || !panel || !route) {
         setErrorMessage("Unable to login with this account.");

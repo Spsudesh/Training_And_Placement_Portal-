@@ -100,13 +100,15 @@ function FilePreviewModal({ fileUrl, fileLabel, fileType, onClose }) {
           </p>
         </div>
 
-        <div className="flex-1 bg-slate-100 p-4">
+        <div className="flex flex-1 items-center justify-center overflow-auto bg-slate-100 p-4">
           {imagePreview ? (
-            <img
-              src={fileUrl}
-              alt={fileLabel || "Preview"}
-              className="h-full w-full rounded-2xl object-contain"
-            />
+            <div className="flex h-full w-full items-center justify-center rounded-2xl bg-white p-3">
+              <img
+                src={fileUrl}
+                alt={fileLabel || "Preview"}
+                className="block max-h-full max-w-full rounded-2xl object-contain shadow-sm"
+              />
+            </div>
           ) : (
             <iframe
               src={fileUrl}
@@ -194,7 +196,7 @@ function TextArea({ label, name, value, onChange, placeholder, rows = 4 }) {
   );
 }
 
-function UploadRow({ label, name, fileName, onChange, accept, helperText }) {
+function UploadRow({ label, name, fileName, onChange, accept, helperText, required = false }) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileLabel =
     typeof fileName === "object" && fileName !== null
@@ -209,7 +211,10 @@ function UploadRow({ label, name, fileName, onChange, accept, helperText }) {
     <>
       <div className="grid gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 md:grid-cols-[1.2fr_1.6fr_auto_auto] md:items-center">
         <div>
-          <p className="text-sm font-medium text-slate-700">{label}</p>
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <span>{label}</span>
+            {required ? <span className="text-red-600">*</span> : null}
+          </div>
           {helperText ? (
             <p className="mt-1 text-xs text-slate-500">{helperText}</p>
           ) : null}
