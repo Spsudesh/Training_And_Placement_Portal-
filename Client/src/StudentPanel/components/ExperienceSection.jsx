@@ -2,11 +2,24 @@ import {
   EntryCard,
   FieldGrid,
   SaveButton,
+  SelectInput,
   SectionCard,
   TextArea,
   TextInput,
   UploadRow,
 } from "./FormUI";
+
+const experienceTypeOptions = [
+  { label: "Internship", value: "Internship" },
+  { label: "Virtual Internship", value: "Virtual Internship" },
+  { label: "Freelancer", value: "Freelancer" },
+  { label: "Full-Time", value: "Full-Time" },
+];
+
+const durationUnitOptions = [
+  { label: "Days", value: "days" },
+  { label: "Weeks", value: "weeks" },
+];
 
 function ExperienceSection({
   data,
@@ -44,13 +57,59 @@ function ExperienceSection({
             disableRemove={data.length === 1}
           >
             <FieldGrid columns={2}>
-              <TextInput label="Type" name="type" value={entry.type} onChange={(event) => onEntryChange(index, event)} placeholder="Internship / Full-Time / Freelance" />
+              <SelectInput
+                label="Type"
+                name="type"
+                value={entry.type}
+                onChange={(event) => onEntryChange(index, event)}
+                options={experienceTypeOptions}
+                placeholder="Select experience type"
+              />
               <TextInput label="Company Name" name="companyName" value={entry.companyName} onChange={(event) => onEntryChange(index, event)} placeholder="Company name" />
+            </FieldGrid>
+
+            <FieldGrid columns={4}>
+              <SelectInput
+                label="Duration Unit"
+                name="durationUnit"
+                value={entry.durationUnit}
+                onChange={(event) => onEntryChange(index, event)}
+                options={durationUnitOptions}
+                placeholder="Select unit"
+              />
+              <TextInput
+                label={entry.durationUnit === "weeks" ? "No. of Weeks" : "No. of Days"}
+                name="durationValue"
+                value={entry.durationValue}
+                onChange={(event) => onEntryChange(index, event)}
+                placeholder={entry.durationUnit === "weeks" ? "Enter weeks" : "Enter days"}
+              />
+              <TextInput
+                label="Start Month"
+                name="startMonth"
+                type="month"
+                value={entry.startMonth}
+                onChange={(event) => onEntryChange(index, event)}
+              />
+              <TextInput
+                label="End Month"
+                name="endMonth"
+                type="month"
+                value={entry.endMonth}
+                onChange={(event) => onEntryChange(index, event)}
+              />
             </FieldGrid>
 
             <FieldGrid columns={2}>
               <TextInput label="Role" name="role" value={entry.role} onChange={(event) => onEntryChange(index, event)} placeholder="Role / Designation" />
-              <TextInput label="Duration" name="duration" value={entry.duration} onChange={(event) => onEntryChange(index, event)} placeholder="e.g. Jan 2025 - Jun 2025" />
+              <TextInput
+                label="Duration Summary"
+                name="duration"
+                value={entry.duration}
+                onChange={(event) => onEntryChange(index, event)}
+                placeholder="Auto-generated from the fields above"
+                disabled
+              />
             </FieldGrid>
 
             <TextArea

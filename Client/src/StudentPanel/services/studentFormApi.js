@@ -45,11 +45,24 @@ function createEducationFormData(prn, education) {
 
   formData.append("prn", prn ?? "");
   formData.append("marks10", education.marks10 ?? "");
+  formData.append("mathsMarks10", education.mathsMarks10 ?? "");
   formData.append("board10", education.board10 ?? "");
   formData.append("year10", education.year10 ?? "");
   formData.append("marks12", educationTrack === "twelfth" ? education.marks12 ?? "" : "");
+  formData.append(
+    "mathsMarks12",
+    educationTrack === "twelfth" ? education.mathsMarks12 ?? "" : ""
+  );
   formData.append("board12", educationTrack === "twelfth" ? education.board12 ?? "" : "");
   formData.append("year12", educationTrack === "twelfth" ? education.year12 ?? "" : "");
+  formData.append(
+    "entranceExamType",
+    educationTrack === "twelfth" ? education.entranceExamType ?? "" : ""
+  );
+  formData.append(
+    "entranceExamScore",
+    educationTrack === "twelfth" ? education.entranceExamScore ?? "" : ""
+  );
   formData.append(
     "diplomaInstitute",
     educationTrack === "diploma" ? education.diplomaInstitute ?? "" : ""
@@ -66,7 +79,9 @@ function createEducationFormData(prn, education) {
   formData.append("gapReason", education.gapReason ?? "");
   formData.append("department", education.department ?? "");
   formData.append("cgpa", education.cgpa ?? "");
-  formData.append("backlogs", education.backlogs ?? "");
+  formData.append("percentage", education.percentage ?? "");
+  formData.append("activeBacklogs", education.activeBacklogs ?? education.backlogs ?? "");
+  formData.append("deadBacklogs", JSON.stringify(education.deadBacklogs ?? []));
   formData.append("graduationYear", education.graduationYear ?? "");
   appendFileIfPresent(formData, "marksheet10", education.marksheet10);
   appendFileIfPresent(
@@ -78,6 +93,11 @@ function createEducationFormData(prn, education) {
     formData,
     "diplomaMarksheet",
     educationTrack === "diploma" ? education.diplomaMarksheet : ""
+  );
+  appendFileIfPresent(
+    formData,
+    "entranceExamCertificate",
+    educationTrack === "twelfth" ? education.entranceExamCertificate : ""
   );
   appendFileIfPresent(formData, "gapCertificate", education.gapCertificate);
 
@@ -103,16 +123,21 @@ function createJsonArrayFormData(prn, fieldName, items) {
   return formData;
 }
 
-function omitFileField(items, fileFieldName) {
+function omitFields(items, fieldNames) {
   return items.map((item) => {
     const sanitizedItem = { ...item };
-    delete sanitizedItem[fileFieldName];
+    fieldNames.forEach((fieldName) => {
+      delete sanitizedItem[fieldName];
+    });
     return sanitizedItem;
   });
 }
 
 function createExperienceFormData(prn, experience) {
-  const sanitizedExperience = omitFileField(experience, "certificate");
+  const sanitizedExperience = omitFields(experience, ["certificate"]).map((entry) => ({
+    ...entry,
+    durationSummary: entry.duration || entry.durationSummary || "",
+  }));
   const formData = createJsonArrayFormData(prn, "experience", sanitizedExperience);
 
   experience.forEach((entry, index) => {
@@ -123,7 +148,7 @@ function createExperienceFormData(prn, experience) {
 }
 
 function createCertificationsFormData(prn, certifications) {
-  const sanitizedCertifications = omitFileField(certifications, "certificate");
+  const sanitizedCertifications = omitFields(certifications, ["certificate"]);
   const formData = createJsonArrayFormData(prn, "certifications", sanitizedCertifications);
 
   certifications.forEach((entry, index) => {

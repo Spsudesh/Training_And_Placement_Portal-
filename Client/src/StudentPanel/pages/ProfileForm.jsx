@@ -95,6 +95,10 @@ const createExperience = () => ({
   companyName: "",
   role: "",
   duration: "",
+  durationUnit: "",
+  durationValue: "",
+  startMonth: "",
+  endMonth: "",
   description: "",
   certificate: "",
 });
@@ -117,6 +121,11 @@ const createActivity = () => ({
   title: "",
   description: "",
   links: "",
+});
+
+const createDeadBacklog = () => ({
+  semester: "",
+  count: "",
 });
 
 function createProfilePhotoValue(profilePhotoUrl) {
@@ -183,10 +192,26 @@ function createExistingFileValue(fileUrl, fallbackLabel) {
   };
 }
 
+function calculatePercentageFromCgpa(cgpaValue) {
+  if (cgpaValue === undefined || cgpaValue === null || cgpaValue === "") {
+    return "";
+  }
+
+  const parsedCgpa = Number(cgpaValue);
+
+  if (Number.isNaN(parsedCgpa)) {
+    return "";
+  }
+
+  const percentage = parsedCgpa * 10 - 7.5;
+  return percentage > 0 ? percentage.toFixed(2) : "";
+}
+
 function mapProfileToEducationForm(profileData = {}) {
   return {
     educationTrack: profileData.education?.diploma?.year ? "diploma" : "twelfth",
     marks10: profileData.education?.tenth?.marks ?? "",
+    mathsMarks10: profileData.education?.tenth?.mathsMarks ?? "",
     marksheet10: createExistingFileValue(
       profileData.education?.tenth?.marksheetUrl,
       "10th Marksheet",
@@ -194,6 +219,7 @@ function mapProfileToEducationForm(profileData = {}) {
     board10: profileData.education?.tenth?.board ?? "",
     year10: profileData.education?.tenth?.year ?? "",
     marks12: profileData.education?.twelfth?.marks ?? "",
+    mathsMarks12: profileData.education?.twelfth?.mathsMarks ?? "",
     marksheet12: createExistingFileValue(
       profileData.education?.twelfth?.marksheetUrl,
       "12th Marksheet",
@@ -213,9 +239,25 @@ function mapProfileToEducationForm(profileData = {}) {
       profileData.education?.gapCertificateUrl,
       "Gap Certificate",
     ),
+    entranceExamType: profileData.education?.twelfth?.entranceExamType ?? "",
+    entranceExamScore: profileData.education?.twelfth?.entranceExamScore ?? "",
+    entranceExamCertificate: createExistingFileValue(
+      profileData.education?.twelfth?.entranceExamCertificateUrl,
+      "Entrance Exam Certificate",
+    ),
     department: profileData.department ?? "",
     cgpa: profileData.currentCgpa ?? "",
+    percentage:
+      profileData.currentPercentage ??
+      calculatePercentageFromCgpa(profileData.currentCgpa),
+    activeBacklogs: profileData.backlogs ?? "",
     backlogs: profileData.backlogs ?? "",
+    deadBacklogs: profileData.deadBacklogs?.length
+      ? profileData.deadBacklogs.map((entry) => ({
+          semester: entry.semester ?? "",
+          count: entry.count ?? "",
+        }))
+      : [createDeadBacklog()],
     graduationYear: profileData.passingYear ?? "",
   };
 }
@@ -223,6 +265,7 @@ function mapProfileToEducationForm(profileData = {}) {
 function mapProfileToExperienceForm(profileData = {}) {
   return profileData.experience?.length
     ? profileData.experience.map((entry) => ({
+        ...parseExperienceDuration(entry.duration),
         expNumber: entry.expNumber,
         type: entry.type ?? "",
         companyName: entry.companyName ?? "",
@@ -235,6 +278,78 @@ function mapProfileToExperienceForm(profileData = {}) {
         ),
       }))
     : [createExperience()];
+}
+
+function formatExperienceMonth(monthValue) {
+  if (!monthValue || !/^\d{4}-\d{2}$/.test(monthValue)) {
+    return "";
+  }
+
+  const [year, month] = monthValue.split("-");
+  const date = new Date(Number(year), Number(month) - 1, 1);
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function buildExperienceDuration(durationValue, durationUnit, startMonth, endMonth) {
+  const normalizedValue = String(durationValue ?? "").trim();
+  const normalizedUnit = String(durationUnit ?? "").trim().toLowerCase();
+  const quantityPart =
+    normalizedValue && normalizedUnit
+      ? `${normalizedValue} ${
+          normalizedUnit === "weeks" && normalizedValue === "1" ? "Week" : normalizedUnit === "weeks" ? "Weeks" : normalizedValue === "1" ? "Day" : "Days"
+        }`
+      : "";
+  const startLabel = formatExperienceMonth(startMonth);
+  const endLabel = formatExperienceMonth(endMonth);
+  const monthPart = startLabel && endLabel ? `${startLabel} - ${endLabel}` : "";
+
+  return [quantityPart, monthPart].filter(Boolean).join(" | ");
+}
+
+function parseExperienceDuration(durationValue) {
+  const normalizedValue = String(durationValue ?? "").trim();
+  const parsedDuration = {
+    durationUnit: "",
+    durationValue: "",
+    startMonth: "",
+    endMonth: "",
+  };
+
+  const quantityMatch = normalizedValue.match(/(\d+)\s+(day|days|week|weeks)/i);
+
+  if (quantityMatch) {
+    parsedDuration.durationValue = quantityMatch[1];
+    parsedDuration.durationUnit = quantityMatch[2].toLowerCase().startsWith("week")
+      ? "weeks"
+      : "days";
+  }
+
+  const monthRangeMatch = normalizedValue.match(
+    /([A-Za-z]{3,9})\s+(\d{4})\s*-\s*([A-Za-z]{3,9})\s+(\d{4})/i,
+  );
+
+  if (monthRangeMatch) {
+    const startDate = new Date(`${monthRangeMatch[1]} 1, ${monthRangeMatch[2]}`);
+    const endDate = new Date(`${monthRangeMatch[3]} 1, ${monthRangeMatch[4]}`);
+
+    if (!Number.isNaN(startDate.getTime())) {
+      parsedDuration.startMonth = `${startDate.getFullYear()}-${String(
+        startDate.getMonth() + 1,
+      ).padStart(2, "0")}`;
+    }
+
+    if (!Number.isNaN(endDate.getTime())) {
+      parsedDuration.endMonth = `${endDate.getFullYear()}-${String(
+        endDate.getMonth() + 1,
+      ).padStart(2, "0")}`;
+    }
+  }
+
+  return parsedDuration;
 }
 
 function mapProfileToProjectsForm(profileData = {}) {
@@ -437,6 +552,48 @@ function getMissingPersonalFields(personal) {
     .map(([, label]) => label);
 }
 
+function getMissingEducationFields(education) {
+  const selectedTrack =
+    education.educationTrack ||
+    (education.diplomaInstitute || education.diplomaMarks || education.diplomaYear
+      ? "diploma"
+      : "twelfth");
+
+  const requiredFields = [
+    ["marks10", "10th Marks"],
+    ["mathsMarks10", "10th Maths Marks"],
+    ["board10", "10th Board"],
+    ["year10", "10th Passing Year"],
+    ["marksheet10", "10th Marksheet"],
+    ["department", "Department"],
+    ["cgpa", "Current CGPA"],
+    ["percentage", "Percentage"],
+    ["activeBacklogs", "Active Backlogs"],
+    ["graduationYear", "Year of Passing"],
+  ];
+
+  if (selectedTrack === "diploma") {
+    requiredFields.push(
+      ["diplomaInstitute", "Diploma Institute"],
+      ["diplomaMarks", "Diploma Percentage"],
+      ["diplomaYear", "Diploma Passing Year"],
+      ["diplomaMarksheet", "Diploma Marksheet"],
+    );
+  } else {
+    requiredFields.push(
+      ["marks12", "12th Marks"],
+      ["mathsMarks12", "12th Maths Marks"],
+      ["board12", "12th Board"],
+      ["year12", "12th Passing Year"],
+      ["marksheet12", "12th Marksheet"],
+    );
+  }
+
+  return requiredFields
+    .filter(([fieldName]) => !hasValue(education[fieldName]))
+    .map(([, label]) => label);
+}
+
 const initialState = {
   currentStep: 0,
   completedSteps: [],
@@ -468,10 +625,12 @@ const initialState = {
     education: {
       educationTrack: "twelfth",
       marks10: "",
+      mathsMarks10: "",
       marksheet10: "",
       board10: "",
       year10: "",
       marks12: "",
+      mathsMarks12: "",
       marksheet12: "",
       board12: "",
       year12: "",
@@ -482,9 +641,15 @@ const initialState = {
       gapStatus: "",
       gapReason: "",
       gapCertificate: "",
+      entranceExamType: "",
+      entranceExamScore: "",
+      entranceExamCertificate: "",
       department: "",
       cgpa: "",
+      percentage: "",
+      activeBacklogs: "",
       backlogs: "",
+      deadBacklogs: [createDeadBacklog()],
       graduationYear: "",
     },
     experience: [createExperience()],
@@ -719,6 +884,48 @@ function ProfileForm({ onComplete }) {
       }
     }
 
+    if (section === "education") {
+      if (name === "cgpa") {
+        dispatch({
+          type: "UPDATE_SECTION_FIELDS",
+          section,
+          stepIndex,
+          updates: {
+            cgpa: value,
+            percentage: calculatePercentageFromCgpa(value),
+          },
+        });
+        return;
+      }
+
+      if (name === "activeBacklogs") {
+        dispatch({
+          type: "UPDATE_SECTION_FIELDS",
+          section,
+          stepIndex,
+          updates: {
+            activeBacklogs: value,
+            backlogs: value,
+          },
+        });
+        return;
+      }
+
+      if (name === "entranceExamType" && !value) {
+        dispatch({
+          type: "UPDATE_SECTION_FIELDS",
+          section,
+          stepIndex,
+          updates: {
+            entranceExamType: "",
+            entranceExamScore: "",
+            entranceExamCertificate: "",
+          },
+        });
+        return;
+      }
+    }
+
     dispatch({
       type: "UPDATE_SECTION_FIELD",
       section,
@@ -762,6 +969,41 @@ function ProfileForm({ onComplete }) {
 
   const updateListItem = (section, stepIndex) => (index, event) => {
     const { name, value } = event.target;
+
+    if (
+      section === "experience" &&
+      ["durationUnit", "durationValue", "startMonth", "endMonth"].includes(name)
+    ) {
+      const currentEntry = state.formData[section][index];
+      const nextEntry = {
+        ...currentEntry,
+        [name]: value,
+      };
+
+      dispatch({
+        type: "UPDATE_LIST_ITEM",
+        section,
+        stepIndex,
+        index,
+        name,
+        value,
+      });
+      dispatch({
+        type: "UPDATE_LIST_ITEM",
+        section,
+        stepIndex,
+        index,
+        name: "duration",
+        value: buildExperienceDuration(
+          nextEntry.durationValue,
+          nextEntry.durationUnit,
+          nextEntry.startMonth,
+          nextEntry.endMonth,
+        ),
+      });
+      return;
+    }
+
     dispatch({
       type: "UPDATE_LIST_ITEM",
       section,
@@ -801,6 +1043,44 @@ function ProfileForm({ onComplete }) {
       section,
       stepIndex,
       item: itemFactory(),
+    });
+  };
+
+  const updateEducationDeadBacklog = (index, event) => {
+    const { name, value } = event.target;
+
+    dispatch({
+      type: "UPDATE_SECTION_FIELD",
+      section: "education",
+      stepIndex: 1,
+      name: "deadBacklogs",
+      value: state.formData.education.deadBacklogs.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, [name]: value } : entry
+      ),
+    });
+  };
+
+  const addEducationDeadBacklog = () => {
+    dispatch({
+      type: "UPDATE_SECTION_FIELD",
+      section: "education",
+      stepIndex: 1,
+      name: "deadBacklogs",
+      value: [...state.formData.education.deadBacklogs, createDeadBacklog()],
+    });
+  };
+
+  const removeEducationDeadBacklog = (index) => {
+    if (state.formData.education.deadBacklogs.length === 1) {
+      return;
+    }
+
+    dispatch({
+      type: "UPDATE_SECTION_FIELD",
+      section: "education",
+      stepIndex: 1,
+      name: "deadBacklogs",
+      value: state.formData.education.deadBacklogs.filter((_, entryIndex) => entryIndex !== index),
     });
   };
 
@@ -844,6 +1124,17 @@ function ProfileForm({ onComplete }) {
       if (missingFields.length > 0) {
         window.alert(
           `Please fill all mandatory personal details before saving.\n\nMissing fields: ${missingFields.join(", ")}`
+        );
+        return;
+      }
+    }
+
+    if (stepIndex === 1) {
+      const missingFields = getMissingEducationFields(formData.education);
+
+      if (missingFields.length > 0) {
+        window.alert(
+          `Please fill all mandatory education details before saving.\n\nMissing fields: ${missingFields.join(", ")}`
         );
         return;
       }
@@ -945,6 +1236,9 @@ function ProfileForm({ onComplete }) {
             data={formData.education}
             onFieldChange={updateSectionField("education", 1)}
             onFileChange={updateSectionFile("education", 1)}
+            onDeadBacklogChange={updateEducationDeadBacklog}
+            onAddDeadBacklog={addEducationDeadBacklog}
+            onRemoveDeadBacklog={removeEducationDeadBacklog}
             onSave={() => saveStep(1)}
             isSaved={completedSteps.includes(1) && !isSaving}
           />

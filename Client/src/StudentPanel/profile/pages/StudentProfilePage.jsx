@@ -41,6 +41,10 @@ const createExperienceEntry = () => ({
   companyName: "",
   role: "",
   duration: "",
+  durationUnit: "",
+  durationValue: "",
+  startMonth: "",
+  endMonth: "",
   description: "",
   certificate: "",
   certificateUrl: "",
@@ -65,6 +69,11 @@ const createActivityEntry = () => ({
   title: "",
   description: "",
   links: "",
+});
+
+const createDeadBacklogEntry = () => ({
+  semester: "",
+  count: "",
 });
 
 function formatDate(dateValue) {
@@ -152,6 +161,93 @@ function normalizeExternalUrl(url) {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
+function calculatePercentageFromCgpa(cgpaValue) {
+  if (cgpaValue === undefined || cgpaValue === null || cgpaValue === "") {
+    return "";
+  }
+
+  const parsedCgpa = Number(cgpaValue);
+
+  if (Number.isNaN(parsedCgpa)) {
+    return "";
+  }
+
+  const percentage = parsedCgpa * 10 - 7.5;
+  return percentage > 0 ? percentage.toFixed(2) : "";
+}
+
+function formatExperienceMonth(monthValue) {
+  if (!monthValue || !/^\d{4}-\d{2}$/.test(monthValue)) {
+    return "";
+  }
+
+  const [year, month] = monthValue.split("-");
+  const date = new Date(Number(year), Number(month) - 1, 1);
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function buildExperienceDuration(durationValue, durationUnit, startMonth, endMonth) {
+  const normalizedValue = String(durationValue ?? "").trim();
+  const normalizedUnit = String(durationUnit ?? "").trim().toLowerCase();
+  const quantityPart =
+    normalizedValue && normalizedUnit
+      ? `${normalizedValue} ${
+          normalizedUnit === "weeks" && normalizedValue === "1" ? "Week" : normalizedUnit === "weeks" ? "Weeks" : normalizedValue === "1" ? "Day" : "Days"
+        }`
+      : "";
+  const startLabel = formatExperienceMonth(startMonth);
+  const endLabel = formatExperienceMonth(endMonth);
+  const monthPart = startLabel && endLabel ? `${startLabel} - ${endLabel}` : "";
+
+  return [quantityPart, monthPart].filter(Boolean).join(" | ");
+}
+
+function parseExperienceDuration(durationValue) {
+  const normalizedValue = String(durationValue ?? "").trim();
+  const parsedDuration = {
+    durationUnit: "",
+    durationValue: "",
+    startMonth: "",
+    endMonth: "",
+  };
+
+  const quantityMatch = normalizedValue.match(/(\d+)\s+(day|days|week|weeks)/i);
+
+  if (quantityMatch) {
+    parsedDuration.durationValue = quantityMatch[1];
+    parsedDuration.durationUnit = quantityMatch[2].toLowerCase().startsWith("week")
+      ? "weeks"
+      : "days";
+  }
+
+  const monthRangeMatch = normalizedValue.match(
+    /([A-Za-z]{3,9})\s+(\d{4})\s*-\s*([A-Za-z]{3,9})\s+(\d{4})/i,
+  );
+
+  if (monthRangeMatch) {
+    const startDate = new Date(`${monthRangeMatch[1]} 1, ${monthRangeMatch[2]}`);
+    const endDate = new Date(`${monthRangeMatch[3]} 1, ${monthRangeMatch[4]}`);
+
+    if (!Number.isNaN(startDate.getTime())) {
+      parsedDuration.startMonth = `${startDate.getFullYear()}-${String(
+        startDate.getMonth() + 1,
+      ).padStart(2, "0")}`;
+    }
+
+    if (!Number.isNaN(endDate.getTime())) {
+      parsedDuration.endMonth = `${endDate.getFullYear()}-${String(
+        endDate.getMonth() + 1,
+      ).padStart(2, "0")}`;
+    }
+  }
+
+  return parsedDuration;
+}
+
 const LOCATION_FIELD_NAMES = new Set(["country", "state", "district", "city"]);
 
 function calculateAgeFromDob(dobValue) {
@@ -216,10 +312,12 @@ function mapProfileToEducationForm(profile) {
   return {
     educationTrack: profile.education.diploma?.year ? "diploma" : "twelfth",
     marks10: profile.education.tenth?.marks ?? "",
+    mathsMarks10: profile.education.tenth?.mathsMarks ?? "",
     marksheet10: createExistingFileValue(profile.education.tenth?.marksheetUrl, "10th Marksheet"),
     board10: profile.education.tenth?.board ?? "",
     year10: profile.education.tenth?.year ?? "",
     marks12: profile.education.twelfth?.marks ?? "",
+    mathsMarks12: profile.education.twelfth?.mathsMarks ?? "",
     marksheet12: createExistingFileValue(profile.education.twelfth?.marksheetUrl, "12th Marksheet"),
     board12: profile.education.twelfth?.board ?? "",
     year12: profile.education.twelfth?.year ?? "",
@@ -236,9 +334,25 @@ function mapProfileToEducationForm(profile) {
       profile.education.gapCertificateUrl,
       "Gap Certificate",
     ),
+    entranceExamType: profile.education.twelfth?.entranceExamType ?? "",
+    entranceExamScore: profile.education.twelfth?.entranceExamScore ?? "",
+    entranceExamCertificate: createExistingFileValue(
+      profile.education.twelfth?.entranceExamCertificateUrl,
+      "Entrance Exam Certificate",
+    ),
     department: profile.department ?? "",
     cgpa: profile.currentCgpa ?? "",
+    percentage:
+      profile.currentPercentage ??
+      calculatePercentageFromCgpa(profile.currentCgpa),
+    activeBacklogs: profile.backlogs ?? "",
     backlogs: profile.backlogs ?? "",
+    deadBacklogs: profile.deadBacklogs?.length
+      ? profile.deadBacklogs.map((entry) => ({
+          semester: entry.semester ?? "",
+          count: entry.count ?? "",
+        }))
+      : [createDeadBacklogEntry()],
     graduationYear: profile.passingYear ?? "",
   };
 }
@@ -295,6 +409,7 @@ function mapProfileToProjectsForm(profile) {
 function mapProfileToExperienceForm(profile) {
   return profile.experience.length
     ? profile.experience.map((item) => ({
+        ...parseExperienceDuration(item.duration),
         expNumber: item.expNumber,
         type: item.type ?? "",
         companyName: item.companyName ?? "",
@@ -348,7 +463,9 @@ function mapEducationFormToProfile(profile, formData) {
     ...profile,
     department: formData.department ?? profile.department,
     currentCgpa: formData.cgpa === "" ? "" : formData.cgpa,
-    backlogs: formData.backlogs === "" ? "" : formData.backlogs,
+    currentPercentage: formData.percentage === "" ? "" : formData.percentage,
+    backlogs: formData.activeBacklogs === "" ? "" : formData.activeBacklogs,
+    deadBacklogs: formData.deadBacklogs ?? profile.deadBacklogs ?? [],
     passingYear: formData.graduationYear === "" ? "" : formData.graduationYear,
     gap: formData.gapStatus === "Yes" ? "YES" : "NO",
     gapReason: formData.gapReason ?? "",
@@ -358,6 +475,7 @@ function mapEducationFormToProfile(profile, formData) {
         formData.year10 || formData.board10 || formData.marks10 || currentTenth?.marksheetUrl
           ? {
               marks: formData.marks10 === "" ? "" : formData.marks10,
+              mathsMarks: formData.mathsMarks10 === "" ? "" : formData.mathsMarks10,
               board: formData.board10 ?? "",
               year: formData.year10 === "" ? "" : formData.year10,
               marksheetUrl: currentTenth?.marksheetUrl ?? "",
@@ -368,8 +486,14 @@ function mapEducationFormToProfile(profile, formData) {
         (formData.year12 || formData.board12 || formData.marks12 || currentTwelfth?.marksheetUrl)
           ? {
               marks: formData.marks12 === "" ? "" : formData.marks12,
+              mathsMarks: formData.mathsMarks12 === "" ? "" : formData.mathsMarks12,
               board: formData.board12 ?? "",
               year: formData.year12 === "" ? "" : formData.year12,
+              entranceExamType: formData.entranceExamType ?? "",
+              entranceExamScore:
+                formData.entranceExamScore === "" ? "" : formData.entranceExamScore,
+              entranceExamCertificateUrl:
+                currentTwelfth?.entranceExamCertificateUrl ?? "",
               marksheetUrl: currentTwelfth?.marksheetUrl ?? "",
             }
           : null,
@@ -641,6 +765,36 @@ function StudentProfilePage() {
       }
     }
 
+    if (editingSection === "academic") {
+      if (name === "cgpa") {
+        setEditorState((current) => ({
+          ...current,
+          cgpa: value,
+          percentage: calculatePercentageFromCgpa(value),
+        }));
+        return;
+      }
+
+      if (name === "activeBacklogs") {
+        setEditorState((current) => ({
+          ...current,
+          activeBacklogs: value,
+          backlogs: value,
+        }));
+        return;
+      }
+
+      if (name === "entranceExamType" && !value) {
+        setEditorState((current) => ({
+          ...current,
+          entranceExamType: "",
+          entranceExamScore: "",
+          entranceExamCertificate: "",
+        }));
+        return;
+      }
+    }
+
     setEditorState((current) =>
       typeof current === "string" ? value : { ...current, [name]: value },
     );
@@ -670,8 +824,66 @@ function StudentProfilePage() {
     }));
   };
 
+  const handleEducationDeadBacklogChange = (index, event) => {
+    const { name, value } = event.target;
+
+    setEditorState((current) => ({
+      ...current,
+      deadBacklogs: current.deadBacklogs.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, [name]: value } : entry,
+      ),
+    }));
+  };
+
+  const handleAddEducationDeadBacklog = () => {
+    setEditorState((current) => ({
+      ...current,
+      deadBacklogs: [...current.deadBacklogs, createDeadBacklogEntry()],
+    }));
+  };
+
+  const handleRemoveEducationDeadBacklog = (index) => {
+    setEditorState((current) => ({
+      ...current,
+      deadBacklogs:
+        current.deadBacklogs.length === 1
+          ? current.deadBacklogs
+          : current.deadBacklogs.filter((_, entryIndex) => entryIndex !== index),
+    }));
+  };
+
   const handleListItemChange = (index, event) => {
     const { name, value } = event.target;
+
+    if (
+      editingSection === "experience" &&
+      ["durationUnit", "durationValue", "startMonth", "endMonth"].includes(name)
+    ) {
+      setEditorState((current) =>
+        current.map((item, itemIndex) => {
+          if (itemIndex !== index) {
+            return item;
+          }
+
+          const nextItem = {
+            ...item,
+            [name]: value,
+          };
+
+          return {
+            ...nextItem,
+            duration: buildExperienceDuration(
+              nextItem.durationValue,
+              nextItem.durationUnit,
+              nextItem.startMonth,
+              nextItem.endMonth,
+            ),
+          };
+        }),
+      );
+      return;
+    }
+
     setEditorState((current) =>
       current.map((item, itemIndex) =>
         itemIndex === index ? { ...item, [name]: value } : item,
@@ -850,6 +1062,9 @@ function StudentProfilePage() {
             data={editorState}
             onFieldChange={handleEditorFieldChange}
             onFileChange={handleEditorFileChange}
+            onDeadBacklogChange={handleEducationDeadBacklogChange}
+            onAddDeadBacklog={handleAddEducationDeadBacklog}
+            onRemoveDeadBacklog={handleRemoveEducationDeadBacklog}
             onSave={handleSectionSave}
             isSaved={isSavingSection}
           />
@@ -1130,7 +1345,7 @@ function StudentProfilePage() {
                 title="Current Degree Snapshot"
                 subtitle={profile.department}
                 meta={`Passout ${profile.passingYear}`}
-                description={`Current CGPA: ${profile.currentCgpa} | Backlogs: ${profile.backlogs} | Gap: ${profile.gap}${profile.gapReason ? ` (${profile.gapReason})` : ""}`}
+                description={`Current CGPA: ${profile.currentCgpa} | Percentage: ${profile.currentPercentage || "-"} | Active Backlogs: ${profile.backlogs} | Dead Backlogs: ${profile.deadBacklogs?.map((entry) => `${entry.semester}${entry.count ? `(${entry.count})` : ""}`).filter(Boolean).join(", ") || "-"} | Gap: ${profile.gap}${profile.gapReason ? ` (${profile.gapReason})` : ""}`}
               />
             </div>
           </ProfileSection>

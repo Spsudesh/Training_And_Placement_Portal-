@@ -58,6 +58,29 @@ function parseJsonField(value, fallback = []) {
   }
 }
 
+function serializeDeadBacklogSemesters(deadBacklogs = []) {
+  return deadBacklogs
+    .map((entry) => {
+      const semester = String(entry?.semester || '').trim();
+      const count = String(entry?.count || '').trim();
+
+      if (!semester && !count) {
+        return '';
+      }
+
+      return count ? `${semester}:${count}` : semester;
+    })
+    .filter(Boolean)
+    .join(',');
+}
+
+function getTotalDeadBacklogCount(deadBacklogs = []) {
+  return deadBacklogs.reduce((total, entry) => {
+    const parsedCount = Number(entry?.count);
+    return total + (Number.isNaN(parsedCount) ? 0 : parsedCount);
+  }, 0);
+}
+
 function getUploadedFile(req, fieldName) {
   return req.files?.find((file) => file.fieldname === fieldName) ?? null;
 }
@@ -379,16 +402,21 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
   const tenthMarksheetUrl = await uploadSingleFile(req, 'marksheet10', 'students/education');
   const twelfthMarksheetUrl = await uploadSingleFile(req, 'marksheet12', 'students/education');
   const diplomaMarksheetUrl = await uploadSingleFile(req, 'diplomaMarksheet', 'students/education');
+  const entranceExamCertificateUrl = await uploadSingleFile(req, 'entranceExamCertificate', 'students/education');
   const gapCertificateUrl = await uploadSingleFile(req, 'gapCertificate', 'students/education');
 
   const {
     prn,
     marks10,
+    mathsMarks10,
     board10,
     year10,
     marks12,
+    mathsMarks12,
     board12,
     year12,
+    entranceExamType,
+    entranceExamScore,
     diplomaMarks,
     diplomaInstitute,
     diplomaYear,
@@ -396,9 +424,15 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
     gapReason,
     department,
     cgpa,
-    backlogs,
+    percentage,
+    activeBacklogs,
+    deadBacklogs = '[]',
     graduationYear,
   } = req.body;
+
+  const parsedDeadBacklogs = parseJsonField(deadBacklogs);
+  const normalizedEducationTrack =
+    diplomaInstitute || diplomaMarks || diplomaYear ? 'diploma' : 'twelfth';
 
   const existingEducationRows = await query(
     'SELECT * FROM student_education WHERE PRN = ? LIMIT 1',
@@ -407,28 +441,55 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
   const existingEducation = existingEducationRows[0] || {};
 
   const nextTenthMarks = toNullableNumber(marks10);
+  const nextTenthMathsMarks = toNullableNumber(mathsMarks10);
   const nextTenthBoard = board10 || null;
   const nextTenthYear = toNullableNumber(year10);
   const nextTenthMarksheetUrl = tenthMarksheetUrl || existingEducation.tenth_marksheet_url || null;
-  const nextTwelfthMarks = toNullableNumber(marks12);
-  const nextTwelfthBoard = board12 || null;
-  const nextTwelfthYear = toNullableNumber(year12);
-  const nextTwelfthMarksheetUrl = twelfthMarksheetUrl || existingEducation.twelfth_marksheet_url || null;
-  const nextDiplomaMarks = toNullableNumber(diplomaMarks);
-  const nextDiplomaInstitute = diplomaInstitute || null;
-  const nextDiplomaYear = toNullableNumber(diplomaYear);
-  const nextDiplomaMarksheetUrl = diplomaMarksheetUrl || existingEducation.diploma_marksheet_url || null;
+  const nextTwelfthMarks =
+    normalizedEducationTrack === 'twelfth' ? toNullableNumber(marks12) : null;
+  const nextTwelfthMathsMarks =
+    normalizedEducationTrack === 'twelfth' ? toNullableNumber(mathsMarks12) : null;
+  const nextTwelfthBoard = normalizedEducationTrack === 'twelfth' ? board12 || null : null;
+  const nextTwelfthYear =
+    normalizedEducationTrack === 'twelfth' ? toNullableNumber(year12) : null;
+  const nextEntranceExamType =
+    normalizedEducationTrack === 'twelfth' ? normalizeTextValue(entranceExamType) : null;
+  const nextEntranceExamScore =
+    normalizedEducationTrack === 'twelfth' ? toNullableNumber(entranceExamScore) : null;
+  const nextEntranceExamMarksheetUrl =
+    normalizedEducationTrack === 'twelfth'
+      ? entranceExamCertificateUrl || existingEducation.entrance_exam_marksheet_url || null
+      : null;
+  const nextTwelfthMarksheetUrl =
+    normalizedEducationTrack === 'twelfth'
+      ? twelfthMarksheetUrl || existingEducation.twelfth_marksheet_url || null
+      : null;
+  const nextDiplomaMarks =
+    normalizedEducationTrack === 'diploma' ? toNullableNumber(diplomaMarks) : null;
+  const nextDiplomaInstitute =
+    normalizedEducationTrack === 'diploma' ? diplomaInstitute || null : null;
+  const nextDiplomaYear =
+    normalizedEducationTrack === 'diploma' ? toNullableNumber(diplomaYear) : null;
+  const nextDiplomaMarksheetUrl =
+    normalizedEducationTrack === 'diploma'
+      ? diplomaMarksheetUrl || existingEducation.diploma_marksheet_url || null
+      : null;
   const nextGap = gapStatus === 'Yes' ? 'YES' : 'NO';
   const nextGapReason = gapReason || null;
   const nextGapCertificateUrl = gapCertificateUrl || existingEducation.gap_certificate_url || null;
   const nextDepartment = department || null;
   const nextCgpa = toNullableNumber(cgpa);
-  const nextBacklogs = toNullableNumber(backlogs);
+  const nextPercentage = toNullableNumber(percentage);
+  const nextActiveBacklogs = toNullableNumber(activeBacklogs);
+  const nextDeadBacklogSemesters = serializeDeadBacklogSemesters(parsedDeadBacklogs) || null;
+  const nextDeadBacklogCount =
+    parsedDeadBacklogs.length > 0 ? getTotalDeadBacklogCount(parsedDeadBacklogs) : null;
   const nextPassingYear = toNullableNumber(graduationYear);
 
   const nextTenthVerified =
     Boolean(existingEducation.tenth_verified) &&
     numbersMatch(existingEducation.tenth_marks, nextTenthMarks) &&
+    numbersMatch(existingEducation.tenth_maths_marks, nextTenthMathsMarks) &&
     valuesMatch(existingEducation.tenth_board, nextTenthBoard) &&
     numbersMatch(existingEducation.tenth_year, nextTenthYear) &&
     valuesMatch(existingEducation.tenth_marksheet_url, nextTenthMarksheetUrl);
@@ -436,9 +497,16 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
   const nextTwelfthVerified =
     Boolean(existingEducation.twelfth_verified) &&
     numbersMatch(existingEducation.twelfth_marks, nextTwelfthMarks) &&
+    numbersMatch(existingEducation.twelfth_maths_marks, nextTwelfthMathsMarks) &&
     valuesMatch(existingEducation.twelfth_board, nextTwelfthBoard) &&
     numbersMatch(existingEducation.twelfth_year, nextTwelfthYear) &&
     valuesMatch(existingEducation.twelfth_marksheet_url, nextTwelfthMarksheetUrl);
+
+  const nextEntranceExamVerified =
+    Boolean(existingEducation.entrance_exam_verified) &&
+    valuesMatch(existingEducation.entrance_exam_type, nextEntranceExamType) &&
+    numbersMatch(existingEducation.entrance_exam_score, nextEntranceExamScore) &&
+    valuesMatch(existingEducation.entrance_exam_marksheet_url, nextEntranceExamMarksheetUrl);
 
   const nextDiplomaVerified =
     Boolean(existingEducation.diploma_verified) &&
@@ -455,29 +523,38 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
 
   const nextCgpaVerified =
     Boolean(existingEducation.cgpa_verified) &&
-    numbersMatch(existingEducation.current_cgpa, nextCgpa);
+    numbersMatch(existingEducation.current_cgpa, nextCgpa) &&
+    numbersMatch(existingEducation.percentage, nextPercentage);
 
   const nextBacklogsVerified =
     Boolean(existingEducation.backlogs_verified) &&
-    numbersMatch(existingEducation.backlogs, nextBacklogs);
+    numbersMatch(existingEducation.active_backlogs, nextActiveBacklogs) &&
+    valuesMatch(existingEducation.dead_backlog_semesters, nextDeadBacklogSemesters) &&
+    numbersMatch(existingEducation.dead_backlog_count, nextDeadBacklogCount);
 
   await query(
     `
       INSERT INTO student_education
-      (PRN, tenth_marks, tenth_board, tenth_year, tenth_marksheet_url, tenth_verified,
-       twelfth_marks, twelfth_board, twelfth_year, twelfth_marksheet_url, twelfth_verified,
+      (PRN, tenth_marks, tenth_maths_marks, tenth_board, tenth_year, tenth_marksheet_url, tenth_verified,
+       twelfth_marks, twelfth_maths_marks, twelfth_board, twelfth_year, entrance_exam_type, entrance_exam_score, entrance_exam_marksheet_url, entrance_exam_verified, twelfth_marksheet_url, twelfth_verified,
        diploma_marks, diploma_institute, diploma_year, diploma_marksheet_url, diploma_verified,
-       gap, gap_reason, gap_certificate_url, gap_verified, department, current_cgpa, cgpa_verified, backlogs, backlogs_verified, passing_year)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       gap, gap_reason, gap_certificate_url, gap_verified, department, current_cgpa, percentage, cgpa_verified, active_backlogs, dead_backlog_semesters, dead_backlog_count, backlogs_verified, passing_year)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         tenth_marks = VALUES(tenth_marks),
+        tenth_maths_marks = VALUES(tenth_maths_marks),
         tenth_board = VALUES(tenth_board),
         tenth_year = VALUES(tenth_year),
         tenth_marksheet_url = COALESCE(VALUES(tenth_marksheet_url), tenth_marksheet_url),
         tenth_verified = VALUES(tenth_verified),
         twelfth_marks = VALUES(twelfth_marks),
+        twelfth_maths_marks = VALUES(twelfth_maths_marks),
         twelfth_board = VALUES(twelfth_board),
         twelfth_year = VALUES(twelfth_year),
+        entrance_exam_type = VALUES(entrance_exam_type),
+        entrance_exam_score = VALUES(entrance_exam_score),
+        entrance_exam_marksheet_url = COALESCE(VALUES(entrance_exam_marksheet_url), entrance_exam_marksheet_url),
+        entrance_exam_verified = VALUES(entrance_exam_verified),
         twelfth_marksheet_url = COALESCE(VALUES(twelfth_marksheet_url), twelfth_marksheet_url),
         twelfth_verified = VALUES(twelfth_verified),
         diploma_marks = VALUES(diploma_marks),
@@ -491,21 +568,30 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
         gap_verified = VALUES(gap_verified),
         department = VALUES(department),
         current_cgpa = VALUES(current_cgpa),
+        percentage = VALUES(percentage),
         cgpa_verified = VALUES(cgpa_verified),
-        backlogs = VALUES(backlogs),
+        active_backlogs = VALUES(active_backlogs),
+        dead_backlog_semesters = VALUES(dead_backlog_semesters),
+        dead_backlog_count = VALUES(dead_backlog_count),
         backlogs_verified = VALUES(backlogs_verified),
         passing_year = VALUES(passing_year)
     `,
     [
       prn,
       nextTenthMarks,
+      nextTenthMathsMarks,
       nextTenthBoard,
       nextTenthYear,
       nextTenthMarksheetUrl,
       nextTenthVerified ? 1 : 0,
       nextTwelfthMarks,
+      nextTwelfthMathsMarks,
       nextTwelfthBoard,
       nextTwelfthYear,
+      nextEntranceExamType,
+      nextEntranceExamScore,
+      nextEntranceExamMarksheetUrl,
+      nextEntranceExamVerified ? 1 : 0,
       nextTwelfthMarksheetUrl,
       nextTwelfthVerified ? 1 : 0,
       nextDiplomaMarks,
@@ -519,8 +605,11 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
       nextGapVerified ? 1 : 0,
       nextDepartment,
       nextCgpa,
+      nextPercentage,
       nextCgpaVerified ? 1 : 0,
-      nextBacklogs,
+      nextActiveBacklogs,
+      nextDeadBacklogSemesters,
+      nextDeadBacklogCount,
       nextBacklogsVerified ? 1 : 0,
       nextPassingYear,
     ]
@@ -655,8 +744,18 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
     const existingEntry = existingExperienceMap.get(expNumber);
     const nextType = entry.type || null;
     const nextCompanyName = entry.companyName || null;
+    const nextDurationUnit = entry.durationUnit || null;
+    const parsedDurationValue = Number(entry.durationValue);
+    const nextDurationValue =
+      entry.durationValue === '' ||
+      entry.durationValue === undefined ||
+      entry.durationValue === null ||
+      Number.isNaN(parsedDurationValue)
+        ? null
+        : parsedDurationValue;
+    const nextDurationSummary = entry.durationSummary || entry.duration || null;
     const nextRole = entry.role || null;
-    const nextDuration = entry.duration || null;
+    const nextDuration = entry.duration || nextDurationSummary || null;
     const nextDescription = entry.description || null;
     const nextCertificateUrl =
       certificateUrls[index] || entry.certificateUrl || existingEntry?.certificate_url || null;
@@ -665,6 +764,9 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
       expNumber,
       type: nextType,
       companyName: nextCompanyName,
+      durationUnit: nextDurationUnit,
+      durationValue: nextDurationValue,
+      durationSummary: nextDurationSummary,
       role: nextRole,
       duration: nextDuration,
       description: nextDescription,
@@ -673,6 +775,9 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
         Boolean(existingEntry?.is_verified) &&
         valuesMatch(existingEntry?.type, nextType) &&
         valuesMatch(existingEntry?.company_name, nextCompanyName) &&
+        valuesMatch(existingEntry?.duration_unit, nextDurationUnit) &&
+        valuesMatch(existingEntry?.duration_value, nextDurationValue) &&
+        valuesMatch(existingEntry?.duration_summary, nextDurationSummary) &&
         valuesMatch(existingEntry?.role, nextRole) &&
         valuesMatch(existingEntry?.duration, nextDuration) &&
         valuesMatch(existingEntry?.description, nextDescription) &&
@@ -692,7 +797,20 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
   await query(
     `
       INSERT INTO student_experience
-      (PRN, exp_number, type, company_name, role, duration, description, certificate_url, is_verified)
+      (
+        PRN,
+        exp_number,
+        type,
+        company_name,
+        duration_unit,
+        duration_summary,
+        duration_value,
+        role,
+        duration,
+        description,
+        certificate_url,
+        is_verified
+      )
       VALUES ?
     `,
     [
@@ -701,6 +819,9 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
         entry.expNumber,
         entry.type || null,
         entry.companyName || null,
+        entry.durationUnit || null,
+        entry.durationSummary || null,
+        entry.durationValue ?? null,
         entry.role || null,
         entry.duration || null,
         entry.description || null,

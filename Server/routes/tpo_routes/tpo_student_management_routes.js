@@ -110,6 +110,7 @@ function mapEducationDetails(education) {
     title: '10th Standard',
     fields: [
       createField('Marks', education?.tenth_marks ? `${education.tenth_marks}%` : ''),
+      createField('Maths Marks', education?.tenth_maths_marks),
       createField('Board', education?.tenth_board),
       createField('Passing Year', education?.tenth_year),
     ],
@@ -131,10 +132,19 @@ function mapEducationDetails(education) {
       title: '12th Standard',
       fields: [
         createField('Marks', education?.twelfth_marks ? `${education.twelfth_marks}%` : ''),
+        createField('Maths Marks', education?.twelfth_maths_marks),
         createField('Board', education?.twelfth_board),
         createField('Passing Year', education?.twelfth_year),
+        createField(
+          education?.entrance_exam_type
+            ? `${String(education.entrance_exam_type).toUpperCase()} Score`
+            : 'Entrance Exam Score',
+          education?.entrance_exam_score,
+        ),
       ],
-      document: createDocument('View Marksheet', education?.twelfth_marksheet_url),
+      document:
+        createDocument('View Marksheet', education?.twelfth_marksheet_url) ||
+        createDocument('View Entrance Score Card', education?.entrance_exam_marksheet_url),
     });
   }
 
@@ -143,7 +153,10 @@ function mapEducationDetails(education) {
     fields: [
       createField('Department', education?.department),
       createField('Current CGPA', education?.current_cgpa),
-      createField('Backlogs', education?.backlogs),
+      createField('Percentage', education?.percentage),
+      createField('Active Backlogs', education?.active_backlogs),
+      createField('Dead Backlog Semesters', education?.dead_backlog_semesters),
+      createField('Dead Backlog Count', education?.dead_backlog_count),
       createField('Passing Year', education?.passing_year),
     ],
     document: null,
@@ -184,7 +197,7 @@ function mapExperience(experience) {
   return (experience || []).map((entry) => ({
     company: entry.company_name || 'Experience',
     role: entry.role || entry.type || '-',
-    duration: [formatDate(entry.start_date), formatDate(entry.end_date)].filter(Boolean).join(' - ') || '-',
+    duration: entry.duration_summary || entry.duration || '-',
     description: entry.description || 'No description added.',
     document: createDocument('View Certificate', entry.certificate_url),
   }));

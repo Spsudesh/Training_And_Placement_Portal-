@@ -31,6 +31,25 @@ function buildFullName(personal) {
     .join(' ');
 }
 
+function parseDeadBacklogs(semestersValue, totalCount) {
+  const serializedValue = String(semestersValue || '').trim();
+
+  if (!serializedValue) {
+    return [];
+  }
+
+  return serializedValue
+    .split(',')
+    .map((entry) => {
+      const [semester, count] = entry.split(':');
+      return {
+        semester: String(semester || '').trim(),
+        count: String(count || '').trim() || String(totalCount ?? ''),
+      };
+    })
+    .filter((entry) => entry.semester || entry.count);
+}
+
 function isAllowedDocumentUrl(url) {
   return /^https:\/\/res\.cloudinary\.com\//i.test(String(url || ''));
 }
@@ -117,7 +136,18 @@ async function handleGetStudentProfile(req, res) {
 
     const experienceRows = await query(
       `
-        SELECT exp_number, type, company_name, role, duration, description, certificate_url, is_verified
+        SELECT
+          exp_number,
+          type,
+          company_name,
+          duration_unit,
+          duration_summary,
+          duration_value,
+          role,
+          duration,
+          description,
+          certificate_url,
+          is_verified
         FROM student_experience
         WHERE PRN = ?
         ORDER BY exp_number ASC
@@ -197,7 +227,12 @@ async function handleGetStudentProfile(req, res) {
       summary: summaryRecord.summary || '',
       department: education.department || '',
       currentCgpa: education.current_cgpa ?? '',
-      backlogs: education.backlogs ?? '',
+      currentPercentage: education.percentage ?? '',
+      backlogs: education.active_backlogs ?? '',
+      deadBacklogs: parseDeadBacklogs(
+        education.dead_backlog_semesters,
+        education.dead_backlog_count,
+      ),
       passingYear: education.passing_year ?? '',
       gap: education.gap || '',
       gapReason: education.gap_reason || '',
@@ -205,6 +240,7 @@ async function handleGetStudentProfile(req, res) {
         tenth: education.tenth_year
           ? {
               marks: education.tenth_marks,
+              mathsMarks: education.tenth_maths_marks,
               board: education.tenth_board,
               year: education.tenth_year,
               marksheetUrl: education.tenth_marksheet_url,
@@ -213,8 +249,12 @@ async function handleGetStudentProfile(req, res) {
         twelfth: education.twelfth_year
           ? {
               marks: education.twelfth_marks,
+              mathsMarks: education.twelfth_maths_marks,
               board: education.twelfth_board,
               year: education.twelfth_year,
+              entranceExamType: education.entrance_exam_type || '',
+              entranceExamScore: education.entrance_exam_score ?? '',
+              entranceExamCertificateUrl: education.entrance_exam_marksheet_url || '',
               marksheetUrl: education.twelfth_marksheet_url,
             }
           : null,
@@ -256,8 +296,11 @@ async function handleGetStudentProfile(req, res) {
         expNumber: item.exp_number,
         type: item.type || '',
         companyName: item.company_name || '',
+        durationUnit: item.duration_unit || '',
+        durationSummary: item.duration_summary || item.duration || '',
+        durationValue: item.duration_value ?? '',
         role: item.role || '',
-        duration: item.duration || '',
+        duration: item.duration_summary || item.duration || '',
         description: item.description || '',
         certificateUrl: item.certificate_url || '',
       })),
@@ -278,6 +321,7 @@ async function handleGetStudentProfile(req, res) {
         education: {
           tenth: Boolean(education.tenth_verified),
           twelfth: Boolean(education.twelfth_verified),
+          entranceExam: Boolean(education.entrance_exam_verified),
           diploma: Boolean(education.diploma_verified),
           gap: Boolean(education.gap_verified),
           cgpa: Boolean(education.cgpa_verified),

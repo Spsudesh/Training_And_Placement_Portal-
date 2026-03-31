@@ -64,6 +64,9 @@ function buildVerifiedFields(student) {
   if (student.education?.twelfth_verified) {
     verifiedFields.education_twelfth_marks = true;
   }
+  if (student.education?.entrance_exam_verified) {
+    verifiedFields.education_entrance_exam = true;
+  }
   if (student.education?.diploma_verified) {
     verifiedFields.education_diploma_marks = true;
   }
@@ -133,7 +136,14 @@ function createVerificationPayload(student) {
       '10th Marks',
       education.tenth_marks ? `${education.tenth_marks}%` : '',
       {
-        meta: education.tenth_board ? `Board: ${education.tenth_board}` : '',
+        meta: [
+          education.tenth_board ? `Board: ${education.tenth_board}` : '',
+          education.tenth_maths_marks !== null && education.tenth_maths_marks !== undefined
+            ? `Maths: ${education.tenth_maths_marks}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' | '),
         documentUrl: education.tenth_marksheet_url || '',
         verifiable: Boolean(education.tenth_marksheet_url),
       },
@@ -154,11 +164,32 @@ function createVerificationPayload(student) {
           '12th Marks',
           education.twelfth_marks ? `${education.twelfth_marks}%` : '',
           {
-            meta: education.twelfth_board ? `Board: ${education.twelfth_board}` : '',
+            meta: [
+              education.twelfth_board ? `Board: ${education.twelfth_board}` : '',
+              education.twelfth_maths_marks !== null && education.twelfth_maths_marks !== undefined
+                ? `Maths: ${education.twelfth_maths_marks}`
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' | '),
             documentUrl: education.twelfth_marksheet_url || '',
             verifiable: Boolean(education.twelfth_marksheet_url),
           },
         ),
+    ...(!hasDiploma &&
+    (education.entrance_exam_type || education.entrance_exam_score || education.entrance_exam_marksheet_url)
+      ? [
+          createField(
+            'education_entrance_exam',
+            `${String(education.entrance_exam_type || 'Entrance Exam').toUpperCase()} Score`,
+            education.entrance_exam_score,
+            {
+              documentUrl: education.entrance_exam_marksheet_url || '',
+              verifiable: Boolean(education.entrance_exam_marksheet_url),
+            },
+          ),
+        ]
+      : []),
     ...(education.gap === 'YES' || education.gap_certificate_url
       ? [
           createField('education_gap', 'Gap Details', education.gap_reason || education.gap || 'Gap Declared', {
@@ -170,8 +201,15 @@ function createVerificationPayload(student) {
     createField('education_cgpa', 'Current CGPA', education.current_cgpa, {
       verifiable: education.current_cgpa !== null && education.current_cgpa !== undefined,
     }),
-    createField('education_backlogs', 'Active Backlogs', education.backlogs, {
-      verifiable: education.backlogs !== null && education.backlogs !== undefined,
+    createField('education_percentage', 'Percentage', education.percentage),
+    createField('education_backlogs', 'Active Backlogs', education.active_backlogs, {
+      verifiable: education.active_backlogs !== null && education.active_backlogs !== undefined,
+    }),
+    createField('education_dead_backlogs', 'Dead Backlogs', education.dead_backlog_semesters, {
+      meta:
+        education.dead_backlog_count !== null && education.dead_backlog_count !== undefined
+          ? `Count: ${education.dead_backlog_count}`
+          : '',
     }),
     createField('education_department', 'Department', education.department),
     createField('education_passing_year', 'Passing Year', education.passing_year),
@@ -404,6 +442,13 @@ function buildVerificationUpdate(fieldId) {
   if (fieldId === 'education_twelfth_marks') {
     return {
       sql: 'UPDATE student_education SET twelfth_verified = TRUE WHERE PRN = ?',
+      values: [],
+    };
+  }
+
+  if (fieldId === 'education_entrance_exam') {
+    return {
+      sql: 'UPDATE student_education SET entrance_exam_verified = TRUE WHERE PRN = ?',
       values: [],
     };
   }
