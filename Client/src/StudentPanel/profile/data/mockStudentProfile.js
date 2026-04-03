@@ -67,6 +67,7 @@ const mockStudentProfile = {
       techStack: "React, Node.js, Express, MySQL",
       githubLink: "github.com/demo/tpo-portal",
       liveLink: "",
+      includeInResume: true,
     },
     {
       projectNumber: 2,
@@ -76,6 +77,7 @@ const mockStudentProfile = {
       techStack: "React, Tailwind CSS",
       githubLink: "github.com/demo/event-tracker",
       liveLink: "",
+      includeInResume: false,
     },
   ],
   experience: [

@@ -257,7 +257,7 @@ function UploadRow({ label, name, fileName, onChange, accept, helperText, requir
   );
 }
 
-function EntryCard({ title, subtitle, children, onRemove, disableRemove }) {
+function EntryCard({ title, subtitle, children, headerActions, onRemove, disableRemove }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
       <div className="mb-4 flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between">
@@ -265,16 +265,19 @@ function EntryCard({ title, subtitle, children, onRemove, disableRemove }) {
           <h3 className="text-base font-semibold text-slate-900">{title}</h3>
           {subtitle ? <p className="text-sm text-slate-500">{subtitle}</p> : null}
         </div>
-        {onRemove ? (
-          <button
-            type="button"
-            onClick={onRemove}
-            disabled={disableRemove}
-            className="inline-flex items-center justify-center rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Remove
-          </button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          {headerActions}
+          {onRemove ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={disableRemove}
+              className="inline-flex items-center justify-center rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="space-y-5">{children}</div>
     </div>

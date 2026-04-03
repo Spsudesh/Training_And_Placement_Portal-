@@ -680,11 +680,6 @@ studentFormRoutes.post('/projects', asyncHandler(async (req, res) => {
   const { prn, projects = '[]' } = req.body;
   const parsedProjects = parseJsonField(projects);
 
-  if (parsedProjects.length > 3) {
-    res.status(400).json({ message: 'Maximum 3 projects allowed' });
-    return;
-  }
-
   await query('DELETE FROM student_projects WHERE PRN = ?', [prn]);
 
   if (!parsedProjects.length) {
@@ -697,7 +692,7 @@ studentFormRoutes.post('/projects', asyncHandler(async (req, res) => {
   await query(
     `
       INSERT INTO student_projects
-      (PRN, project_number, title, description, tech_stack, github_link, live_link)
+      (PRN, project_number, title, description, tech_stack, github_link, live_link, include_in_resume)
       VALUES ?
     `,
     [
@@ -709,6 +704,7 @@ studentFormRoutes.post('/projects', asyncHandler(async (req, res) => {
         project.techStack || null,
         project.githubLink || null,
         project.liveLink || null,
+        project.includeInResume === false ? 0 : 1,
       ]),
     ]
   );
