@@ -56,7 +56,6 @@ const createProjectEntry = () => ({
   techStack: "",
   githubLink: "",
   liveLink: "",
-  includeInResume: true,
 });
 
 const createCertificationEntry = () => ({
@@ -403,7 +402,6 @@ function mapProfileToProjectsForm(profile) {
         techStack: project.techStack ?? "",
         githubLink: project.githubLink ?? "",
         liveLink: project.liveLink ?? "",
-        includeInResume: project.includeInResume !== false,
       }))
     : [createProjectEntry()];
 }
@@ -1386,9 +1384,7 @@ function StudentProfilePage() {
                     key={project.projectNumber}
                     title={project.title}
                     subtitle={project.techStack}
-                    meta={`Project ${project.projectNumber} | ${
-                      project.includeInResume ? "Included in Resume" : "Not in Resume"
-                    }`}
+                    meta={`Project ${project.projectNumber}`}
                     description={project.description}
                     links={[
                       ...(project.githubLink
