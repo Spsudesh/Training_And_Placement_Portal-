@@ -507,6 +507,17 @@ function getNextStepIndex(completedSteps) {
   return steps.length - 1;
 }
 
+function getInitialStepIndex(completedSteps, initialStep) {
+  const normalizedStep = String(initialStep || '').trim().toLowerCase();
+  const initialStepIndex = progressStepKeyToIndex[normalizedStep];
+
+  if (initialStepIndex !== undefined && !completedSteps.includes(initialStepIndex)) {
+    return initialStepIndex;
+  }
+
+  return getNextStepIndex(completedSteps);
+}
+
 const personalRequiredFields = [
   ["prn", "PRN"],
   ["firstName", "First Name"],
@@ -779,7 +790,7 @@ function reducer(state, action) {
   }
 }
 
-function ProfileForm({ onComplete }) {
+function ProfileForm({ onComplete, initialStep }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [isSaving, setIsSaving] = useState(false);
   const { currentStep, completedSteps, formData } = state;
@@ -812,7 +823,7 @@ function ProfileForm({ onComplete }) {
 
         dispatch({
           type: "INITIALIZE_FORM",
-          currentStep: getNextStepIndex(completedSteps),
+          currentStep: getInitialStepIndex(completedSteps, initialStep),
           completedSteps,
           formData: profileData
             ? {

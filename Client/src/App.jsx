@@ -170,7 +170,7 @@ function StudentApp() {
   const location = useLocation();
   const authenticatedUser = getAuthenticatedUser();
   const storedStudentId = getActiveStudentId();
-  const [activeStudentId, setActiveStudentIdState] = useState(
+  const [, setActiveStudentIdState] = useState(
     String(authenticatedUser?.PRN || storedStudentId || "").trim(),
   );
   const [hasSubmittedProfileForm, setHasSubmittedProfileForm] = useState(
@@ -289,6 +289,7 @@ function StudentApp() {
               <Navigate to="/student-panel" replace />
             ) : (
               <ProfileForm
+                initialStep={authenticatedUser?.profileFormNextStep}
                 onComplete={() => {
                   setHasSubmittedProfileForm(true);
                   navigate("/student-panel", { replace: true });

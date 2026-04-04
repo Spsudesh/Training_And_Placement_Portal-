@@ -49,6 +49,8 @@ function createAuthResponse(user) {
       role: user.role,
       isProfileVerified: Boolean(user.is_profile_verified),
       isProfileFormSubmitted: Boolean(user.is_profile_form_submitted),
+      profileFormLastCompletedStep: user.profileFormLastCompletedStep || null,
+      profileFormNextStep: user.profileFormNextStep || null,
     },
   };
 }

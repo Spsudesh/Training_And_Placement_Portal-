@@ -73,6 +73,52 @@ async function getStudentFormSubmissionStatus(promiseDb, prn) {
   return Boolean(progress?.is_completed || progress?.consent_completed);
 }
 
+async function getStudentProfileProgressRow(promiseDb, prn) {
+  const normalizedPrn = String(prn || '').trim();
+
+  if (!normalizedPrn) {
+    return null;
+  }
+
+  const [progressRows] = await promiseDb.query(
+    `
+      SELECT *
+      FROM student_profile_progress
+      WHERE PRN = ?
+      LIMIT 1
+    `,
+    [normalizedPrn],
+  );
+
+  return progressRows[0] || null;
+}
+
+function getNextProfileStepFromProgress(progress) {
+  const stepOrder = [
+    'personal',
+    'education',
+    'experience',
+    'projects',
+    'skills',
+    'certifications',
+    'activities',
+    'consent',
+  ];
+
+  const lastCompletedStep = String(progress?.last_completed_step || '').trim().toLowerCase();
+  const currentIndex = stepOrder.indexOf(lastCompletedStep);
+
+  if (currentIndex === -1) {
+    return 'personal';
+  }
+
+  if (currentIndex >= stepOrder.length - 1) {
+    return 'consent';
+  }
+
+  return stepOrder[currentIndex + 1];
+}
+
 router.post('/signup', async (req, res) => {
   const { PRN, email, password, role } = req.body;
 
@@ -244,14 +290,25 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const isProfileFormSubmitted =
-      user.role === 'student'
-        ? await getStudentFormSubmissionStatus(promiseDb, user.PRN)
-        : true;
+    let isProfileFormSubmitted = true;
+    let profileFormNextStep = null;
+    let profileFormLastCompletedStep = null;
+
+    if (user.role === 'student') {
+      isProfileFormSubmitted = await getStudentFormSubmissionStatus(promiseDb, user.PRN);
+
+      if (!isProfileFormSubmitted) {
+        const progressRow = await getStudentProfileProgressRow(promiseDb, user.PRN);
+        profileFormLastCompletedStep = progressRow?.last_completed_step || null;
+        profileFormNextStep = getNextProfileStepFromProgress(progressRow);
+      }
+    }
 
     return res.json(buildLoginResponse(res, {
       ...user,
       is_profile_form_submitted: isProfileFormSubmitted,
+      profileFormLastCompletedStep,
+      profileFormNextStep,
     }));
   } catch (error) {
     return res.status(500).json({
@@ -311,14 +368,25 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
-    const isProfileFormSubmitted =
-      user.role === 'student'
-        ? await getStudentFormSubmissionStatus(promiseDb, user.PRN)
-        : true;
+    let isProfileFormSubmitted = true;
+    let profileFormNextStep = null;
+    let profileFormLastCompletedStep = null;
+
+    if (user.role === 'student') {
+      isProfileFormSubmitted = await getStudentFormSubmissionStatus(promiseDb, user.PRN);
+
+      if (!isProfileFormSubmitted) {
+        const progressRow = await getStudentProfileProgressRow(promiseDb, user.PRN);
+        profileFormLastCompletedStep = progressRow?.last_completed_step || null;
+        profileFormNextStep = getNextProfileStepFromProgress(progressRow);
+      }
+    }
 
     return res.json(buildLoginResponse(res, {
       ...user,
       is_profile_form_submitted: isProfileFormSubmitted,
+      profileFormLastCompletedStep,
+      profileFormNextStep,
     }, 'Session refreshed successfully.'));
   } catch (error) {
     clearRefreshTokenCookie(res);
