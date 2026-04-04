@@ -1,3 +1,4 @@
+
 const express = require('express');
 const db = require('../../config/db').db;
 
@@ -126,7 +127,7 @@ async function handleGetStudentProfile(req, res) {
 
     const projectRows = await query(
       `
-        SELECT project_number, title, description, tech_stack, github_link, live_link
+        SELECT project_number, title, description, tech_stack, github_link, live_link, include_in_resume
         FROM student_projects
         WHERE PRN = ?
         ORDER BY project_number ASC
@@ -290,6 +291,7 @@ async function handleGetStudentProfile(req, res) {
         techStack: project.tech_stack || '',
         githubLink: project.github_link || '',
         liveLink: project.live_link || '',
+        includeInResume: Boolean(project.include_in_resume),
       })),
       
       experience: experienceRows.map((item) => ({

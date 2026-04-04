@@ -2,6 +2,24 @@ import { useState } from "react";
 
 const TECH_STACK_CATALOG = [
   {
+    key: "tech-stacks",
+    label: "Tech Stacks",
+    options: [
+      "MERN Stack",
+      "MEAN Stack",
+      "Java Full Stack",
+      "Python Full Stack",
+      "Next.js Modern Stack",
+      "Vue Full Stack",
+      "LAMP Stack",
+      "Flutter Mobile",
+      "React Native",
+      "Cloud Native",
+      ".NET Stack",
+      "AWS DevOps",
+    ],
+  },
+  {
     key: "languages",
     label: "Languages",
     options: [
@@ -80,6 +98,11 @@ const TECH_STACK_CATALOG = [
       "VS Code",
     ],
   },
+  {
+    key: "other",
+    label: "Other",
+    options: [],
+  },
 ];
 
 function parseTechStackValue(value) {
@@ -104,6 +127,7 @@ function joinTechStackValue(items) {
 function TechStackSelector({ value, onChange }) {
   const [activeCategory, setActiveCategory] = useState(TECH_STACK_CATALOG[0].key);
   const [searchTerm, setSearchTerm] = useState("");
+  const [customTechInput, setCustomTechInput] = useState("");
 
   const selectedItems = parseTechStackValue(value);
   const currentCategory =
@@ -132,6 +156,15 @@ function TechStackSelector({ value, onChange }) {
     updateSelection([...selectedItems, option]);
   }
 
+  function handleAddCustomTech() {
+    const trimmedInput = customTechInput.trim();
+    if (trimmedInput && !isSelected(trimmedInput)) {
+      updateSelection([...selectedItems, trimmedInput]);
+      setCustomTechInput("");
+      setShowCustomInput(false);
+    }
+  }
+
   function removeItem(option) {
     updateSelection(selectedItems.filter((item) => item.toLowerCase() !== option.toLowerCase()));
   }
@@ -143,7 +176,7 @@ function TechStackSelector({ value, onChange }) {
           <span>Tech Stack</span>
         </div>
         <p className="text-sm text-slate-500">
-          Pick technologies from categories instead of typing manually to avoid mismatch and typos.
+          Pick technologies from categories. Start with Tech Stacks for predefined stacks (MERN, MEAN, etc.) or pick individual languages, frameworks, and tools.
         </p>
       </div>
 
@@ -206,31 +239,66 @@ function TechStackSelector({ value, onChange }) {
           {currentCategory.label}
         </p>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {visibleOptions.length > 0 ? (
-            visibleOptions.map((option) => {
-              const selected = isSelected(option);
+        {currentCategory.key === "other" ? (
+          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3">
+            <input
+              type="text"
+              value={customTechInput}
+              onChange={(e) => setCustomTechInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  handleAddCustomTech();
+                }
+              }}
+              placeholder="Type custom tech stack or language..."
+              className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleAddCustomTech}
+                className="flex-1 rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-600"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomTechInput("");
+                }}
+                className="flex-1 rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-50"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {visibleOptions.length > 0 ? (
+              visibleOptions.map((option) => {
+                const selected = isSelected(option);
 
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => handleToggle(option)}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                    selected
-                      ? "border-emerald-500 bg-emerald-100 text-emerald-900"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"
-                  }`}
-                >
-                  <span>{option}</span>
-                  <span className="text-base leading-none">{selected ? "x" : "+"}</span>
-                </button>
-              );
-            })
-          ) : (
-            <p className="text-sm text-slate-400">No matching technologies in this category.</p>
-          )}
-        </div>
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => handleToggle(option)}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                      selected
+                        ? "border-emerald-500 bg-emerald-100 text-emerald-900"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"
+                    }`}
+                  >
+                    <span>{option}</span>
+                    <span className="text-base leading-none">{selected ? "x" : "+"}</span>
+                  </button>
+                );
+              })
+            ) : (
+              <p className="text-sm text-slate-400">No matching technologies in this category.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
