@@ -109,7 +109,6 @@ const createProject = () => ({
   techStack: "",
   githubLink: "",
   liveLink: "",
-  includeInResume: true,
 });
 
 const createCertification = () => ({
@@ -362,7 +361,6 @@ function mapProfileToProjectsForm(profileData = {}) {
         techStack: project.techStack ?? "",
         githubLink: project.githubLink ?? "",
         liveLink: project.liveLink ?? "",
-        includeInResume: project.includeInResume !== false,
       }))
     : [createProject()];
 }

@@ -704,7 +704,7 @@ studentFormRoutes.post('/projects', asyncHandler(async (req, res) => {
         project.techStack || null,
         project.githubLink || null,
         project.liveLink || null,
-        project.includeInResume === false ? 0 : 1,
+        0,
       ]),
     ]
   );

@@ -21,7 +21,7 @@ function ProjectsSection({
   return (
     <SectionCard
       title="Projects"
-      description="Add as many academic or personal projects as needed and choose which ones should appear in the resume."
+      description="Add as many academic or personal projects as needed."
       actions={
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
@@ -41,26 +41,6 @@ function ProjectsSection({
             key={index}
             title={`Project ${index + 1}`}
             subtitle="Showcase project scope and outcomes"
-            headerActions={
-              <button
-                type="button"
-                onClick={() =>
-                  onEntryChange(index, {
-                    target: {
-                      name: "includeInResume",
-                      value: !entry.includeInResume,
-                    },
-                  })
-                }
-                className={`inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition ${
-                  entry.includeInResume
-                    ? "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-                }`}
-              >
-                {entry.includeInResume ? "Selected for Resume" : "Select for Resume"}
-              </button>
-            }
             onRemove={() => onRemoveEntry(index)}
             disableRemove={data.length === 1}
           >
