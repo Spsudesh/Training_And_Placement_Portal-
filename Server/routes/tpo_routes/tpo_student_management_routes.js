@@ -74,7 +74,7 @@ function createProfileSummary(student, fullName) {
     ...(skills.languages || []),
     ...(skills.frameworks || []),
     ...(skills.tools || []),
-    ...(skills.otherSkills || []),
+    ...(skills.otherLanguages || []),
   ]
     .filter(Boolean)
     .slice(0, 6)
@@ -181,7 +181,7 @@ function mapSkills(skills) {
     Languages: skills?.languages || [],
     Frameworks: skills?.frameworks || [],
     Tools: skills?.tools || [],
-    'Other Skills': skills?.otherSkills || [],
+    'Other Languages': skills?.otherLanguages || [],
   };
 }
 
@@ -280,10 +280,9 @@ async function fetchStudentManagementRows() {
   `);
   const educationRows = await query('SELECT * FROM student_education');
   const skillRows = await query(`
-    SELECT ss.PRN, ts.skill_name, ss.skill_type
-    FROM student_skills ss
-    INNER JOIN technical_skills ts ON ts.skill_id = ss.skill_id
-    ORDER BY ss.PRN ASC, ts.skill_name ASC
+    SELECT PRN, skill_name, skill_type
+    FROM student_skills
+    ORDER BY PRN ASC, skill_name ASC
   `);
   const projectRows = await query('SELECT * FROM student_projects ORDER BY PRN ASC, project_number ASC');
   const experienceRows = await query('SELECT * FROM student_experience ORDER BY PRN ASC, exp_number ASC');
@@ -314,13 +313,13 @@ function buildGroupedMaps(rows) {
       languages: [],
       frameworks: [],
       tools: [],
-      otherSkills: [],
+      otherLanguages: [],
     };
 
     if (row.skill_type === 'language') current.languages.push(row.skill_name);
     if (row.skill_type === 'framework') current.frameworks.push(row.skill_name);
     if (row.skill_type === 'tool') current.tools.push(row.skill_name);
-    if (row.skill_type === 'other') current.otherSkills.push(row.skill_name);
+    if (row.skill_type === 'other_language') current.otherLanguages.push(row.skill_name);
 
     skillsMap.set(row.PRN, current);
   });
@@ -378,7 +377,7 @@ function buildStudentPayloads(rows) {
         languages: [],
         frameworks: [],
         tools: [],
-        otherSkills: [],
+        otherLanguages: [],
       },
       projects: projectsMap.get(personal.PRN) || [],
       experience: experienceMap.get(personal.PRN) || [],

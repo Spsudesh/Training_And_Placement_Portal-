@@ -389,7 +389,7 @@ function mapProfileToSkillsForm(profile) {
     languages: profile.skills.languages ?? [],
     tools: profile.skills.tools ?? [],
     frameworks: profile.skills.frameworks ?? [],
-    otherSkills: profile.skills.otherSkills ?? [],
+    otherLanguages: profile.skills.otherLanguages ?? [],
   };
 }
 
@@ -1361,7 +1361,7 @@ function StudentProfilePage() {
               <ProfileChipGroup title="Languages" items={profile.skills.languages} />
               <ProfileChipGroup title="Frameworks" items={profile.skills.frameworks} />
               <ProfileChipGroup title="Tools" items={profile.skills.tools} />
-              <ProfileChipGroup title="Other Skills" items={profile.skills.otherSkills} />
+              <ProfileChipGroup title="Other Languages" items={profile.skills.otherLanguages} />
             </div>
           </ProfileSection>
 

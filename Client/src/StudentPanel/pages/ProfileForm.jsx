@@ -370,7 +370,7 @@ function mapProfileToSkillsForm(profileData = {}) {
     languages: profileData.skills?.languages ?? [],
     tools: profileData.skills?.tools ?? [],
     frameworks: profileData.skills?.frameworks ?? [],
-    otherSkills: profileData.skills?.otherSkills ?? [],
+    otherLanguages: profileData.skills?.otherLanguages ?? [],
   };
 }
 
@@ -477,7 +477,7 @@ function getCompletedStepsFromProfileData(profileData) {
     profileData.skills?.languages?.length ||
       profileData.skills?.tools?.length ||
       profileData.skills?.frameworks?.length ||
-      profileData.skills?.otherSkills?.length,
+      profileData.skills?.otherLanguages?.length,
   );
 
   if (hasSkills) {
@@ -669,7 +669,7 @@ const initialState = {
       languages: [],
       tools: [],
       frameworks: [],
-      otherSkills: [],
+      otherLanguages: [],
     },
     certifications: [createCertification()],
     activities: [createActivity()],

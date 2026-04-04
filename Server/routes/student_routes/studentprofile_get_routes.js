@@ -116,11 +116,10 @@ async function handleGetStudentProfile(req, res) {
 
     const skillRows = await query(
       `
-        SELECT ts.skill_name, ss.skill_type
-        FROM student_skills ss
-        INNER JOIN technical_skills ts ON ts.skill_id = ss.skill_id
-        WHERE ss.PRN = ?
-        ORDER BY ts.skill_name ASC
+        SELECT skill_name, skill_type
+        FROM student_skills
+        WHERE PRN = ?
+        ORDER BY skill_name ASC
       `,
       [prn]
     );
@@ -279,8 +278,8 @@ async function handleGetStudentProfile(req, res) {
         tools: skillRows
           .filter((skill) => skill.skill_type === 'tool')
           .map((skill) => skill.skill_name),
-        otherSkills: skillRows
-          .filter((skill) => skill.skill_type === 'other')
+        otherLanguages: skillRows
+          .filter((skill) => skill.skill_type === 'other_language')
           .map((skill) => skill.skill_name),
       },
 

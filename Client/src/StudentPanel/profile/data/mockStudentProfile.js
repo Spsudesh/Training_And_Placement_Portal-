@@ -56,7 +56,7 @@ const mockStudentProfile = {
     languages: ["Java", "Python"],
     frameworks: ["React"],
     tools: ["Git"],
-    otherSkills: ["Problem Solving", "REST APIs"],
+    otherLanguages: ["German"],
   },
   projects: [
     {
@@ -177,7 +177,7 @@ function createEmptyStudentProfile() {
       languages: [],
       frameworks: [],
       tools: [],
-      otherSkills: [],
+      otherLanguages: [],
     },
     projects: [],
     experience: [],

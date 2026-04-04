@@ -622,13 +622,19 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
 }));
 
 studentFormRoutes.post('/skills', asyncHandler(async (req, res) => {
-  const { prn, languages = '[]', tools = '[]', frameworks = '[]', otherSkills = '[]' } = req.body;
+  const {
+    prn,
+    languages = '[]',
+    tools = '[]',
+    frameworks = '[]',
+    otherLanguages = '[]',
+  } = req.body;
 
   const normalizedSkills = [
     ...parseJsonField(languages).map((skillName) => ({ skill_name: String(skillName).trim(), skill_type: 'language' })),
     ...parseJsonField(tools).map((skillName) => ({ skill_name: String(skillName).trim(), skill_type: 'tool' })),
     ...parseJsonField(frameworks).map((skillName) => ({ skill_name: String(skillName).trim(), skill_type: 'framework' })),
-    ...parseJsonField(otherSkills).map((skillName) => ({ skill_name: String(skillName).trim(), skill_type: 'other' })),
+    ...parseJsonField(otherLanguages).map((skillName) => ({ skill_name: String(skillName).trim(), skill_type: 'other_language' })),
   ].filter((skill) => skill.skill_name);
 
   const uniqueSkills = normalizedSkills.filter(
@@ -649,23 +655,10 @@ studentFormRoutes.post('/skills', asyncHandler(async (req, res) => {
     return;
   }
 
-  await query('INSERT IGNORE INTO technical_skills (skill_name) VALUES ?', [
-    uniqueSkills.map((skill) => [skill.skill_name]),
-  ]);
-
-  const skillRows = await query(
-    `SELECT skill_id, skill_name FROM technical_skills WHERE skill_name IN (${uniqueSkills.map(() => '?').join(', ')})`,
-    uniqueSkills.map((skill) => skill.skill_name)
-  );
-
-  const skillMap = new Map(
-    skillRows.map((row) => [String(row.skill_name).toLowerCase(), row.skill_id])
-  );
-
-  await query('INSERT INTO student_skills (PRN, skill_id, skill_type) VALUES ?', [
+  await query('INSERT INTO student_skills (PRN, skill_name, skill_type) VALUES ?', [
     uniqueSkills.map((skill) => [
       prn,
-      skillMap.get(skill.skill_name.toLowerCase()),
+      skill.skill_name,
       skill.skill_type,
     ]),
   ]);

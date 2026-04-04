@@ -111,7 +111,7 @@ function createSkillsFormData(prn, skills) {
   formData.append("languages", JSON.stringify(skills.languages ?? []));
   formData.append("tools", JSON.stringify(skills.tools ?? []));
   formData.append("frameworks", JSON.stringify(skills.frameworks ?? []));
-  formData.append("otherSkills", JSON.stringify(skills.otherSkills ?? []));
+  formData.append("otherLanguages", JSON.stringify(skills.otherLanguages ?? []));
 
   return formData;
 }

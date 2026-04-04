@@ -19,11 +19,6 @@ const skillSections = [
     placeholder: "React, Spring Boot, Express",
   },
   {
-    key: "softSkills",
-    title: "Non-Technical Skills",
-    placeholder: "Leadership, Communication, Teamwork",
-  },
-  {
     key: "otherLanguages",
     title: "Other Languages",
     placeholder: "German, French, Spanish, etc.",
@@ -47,7 +42,6 @@ function TechnicalSkillsSection({ data, onSkillsChange, onSave, isSaved }) {
       tools: data.tools ?? [],
       frameworks: data.frameworks ?? [],
       otherLanguages: data.otherLanguages ?? [],
-      softSkills: data.softSkills ?? [],
     }),
     [data]
   );
@@ -70,14 +64,13 @@ function TechnicalSkillsSection({ data, onSkillsChange, onSave, isSaved }) {
   return (
     <SectionCard
       title="Technical Skills"
-      description="Capture skills in a structured way so they can be stored in master and mapping tables."
+      description="Capture skills in a structured way so they can be stored directly in the student skills table."
       actions={<SaveButton onClick={onSave} saved={isSaved} />}
     >
       <FieldGrid columns={2}>
         {skillSections.map((section) => {
           let skillType = section.key;
           if (section.key === "otherLanguages") skillType = "other";
-          if (section.key === "softSkills") skillType = "soft_skills";
 
           return (
             <SkillSelector
