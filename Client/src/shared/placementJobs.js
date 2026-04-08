@@ -1,5 +1,16 @@
 export const PLACEMENTS_STORAGE_KEY = "training-placement-jobs";
 
+export const placementDepartmentOptions = [
+  "Computer Engineering",
+  "Computer Engineering and Information Technology",
+  "Artificial Intelligence and Machine Learning",
+  "Mechatronics Engineering",
+  "Robotics Engineering",
+  "Mechanical Engineering",
+  "Electrical Engineering",
+  "Civil Engineering",
+];
+
 function addDays(dateString, days) {
   const date = new Date(dateString);
   date.setDate(date.getDate() + days);
@@ -33,6 +44,21 @@ function createEmptyWorkflowStage() {
     roundName: "",
     roundDate: "",
   };
+}
+
+export function parsePlacementDepartments(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item ?? "").trim()).filter(Boolean);
+  }
+
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function inferWorkflowStatuses(workflowEntries) {
@@ -74,6 +100,7 @@ export function normalizePlacementWorkflow(workflow) {
 
   const sanitizedWorkflow = workflow
     .map((item) => ({
+      id: item?.id ?? item?.stageId ?? item?.stage_id ?? null,
       roundName: String(item?.roundName ?? item?.stage ?? item?.stage_name ?? "").trim(),
       roundDate: toWorkflowInputDate(item?.roundDate ?? item?.rawDate ?? item?.date ?? item?.stage_date),
       selectedCount:
@@ -93,13 +120,14 @@ export function normalizePlacementWorkflow(workflow) {
   const inferredStatuses = inferWorkflowStatuses(sanitizedWorkflow);
 
   return sanitizedWorkflow.map((item, index) => ({
+    id: item.id,
     roundName: item.roundName,
     roundDate: item.roundDate,
     stage: item.roundName,
     date: item.roundDate ? formatWorkflowDate(item.roundDate) : "Date not scheduled",
     rawDate: item.roundDate,
     selectedCount: item.selectedCount,
-    status: item.status || inferredStatuses[index],
+    status: item.roundDate ? inferredStatuses[index] : item.status || inferredStatuses[index],
     studentStatus: item.studentStatus || "pending",
     studentUpdatedAt: item.studentUpdatedAt,
   }));
@@ -415,7 +443,7 @@ export const emptyPlacementForm = {
   requiredSkills: "",
   minCgpa: "",
   maxBacklogs: "",
-  allowedDepartments: "",
+  allowedDepartments: [],
   passingYear: "",
   extraInfo: "",
   attachment: null,
@@ -538,7 +566,7 @@ export function getPlacementFormFromJob(job) {
     requiredSkills: (job.additional?.requiredSkills ?? []).join(", "),
     minCgpa: job.additional?.minCgpa ?? "",
     maxBacklogs: job.additional?.maxBacklogs ?? "",
-    allowedDepartments: job.additional?.allowedDepartments ?? "",
+    allowedDepartments: parsePlacementDepartments(job.additional?.allowedDepartments),
     passingYear: job.additional?.passingYear ?? "",
     extraInfo: job.additional?.extraInfo ?? "",
     attachment: normalizePlacementAttachment(job.attachment),
@@ -584,7 +612,7 @@ export function buildPlacementPayload(formData) {
         .filter(Boolean),
       minCgpa: formData.minCgpa.trim(),
       maxBacklogs: formData.maxBacklogs.trim(),
-      allowedDepartments: formData.allowedDepartments.trim(),
+      allowedDepartments: parsePlacementDepartments(formData.allowedDepartments).join(", "),
       passingYear: formData.passingYear.trim(),
       extraInfo: formData.extraInfo.trim(),
     },

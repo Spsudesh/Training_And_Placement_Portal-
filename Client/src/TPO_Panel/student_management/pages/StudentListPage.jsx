@@ -5,10 +5,21 @@ import BlacklistModal from "../components/BlacklistModal";
 import FilterBar from "../components/FilterBar";
 import StudentTable from "../components/StudentTable";
 
+const departmentOptions = [
+  "All",
+  "Computer Engineering",
+  "Computer Engineering and Information Technology",
+  "Artificial Intelligence and Machine Learning",
+  "Mechatronics Engineering",
+  "Robotics Engineering",
+  "Mechanical Engineering",
+  "Electrical Engineering",
+  "Civil Engineering",
+];
+
 const initialFilters = {
   year: "All",
   department: "All",
-  status: "All",
   search: "",
 };
 
@@ -26,14 +37,6 @@ export default function StudentListPage({
     () => ["All", ...new Set(students.map((student) => student.year).filter(Boolean))],
     [students],
   );
-  const departmentOptions = useMemo(
-    () => ["All", ...new Set(students.map((student) => student.department).filter(Boolean))],
-    [students],
-  );
-  const statusOptions = useMemo(
-    () => ["All", ...new Set(students.map((student) => student.status).filter(Boolean))],
-    [students],
-  );
 
   const filteredStudents = useMemo(() => {
     const searchValue = filters.search.trim().toLowerCase();
@@ -42,14 +45,12 @@ export default function StudentListPage({
       const matchesYear = filters.year === "All" || student.year === filters.year;
       const matchesDepartment =
         filters.department === "All" || student.department === filters.department;
-      const matchesStatus =
-        filters.status === "All" || student.status === filters.status;
       const matchesSearch =
         !searchValue ||
         student.name.toLowerCase().includes(searchValue) ||
         student.prn.toLowerCase().includes(searchValue);
 
-      return matchesYear && matchesDepartment && matchesStatus && matchesSearch;
+      return matchesYear && matchesDepartment && matchesSearch;
     });
   }, [filters, students]);
 
@@ -153,7 +154,6 @@ export default function StudentListPage({
         filters={filters}
         years={yearOptions}
         departments={departmentOptions}
-        statuses={statusOptions}
         onChange={handleFilterChange}
         onReset={handleResetFilters}
       />

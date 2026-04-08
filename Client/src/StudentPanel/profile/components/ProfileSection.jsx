@@ -187,7 +187,8 @@ function ProfileDocumentPreviewModal({
               <img
                 src={fileUrl}
                 alt={fileLabel || "Preview"}
-                className="block max-h-full max-w-full rounded-2xl object-contain shadow-sm"
+                className="rounded-2xl object-contain shadow-sm"
+                style={{ maxHeight: "85vh", maxWidth: "100%", height: "auto", width: "auto" }}
               />
             </div>
           ) : pdfPreview ? (

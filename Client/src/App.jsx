@@ -20,6 +20,7 @@ import SignupPage from "./components/loginPage/SignupPage";
 import Overview from "./TPO/pages/Overview";
 import Dashboard from "./TPO/pages/Dashboard";
 import Placements from "./TPO/pages/Placements";
+import ApplicantsPage from "./TPO/application_tracking/pages/ApplicantsPage";
 import TpoSidebar from "./TPO/pages/Tpo_sidebar";
 import TpcDashboard from "./TPC/pages/Dashboard";
 import TpcSidebar from "./TPC/pages/Tpc_sidebar";
@@ -410,6 +411,23 @@ function TpoPlacementsApp() {
   return <Placements onLogout={handleLogout} />;
 }
 
+function TpoApplicationTrackingApp() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
+  };
+
+  return (
+    <TpoSidebar pageTitle="Application Tracking" onLogout={handleLogout}>
+      <ApplicantsPage />
+    </TpoSidebar>
+  );
+}
+
 function TpoStudentsApp() {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
@@ -762,6 +780,14 @@ function AppShell() {
           element={
             <ProtectedRoute allowedPanel="tpo">
               <TpoPlacementsApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tpo-dashboard/placements/:placementId/applicants"
+          element={
+            <ProtectedRoute allowedPanel="tpo">
+              <TpoApplicationTrackingApp />
             </ProtectedRoute>
           }
         />

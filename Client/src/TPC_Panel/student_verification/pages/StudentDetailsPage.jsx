@@ -1,4 +1,4 @@
-import { ArrowLeft, BadgeCheck, CheckCheck, CircleAlert, MapPin, Mail, Phone } from "lucide-react";
+import { ArrowLeft, BadgeCheck, CheckCheck, CircleAlert, MapPin, Mail, Phone, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import StatusBadge from "../components/StatusBadge";
@@ -34,6 +34,7 @@ export default function StudentDetailsPage({
   const navigate = useNavigate();
   const { prn } = useParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
   const currentStudent = useMemo(
     () =>
       selectedStudent?.prn === prn
@@ -169,6 +170,7 @@ export default function StudentDetailsPage({
               }
             : currentStudentValue
         );
+        navigate("/tpc-dashboard/student-verification");
       })
       .catch((error) => {
         window.alert(
@@ -197,11 +199,17 @@ export default function StudentDetailsPage({
       <section className="rounded-[32px] border border-slate-200/80 bg-white p-6 shadow-lg shadow-slate-200/60">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <img
-              src={currentStudent.avatar}
-              alt={currentStudent.name}
-              className="h-20 w-20 rounded-3xl object-cover shadow-lg shadow-slate-200"
-            />
+            <button
+              type="button"
+              onClick={() => setPhotoPreviewOpen(true)}
+              className="relative h-20 w-20 overflow-hidden rounded-3xl shadow-lg shadow-slate-200 transition hover:opacity-80"
+            >
+              <img
+                src={currentStudent.avatar}
+                alt={currentStudent.name}
+                className="h-full w-full object-cover"
+              />
+            </button>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">
                 Student Details
@@ -303,6 +311,34 @@ export default function StudentDetailsPage({
           </button>
         </div>
       </section>
+
+      {/* Photo Preview Modal */}
+      {photoPreviewOpen && currentStudent.avatar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4">
+          <div className="relative flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <h2 className="text-xl font-bold text-slate-900">{currentStudent.name} - Profile Photo</h2>
+              <button
+                onClick={() => setPhotoPreviewOpen(false)}
+                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Image Container */}
+            <div className="flex flex-1 items-center justify-center overflow-auto bg-slate-50 p-4">
+              <img
+                src={currentStudent.avatar}
+                alt={currentStudent.name}
+                style={{ maxHeight: "85vh", maxWidth: "100%", height: "auto", width: "auto" }}
+                className="rounded-lg object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

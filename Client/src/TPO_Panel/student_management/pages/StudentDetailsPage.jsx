@@ -17,6 +17,7 @@ export default function StudentDetailsPage({
   const [studentFromApi, setStudentFromApi] = useState(null);
   const [isLoadingStudent, setIsLoadingStudent] = useState(false);
   const [studentError, setStudentError] = useState("");
+  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
 
   const currentStudent = useMemo(
     () =>
@@ -87,7 +88,7 @@ export default function StudentDetailsPage({
     );
   }
 
-  if (errorMessage || studentError) {
+  if (!currentStudent && (errorMessage || studentError)) {
     return (
       <section className="rounded-[28px] border border-slate-200/80 bg-white p-8 text-center shadow-lg shadow-slate-200/60">
         <p className="text-lg font-semibold text-rose-700">Unable to load student profile</p>
@@ -137,11 +138,17 @@ export default function StudentDetailsPage({
       <section className="rounded-[32px] border border-slate-200/80 bg-white p-6 shadow-lg shadow-slate-200/60">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <img
-              src={currentStudent.avatar}
-              alt={currentStudent.name}
-              className="h-20 w-20 rounded-3xl object-cover shadow-lg shadow-slate-200"
-            />
+            <button
+              type="button"
+              onClick={() => setPhotoPreviewOpen(true)}
+              className="relative h-20 w-20 overflow-hidden rounded-3xl shadow-lg shadow-slate-200 transition hover:opacity-80"
+            >
+              <img
+                src={currentStudent.avatar}
+                alt={currentStudent.name}
+                className="h-full w-full object-cover"
+              />
+            </button>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-600">
                 Student Profile
@@ -194,6 +201,35 @@ export default function StudentDetailsPage({
       ) : null}
 
       <StudentProfileView student={currentStudent} />
+
+      {photoPreviewOpen && currentStudent.avatar ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4">
+          <div className="relative flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setPhotoPreviewOpen(false)}
+              className="absolute right-4 top-4 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-2xl font-semibold text-slate-700 shadow-lg transition hover:bg-slate-100"
+              aria-label="Close preview"
+            >
+              X
+            </button>
+
+            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-blue-50 to-cyan-50 px-6 py-4 pr-20">
+              <p className="text-sm font-semibold text-slate-900">Photo Preview</p>
+              <p className="mt-1 text-sm text-slate-600">{currentStudent.name}</p>
+            </div>
+
+            <div className="flex flex-1 items-center justify-center overflow-auto bg-slate-100 p-4">
+              <img
+                src={currentStudent.avatar}
+                alt={currentStudent.name}
+                className="rounded-2xl object-contain shadow-sm"
+                style={{ maxHeight: "85vh", maxWidth: "100%", height: "auto", width: "auto" }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

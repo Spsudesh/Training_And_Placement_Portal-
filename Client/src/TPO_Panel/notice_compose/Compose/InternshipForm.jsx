@@ -12,14 +12,14 @@ function inputClassName() {
 }
 
 const departmentOptions = [
-  "All Departments",
-  "CSE",
-  "IT",
-  "ECE",
-  "EEE",
-  "Mechanical",
-  "Civil",
-  "MBA",
+  "Computer Engineering",
+  "Computer Engineering and Information Technology",
+  "Artificial Intelligence and Machine Learning",
+  "Mechatronics Engineering",
+  "Robotics Engineering",
+  "Mechanical Engineering",
+  "Electrical Engineering",
+  "Civil Engineering",
 ];
 
 export default function InternshipForm({
@@ -29,6 +29,23 @@ export default function InternshipForm({
   onAddStage,
   onRemoveStage,
 }) {
+  const allowedDepartments = formData.allowedDepartments 
+    ? (typeof formData.allowedDepartments === 'string' 
+        ? JSON.parse(formData.allowedDepartments) 
+        : formData.allowedDepartments)
+    : [];
+
+  const handleAddDepartment = (department) => {
+    if (department && !allowedDepartments.includes(department)) {
+      const updated = [...allowedDepartments, department];
+      onFieldChange("allowedDepartments", JSON.stringify(updated));
+    }
+  };
+
+  const handleRemoveDepartment = (department) => {
+    const updated = allowedDepartments.filter((dept) => dept !== department);
+    onFieldChange("allowedDepartments", JSON.stringify(updated));
+  };
   return (
     <div className="space-y-5 rounded-[28px] border border-slate-200 bg-slate-50/60 p-5">
       <div>
@@ -179,6 +196,70 @@ export default function InternshipForm({
           </button>
         </div>
       </Field>
+
+      <div className="rounded-[28px] border border-slate-200 bg-white p-5">
+        <div className="mb-4">
+          <p className="text-sm font-semibold text-slate-900">Eligibility Criteria</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Set department eligibility and passing year requirements for this internship.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Allowed Departments">
+              <select
+                onChange={(event) => handleAddDepartment(event.target.value)}
+                defaultValue=""
+                className={inputClassName()}
+              >
+                <option value="">Select a department to add</option>
+                {departmentOptions.map((department) => (
+                  <option key={department} value={department} disabled={allowedDepartments.includes(department)}>
+                    {department}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Selected Departments">
+              <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                {allowedDepartments.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {allowedDepartments.map((dept) => (
+                      <span
+                        key={dept}
+                        className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700"
+                      >
+                        {dept}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDepartment(dept)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-400">No departments selected</span>
+                )}
+              </div>
+            </Field>
+          </div>
+
+          <Field label="Passing Year">
+            <input
+              type="text"
+              value={formData.passingYear}
+              onChange={(event) => onFieldChange("passingYear", event.target.value)}
+              placeholder="e.g., 2026 or 2026, 2027"
+              className={inputClassName()}
+            />
+          </Field>
+        </div>
+      </div>
     </div>
   );
 }

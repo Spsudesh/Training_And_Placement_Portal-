@@ -106,3 +106,8 @@ export async function updatePlacement(id, formValues, existingPlacement = null) 
 export async function deletePlacement(id) {
   await apiClient.delete(`/tpo/placements/${id}`);
 }
+
+export async function applyForPlacement(id) {
+  const response = await apiClient.post(`/student/placements/${id}/apply`);
+  return response.data?.data || null;
+}

@@ -110,9 +110,11 @@ function createVerificationPayload(student) {
   const personalFields = [
     createField('personal_name', 'Full Name', fullName),
     createField('personal_prn', 'PRN', student.personal.PRN),
-    createField('personal_email', 'Email', student.personal.email),
+    createField('personal_email', 'Personal Email', student.personal.personal_email),
+    createField('personal_college_email', 'College Email', student.personal.college_email),
     createField('personal_phone', 'Phone', student.personal.mobile),
     createField('personal_dob', 'Date of Birth', formatDate(student.personal.dob)),
+    createField('personal_aadhaar', 'Aadhaar Number', student.personal.aadhaar),
     createField('personal_blood_group', 'Blood Group', student.personal.blood_group),
     createField('personal_pan', 'PAN Number', student.personal.pan_no),
     createField(
@@ -200,16 +202,21 @@ function createVerificationPayload(student) {
       : []),
     createField('education_cgpa', 'Current CGPA', education.current_cgpa, {
       verifiable: education.current_cgpa !== null && education.current_cgpa !== undefined,
+      rowLayout: 'half',
     }),
-    createField('education_percentage', 'Percentage', education.percentage),
+    createField('education_percentage', 'Percentage', education.percentage, {
+      rowLayout: 'half',
+    }),
     createField('education_backlogs', 'Active Backlogs', education.active_backlogs, {
       verifiable: education.active_backlogs !== null && education.active_backlogs !== undefined,
+      rowLayout: 'half',
     }),
     createField('education_dead_backlogs', 'Dead Backlogs', education.dead_backlog_semesters, {
       meta:
         education.dead_backlog_count !== null && education.dead_backlog_count !== undefined
           ? `Count: ${education.dead_backlog_count}`
           : '',
+      rowLayout: 'half',
     }),
     createField('education_department', 'Department', education.department),
     createField('education_passing_year', 'Passing Year', education.passing_year),
@@ -306,18 +313,6 @@ function createVerificationPayload(student) {
         fields: educationFields,
       },
       {
-        id: 'skills',
-        title: 'Skills',
-        description: 'Technical capabilities highlighted for placement drives.',
-        fields: skillFields.length ? skillFields : [createField('skills_none', 'Skills', 'No skills added')],
-      },
-      {
-        id: 'projects',
-        title: 'Projects',
-        description: 'Project work that supports the student profile.',
-        fields: projectFields,
-      },
-      {
         id: 'experience',
         title: 'Experience',
         description: 'Internships and practical exposure.',
@@ -334,6 +329,18 @@ function createVerificationPayload(student) {
         title: 'Activities',
         description: 'Co-curricular and extracurricular participation.',
         fields: activityFields,
+      },
+      {
+        id: 'skills',
+        title: 'Skills',
+        description: 'Technical capabilities highlighted for placement drives.',
+        fields: skillFields.length ? skillFields : [createField('skills_none', 'Skills', 'No skills added')],
+      },
+      {
+        id: 'projects',
+        title: 'Projects',
+        description: 'Project work that supports the student profile.',
+        fields: projectFields,
       },
     ],
   };

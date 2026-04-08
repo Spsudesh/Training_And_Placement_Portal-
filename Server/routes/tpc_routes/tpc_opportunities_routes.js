@@ -18,6 +18,113 @@ function query(sql, values = []) {
   });
 }
 
+async function ensurePlacementApplicationsTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS placement_applications (
+      id INT NOT NULL AUTO_INCREMENT,
+      opportunity_id INT NOT NULL,
+      PRN VARCHAR(50) NOT NULL,
+      application_status VARCHAR(50) NOT NULL DEFAULT 'pending_verification',
+      eligibility_snapshot JSON NULL,
+      applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY unique_student_opportunity (opportunity_id, PRN),
+      KEY idx_placement_applications_prn (PRN),
+      KEY idx_placement_applications_opportunity (opportunity_id)
+    )
+  `);
+
+  await ensureColumnExists(
+    'placement_applications',
+    'submitted_at',
+    'ALTER TABLE placement_applications ADD COLUMN submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER eligibility_snapshot'
+  );
+  await ensureColumnExists(
+    'placement_applications',
+    'current_stage_id',
+    'ALTER TABLE placement_applications ADD COLUMN current_stage_id BIGINT NULL AFTER application_status'
+  );
+  await ensureColumnExists(
+    'placement_applications',
+    'final_outcome',
+    "ALTER TABLE placement_applications ADD COLUMN final_outcome VARCHAR(50) NOT NULL DEFAULT 'in_process' AFTER current_stage_id"
+  );
+  await ensureColumnExists(
+    'placement_applications',
+    'verified_at',
+    'ALTER TABLE placement_applications ADD COLUMN verified_at DATETIME NULL AFTER submitted_at'
+  );
+  await ensureColumnExists(
+    'placement_applications',
+    'withdrawn_at',
+    'ALTER TABLE placement_applications ADD COLUMN withdrawn_at DATETIME NULL AFTER verified_at'
+  );
+  await ensureColumnExists(
+    'placement_applications',
+    'decision_at',
+    'ALTER TABLE placement_applications ADD COLUMN decision_at DATETIME NULL AFTER withdrawn_at'
+  );
+  await ensureColumnExists(
+    'placement_applications',
+    'remarks',
+    'ALTER TABLE placement_applications ADD COLUMN remarks TEXT NULL AFTER decision_at'
+  );
+
+  if (await columnExists('placement_applications', 'applied_at')) {
+    await query(
+      `
+        UPDATE placement_applications
+        SET submitted_at = COALESCE(submitted_at, applied_at, CURRENT_TIMESTAMP)
+        WHERE submitted_at IS NULL
+      `
+    );
+  } else {
+    await query(
+      `
+        UPDATE placement_applications
+        SET submitted_at = COALESCE(submitted_at, CURRENT_TIMESTAMP)
+        WHERE submitted_at IS NULL
+      `
+    );
+  }
+}
+
+async function ensureColumnExists(tableName, columnName, alterSql) {
+  const rows = await query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
+
+  if (!rows.length) {
+    await query(alterSql);
+  }
+}
+
+async function columnExists(tableName, columnName) {
+  const rows = await query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
+  return rows.length > 0;
+}
+
+async function tableExists(tableName) {
+  const rows = await query('SHOW TABLES LIKE ?', [tableName]);
+  return rows.length > 0;
+}
+
+async function ensureApplicationStatusHistoryTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS application_status_history (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      application_id BIGINT NOT NULL,
+      old_status VARCHAR(50) NULL,
+      new_status VARCHAR(50) NOT NULL,
+      changed_by VARCHAR(20) NULL,
+      change_reason TEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_history_application (application_id),
+      KEY idx_history_status (new_status)
+    )
+  `);
+}
+
 function asyncHandler(handler) {
   return async (req, res) => {
     try {
@@ -159,6 +266,21 @@ function parseSkillList(value) {
     .filter(Boolean);
 }
 
+function parseDepartmentList(value) {
+  if (!value) {
+    return [];
+  }
+
+  return String(value)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeDepartmentKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function normalizeStatus(value, fallback = 'active') {
   const allowedStatuses = new Set(['active', 'closed', 'draft']);
   const normalizedValue = String(value || fallback).trim().toLowerCase();
@@ -166,9 +288,44 @@ function normalizeStatus(value, fallback = 'active') {
 }
 
 function normalizeWorkflowStatus(value, fallback = 'upcoming') {
-  const allowedStatuses = new Set(['upcoming', 'current', 'completed']);
   const normalizedValue = String(value || fallback).trim().toLowerCase();
+
+  if (['draft', 'scheduled', 'open', 'closed', 'cancelled'].includes(normalizedValue)) {
+    if (normalizedValue === 'open') {
+      return 'current';
+    }
+
+    if (normalizedValue === 'closed') {
+      return 'completed';
+    }
+
+    return 'upcoming';
+  }
+
+  const allowedStatuses = new Set(['upcoming', 'current', 'completed']);
   return allowedStatuses.has(normalizedValue) ? normalizedValue : fallback;
+}
+
+function toWorkflowLifecycleStatus(value, fallback = 'scheduled') {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+
+  if (['draft', 'scheduled', 'open', 'closed', 'cancelled'].includes(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  if (normalizedValue === 'current') {
+    return 'open';
+  }
+
+  if (normalizedValue === 'completed') {
+    return 'closed';
+  }
+
+  if (normalizedValue === 'upcoming') {
+    return 'scheduled';
+  }
+
+  return fallback;
 }
 
 function parseWorkflowValue(value) {
@@ -199,8 +356,11 @@ function parseWorkflowValue(value) {
   return parsedValue
     .map((item, index) => ({
       stage_name: normalizeTextValue(item?.stage_name ?? item?.stage ?? item?.roundName),
-      stage_date: toMysqlDate(item?.stage_date ?? item?.date ?? item?.roundDate),
-      stage_status: normalizeWorkflowStatus(item?.stage_status ?? item?.status, 'upcoming'),
+      planned_date: toMysqlDate(item?.planned_date ?? item?.stage_date ?? item?.date ?? item?.roundDate),
+      lifecycle_status: toWorkflowLifecycleStatus(
+        item?.lifecycle_status ?? item?.stage_status ?? item?.status,
+        'scheduled'
+      ),
       stage_order: toNullableInteger(item?.stage_order ?? item?.order) ?? index + 1,
     }))
     .filter((item) => item.stage_name);
@@ -328,6 +488,7 @@ function mapRowToOpportunity(row) {
       passingYear:
         row.passing_year === null || row.passing_year === undefined ? '' : String(row.passing_year),
     },
+    application: row.student_application || null,
     attachmentUrl: attachments[0]?.url || '',
     attachment: attachments,
     workflow,
@@ -350,7 +511,7 @@ async function getHiringStagesByOpportunityIds(opportunityIds) {
   const placeholders = opportunityIds.map(() => '?').join(', ');
   const rows = await query(
     `
-      SELECT id, opportunity_id, stage_order, stage_name, stage_status, stage_date
+      SELECT id, opportunity_id, stage_order, stage_name, lifecycle_status, planned_date
       FROM hiring_stages
       WHERE opportunity_id IN (${placeholders})
       ORDER BY opportunity_id ASC, stage_order ASC, id ASC
@@ -365,8 +526,8 @@ async function getHiringStagesByOpportunityIds(opportunityIds) {
       id: row.id,
       order: row.stage_order,
       stage: row.stage_name || '',
-      status: normalizeWorkflowStatus(row.stage_status, 'upcoming'),
-      date: toIsoString(row.stage_date),
+      status: normalizeWorkflowStatus(row.lifecycle_status, 'upcoming'),
+      date: toIsoString(row.planned_date),
     };
 
     const currentStages = stagesByOpportunityId.get(row.opportunity_id) || [];
@@ -383,28 +544,160 @@ async function getStudentStageRecordsByOpportunityIds(opportunityIds, studentPrn
   }
 
   const placeholders = opportunityIds.map(() => '?').join(', ');
-  const rows = await query(
-    `
-      SELECT hs.opportunity_id, ssr.stage_id, ssr.status, ssr.updated_at
-      FROM student_stage_records ssr
-      INNER JOIN hiring_stages hs ON hs.id = ssr.stage_id
-      WHERE ssr.PRN = ? AND hs.opportunity_id IN (${placeholders})
-    `,
-    [studentPrn, ...opportunityIds]
-  );
+  let rows = [];
+
+  if (await tableExists('application_stage_results')) {
+    rows = await query(
+      `
+        SELECT
+          hs.opportunity_id,
+          asr.stage_id,
+          asr.stage_result AS status,
+          asr.updated_at
+        FROM application_stage_results asr
+        INNER JOIN placement_applications pa ON pa.id = asr.application_id
+        INNER JOIN hiring_stages hs ON hs.id = asr.stage_id
+        WHERE pa.PRN = ? AND hs.opportunity_id IN (${placeholders})
+      `,
+      [studentPrn, ...opportunityIds]
+    );
+  } else if (await tableExists('student_stage_records')) {
+    rows = await query(
+      `
+        SELECT hs.opportunity_id, ssr.stage_id, ssr.status, ssr.updated_at
+        FROM student_stage_records ssr
+        INNER JOIN hiring_stages hs ON hs.id = ssr.stage_id
+        WHERE ssr.PRN = ? AND hs.opportunity_id IN (${placeholders})
+      `,
+      [studentPrn, ...opportunityIds]
+    );
+  }
 
   const stageRecordsByOpportunityId = new Map();
 
   for (const row of rows) {
     const currentRecords = stageRecordsByOpportunityId.get(row.opportunity_id) || new Map();
     currentRecords.set(row.stage_id, {
-      studentStatus: String(row.status || 'pending').trim().toLowerCase(),
+      studentStatus: mapStudentStageStatus(row.status),
       updatedAt: toIsoString(row.updated_at),
     });
     stageRecordsByOpportunityId.set(row.opportunity_id, currentRecords);
   }
 
   return stageRecordsByOpportunityId;
+}
+
+async function getStageSelectionCountsByOpportunityIds(opportunityIds) {
+  if (!opportunityIds.length) {
+    return new Map();
+  }
+
+  const placeholders = opportunityIds.map(() => '?').join(', ');
+  let rows = [];
+
+  if (await tableExists('application_stage_results')) {
+    rows = await query(
+      `
+        SELECT
+          hs.opportunity_id,
+          asr.stage_id,
+          SUM(
+            CASE
+              WHEN LOWER(COALESCE(asr.stage_result, '')) IN ('cleared', 'shortlisted', 'qualified')
+              THEN 1
+              ELSE 0
+            END
+          ) AS selected_count
+        FROM application_stage_results asr
+        INNER JOIN hiring_stages hs ON hs.id = asr.stage_id
+        WHERE hs.opportunity_id IN (${placeholders})
+        GROUP BY hs.opportunity_id, asr.stage_id
+      `,
+      opportunityIds
+    );
+  } else if (await tableExists('student_stage_records')) {
+    rows = await query(
+      `
+        SELECT
+          hs.opportunity_id,
+          ssr.stage_id,
+          SUM(
+            CASE
+              WHEN LOWER(COALESCE(ssr.status, '')) IN ('qualified', 'cleared', 'shortlisted')
+              THEN 1
+              ELSE 0
+            END
+          ) AS selected_count
+        FROM student_stage_records ssr
+        INNER JOIN hiring_stages hs ON hs.id = ssr.stage_id
+        WHERE hs.opportunity_id IN (${placeholders})
+        GROUP BY hs.opportunity_id, ssr.stage_id
+      `,
+      opportunityIds
+    );
+  }
+
+  const countsByOpportunityId = new Map();
+
+  for (const row of rows) {
+    const currentCounts = countsByOpportunityId.get(row.opportunity_id) || new Map();
+    currentCounts.set(row.stage_id, Number(row.selected_count) || 0);
+    countsByOpportunityId.set(row.opportunity_id, currentCounts);
+  }
+
+  return countsByOpportunityId;
+}
+
+function mapStudentStageStatus(value) {
+  const normalizedValue = String(value || 'pending').trim().toLowerCase();
+
+  switch (normalizedValue) {
+    case 'qualified':
+    case 'cleared':
+    case 'shortlisted':
+      return 'qualified';
+    case 'rejected':
+    case 'absent':
+    case 'withdrawn':
+      return 'rejected';
+    case 'appeared':
+    case 'scheduled':
+    case 'not_started':
+    case 'on_hold':
+    default:
+      return 'pending';
+  }
+}
+
+async function getPlacementApplicationsByOpportunityIds(opportunityIds, studentPrn) {
+  if (!opportunityIds.length || !studentPrn) {
+    return new Map();
+  }
+
+  await ensurePlacementApplicationsTable();
+
+  const placeholders = opportunityIds.map(() => '?').join(', ');
+  const rows = await query(
+    `
+      SELECT id, opportunity_id, PRN, application_status, submitted_at, updated_at
+      FROM placement_applications
+      WHERE PRN = ? AND opportunity_id IN (${placeholders})
+    `,
+    [studentPrn, ...opportunityIds]
+  );
+
+  return new Map(
+    rows.map((row) => [
+      row.opportunity_id,
+      {
+        id: row.id,
+        prn: row.PRN,
+        status: row.application_status || 'pending_verification',
+        appliedAt: toIsoString(row.submitted_at),
+        updatedAt: toIsoString(row.updated_at),
+      },
+    ])
+  );
 }
 
 async function attachHiringStages(rows, options = {}) {
@@ -416,18 +709,28 @@ async function attachHiringStages(rows, options = {}) {
   const stagesByOpportunityId = await getHiringStagesByOpportunityIds(
     rows.map((row) => row.id).filter(Boolean)
   );
+  const stageSelectionCountsByOpportunityId = await getStageSelectionCountsByOpportunityIds(
+    rows.map((row) => row.id).filter(Boolean)
+  );
   const studentStageRecordsByOpportunityId = await getStudentStageRecordsByOpportunityIds(
+    rows.map((row) => row.id).filter(Boolean),
+    studentPrn
+  );
+  const placementApplicationsByOpportunityId = await getPlacementApplicationsByOpportunityIds(
     rows.map((row) => row.id).filter(Boolean),
     studentPrn
   );
 
   return rows.map((row) => ({
     ...row,
+    student_application: placementApplicationsByOpportunityId.get(row.id) || null,
     workflow: (stagesByOpportunityId.get(row.id) || []).map((stage) => {
       const studentStageRecord = studentStageRecordsByOpportunityId.get(row.id)?.get(stage.id);
+      const selectedCount = stageSelectionCountsByOpportunityId.get(row.id)?.get(stage.id) ?? 0;
 
       return {
         ...stage,
+        selectedCount,
         studentStatus: studentStageRecord?.studentStatus || 'pending',
         studentUpdatedAt: studentStageRecord?.updatedAt || null,
       };
@@ -446,18 +749,101 @@ async function replaceHiringStages(opportunityId, workflow) {
     await query(
       `
         INSERT INTO hiring_stages
-        (opportunity_id, stage_order, stage_name, stage_status, stage_date)
+        (opportunity_id, stage_order, stage_name, lifecycle_status, planned_date)
         VALUES (?, ?, ?, ?, ?)
       `,
       [
         opportunityId,
         stage.stage_order,
         stage.stage_name,
-        stage.stage_status,
-        stage.stage_date,
+        stage.lifecycle_status,
+        stage.planned_date,
       ]
     );
   }
+}
+
+async function getStudentEligibilityContext(prn) {
+  const personalRows = await query(
+    `
+      SELECT sp.PRN, sp.first_name, sp.middle_name, sp.last_name
+      FROM student_personal sp
+      WHERE sp.PRN = ?
+      LIMIT 1
+    `,
+    [prn]
+  );
+  const educationRows = await query(
+    `
+      SELECT department, current_cgpa, active_backlogs, passing_year
+      FROM student_education
+      WHERE PRN = ?
+      LIMIT 1
+    `,
+    [prn]
+  );
+
+  const personal = personalRows[0] || null;
+  const education = educationRows[0] || {};
+
+  return {
+    prn: String(prn || '').trim(),
+    fullName: [personal?.first_name, personal?.middle_name, personal?.last_name].filter(Boolean).join(' ').trim(),
+    department: education.department || '',
+    currentCgpa: education.current_cgpa === null || education.current_cgpa === undefined ? null : Number(education.current_cgpa),
+    activeBacklogs:
+      education.active_backlogs === null || education.active_backlogs === undefined
+        ? null
+        : Number(education.active_backlogs),
+    passingYear:
+      education.passing_year === null || education.passing_year === undefined
+        ? null
+        : Number(education.passing_year),
+  };
+}
+
+function evaluateOpportunityEligibility(opportunityRow, studentContext) {
+  const allowedDepartments = parseDepartmentList(opportunityRow.allowed_departments);
+  const normalizedAllowedDepartments = allowedDepartments.map(normalizeDepartmentKey);
+  const normalizedStudentDepartment = normalizeDepartmentKey(studentContext.department);
+  const minCgpa =
+    opportunityRow.min_cgpa === null || opportunityRow.min_cgpa === undefined
+      ? null
+      : Number(opportunityRow.min_cgpa);
+  const maxBacklogs =
+    opportunityRow.max_backlogs === null || opportunityRow.max_backlogs === undefined
+      ? null
+      : Number(opportunityRow.max_backlogs);
+  const passingYear =
+    opportunityRow.passing_year === null || opportunityRow.passing_year === undefined
+      ? null
+      : Number(opportunityRow.passing_year);
+
+  const checks = {
+    department:
+      normalizedAllowedDepartments.length === 0 ||
+      normalizedAllowedDepartments.includes(normalizedStudentDepartment),
+    cgpa: minCgpa === null || (studentContext.currentCgpa !== null && studentContext.currentCgpa >= minCgpa),
+    backlogs:
+      maxBacklogs === null || (studentContext.activeBacklogs !== null && studentContext.activeBacklogs <= maxBacklogs),
+    passingYear:
+      passingYear === null || (studentContext.passingYear !== null && studentContext.passingYear === passingYear),
+  };
+
+  return {
+    isEligible: Object.values(checks).every(Boolean),
+    checks,
+    summary: {
+      allowedDepartments,
+      minCgpa,
+      maxBacklogs,
+      passingYear,
+      studentDepartment: studentContext.department || '',
+      studentCgpa: studentContext.currentCgpa,
+      studentBacklogs: studentContext.activeBacklogs,
+      studentPassingYear: studentContext.passingYear,
+    },
+  };
 }
 
 function buildOpportunityPayload(body, options = {}) {
@@ -565,7 +951,9 @@ tpcOpportunitiesRoutes.get(
   '/',
   asyncHandler(async (req, res) => {
     const statusFilter = normalizeTextValue(req.query.status);
-    const studentPrn = normalizeTextValue(req.query.studentPrn);
+    const studentPrn = normalizeTextValue(
+      req.query.studentPrn || (req.auth?.role === 'student' ? req.auth.prn : '')
+    );
     const values = [];
     let sql = 'SELECT * FROM tpo_opportunities';
 
@@ -588,7 +976,9 @@ tpcOpportunitiesRoutes.get(
 tpcOpportunitiesRoutes.get(
   '/:id',
   asyncHandler(async (req, res) => {
-    const studentPrn = normalizeTextValue(req.query.studentPrn);
+    const studentPrn = normalizeTextValue(
+      req.query.studentPrn || (req.auth?.role === 'student' ? req.auth.prn : '')
+    );
     const opportunities = await attachHiringStages([await getOpportunityById(req.params.id)].filter(Boolean), {
       studentPrn,
     });
@@ -685,6 +1075,105 @@ tpcOpportunitiesRoutes.post(
       success: true,
       message: 'Opportunity created successfully.',
       data: mapRowToOpportunity(createdOpportunity),
+    });
+  })
+);
+
+tpcOpportunitiesRoutes.post(
+  '/:id/apply',
+  asyncHandler(async (req, res) => {
+    if (req.auth?.role !== 'student') {
+      throw createHttpError(403, 'Only students can apply for opportunities.');
+    }
+
+    const studentPrn = normalizeTextValue(req.auth?.prn || req.body?.prn);
+
+    if (!studentPrn) {
+      throw createHttpError(401, 'Student identity is required to apply.');
+    }
+
+    await ensurePlacementApplicationsTable();
+    await ensureApplicationStatusHistoryTable();
+
+    const opportunity = await getOpportunityById(req.params.id);
+
+    if (!opportunity) {
+      throw createHttpError(404, 'Opportunity not found.');
+    }
+
+    if (normalizeStatus(opportunity.status) !== 'active') {
+      throw createHttpError(400, 'Applications are closed for this opportunity.');
+    }
+
+    const studentContext = await getStudentEligibilityContext(studentPrn);
+
+    if (!studentContext.prn) {
+      throw createHttpError(404, 'Student profile not found.');
+    }
+
+    const eligibility = evaluateOpportunityEligibility(opportunity, studentContext);
+
+    if (!eligibility.isEligible) {
+      throw createHttpError(400, 'You are not eligible to apply for this opportunity.');
+    }
+
+    const existingApplications = await query(
+      'SELECT id, application_status, submitted_at, updated_at FROM placement_applications WHERE opportunity_id = ? AND PRN = ? LIMIT 1',
+      [req.params.id, studentPrn]
+    );
+
+    if (existingApplications.length) {
+      throw createHttpError(409, 'You have already applied for this opportunity.');
+    }
+
+    await query(
+      `
+        INSERT INTO placement_applications
+        (opportunity_id, PRN, application_status, final_outcome, eligibility_snapshot, submitted_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `,
+      [req.params.id, studentPrn, 'pending_verification', 'in_process', JSON.stringify(eligibility.summary)]
+    );
+
+    const applicationRows = await query(
+      `
+        SELECT id, opportunity_id, PRN, application_status, submitted_at, updated_at
+        FROM placement_applications
+        WHERE opportunity_id = ? AND PRN = ?
+        LIMIT 1
+      `,
+      [req.params.id, studentPrn]
+    );
+    const application = applicationRows[0] || null;
+
+    if (application?.id) {
+      await query(
+        `
+          INSERT INTO application_status_history
+          (application_id, old_status, new_status, changed_by, change_reason)
+          VALUES (?, ?, ?, ?, ?)
+        `,
+        [
+          application.id,
+          null,
+          application.application_status || 'pending_verification',
+          studentPrn,
+          'Student submitted application. Pending TPO verification.',
+        ]
+      );
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Application submitted successfully and sent to TPO for verification.',
+      data: {
+        id: application?.id || null,
+        opportunityId: Number(req.params.id),
+        prn: studentPrn,
+        status: application?.application_status || 'pending_verification',
+        appliedAt: toIsoString(application?.submitted_at),
+        updatedAt: toIsoString(application?.updated_at),
+      },
     });
   })
 );

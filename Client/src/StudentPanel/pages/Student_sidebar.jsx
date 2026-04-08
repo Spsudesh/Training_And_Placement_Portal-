@@ -17,7 +17,7 @@ import {
 
 const navigationItems = [
   { label: "Home", icon: Home, to: "/student-panel" },
-  { label: "Job Profiles", icon: Layers3, to: "/student-panel/jobs", requiresVerified: true },
+  { label: "Job Profiles", icon: Layers3, to: "/student-panel/jobs" },
   { label: "My Profile", icon: UserRound, to: "/student-panel/profile" },
   { label: "Interviews", icon: Users, to: "/student-panel", fallback: true, requiresVerified: true },
   { label: "Assessments", icon: ClipboardCheck, to: "/student-panel", fallback: true, requiresVerified: true },

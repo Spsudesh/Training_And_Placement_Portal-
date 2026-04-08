@@ -2,9 +2,8 @@ import { Search } from "lucide-react";
 
 export default function FilterBar({
   filters,
-  departments,
   years,
-  statuses,
+  departments,
   onChange,
   onReset,
 }) {
@@ -17,8 +16,7 @@ export default function FilterBar({
           </p>
          
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Filter by year, department, verification state, or search directly by
-            student name and PRN.
+            Filter by year, department, or search directly by student name and PRN.
           </p>
         </div>
 
@@ -57,21 +55,6 @@ export default function FilterBar({
             {departments.map((department) => (
               <option key={department} value={department}>
                 {department}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-sm font-medium text-slate-700">
-          Status
-          <select
-            value={filters.status}
-            onChange={(event) => onChange("status", event.target.value)}
-            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
-          >
-            {statuses.map((status) => (
-              <option key={status} value={status}>
-                {status}
               </option>
             ))}
           </select>

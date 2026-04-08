@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Calendar,
   CheckCheck,
@@ -8,7 +9,6 @@ import {
   PlusCircle,
   SendHorizonal,
   Upload,
-  Users,
   XCircle,
 } from "lucide-react";
 import TpoSidebar from "./Tpo_sidebar";
@@ -19,6 +19,8 @@ import {
   isPlacementActive,
   isPlacementFormValid,
   normalizePlacementAttachment,
+  parsePlacementDepartments,
+  placementDepartmentOptions,
   splitLines,
 } from "../../shared/placementJobs";
 import {
@@ -27,6 +29,7 @@ import {
   fetchPlacements,
   updatePlacement,
 } from "../../shared/placementApi";
+import { upsertStageResults } from "../application_tracking/services/applicationTrackingApi";
 
 const listTabs = [
   { key: "all", label: "All Jobs" },
@@ -38,6 +41,97 @@ const detailTabs = [
   { key: "eligibility", label: "Eligibility Criteria" },
   { key: "workflow", label: "Hiring Workflow" },
 ];
+
+function buildRoundTemplateCsv(stageName = "") {
+  const rows = [
+    ["PRN", "stage_result"],
+    ["2453014", "cleared"],
+    ["2453015", "rejected"],
+  ];
+
+  return rows
+    .map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(","))
+    .join("\n");
+}
+
+function downloadRoundTemplate(stageName, fileNamePrefix = "workflow") {
+  const blob = new Blob([buildRoundTemplateCsv(stageName)], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const safePrefix = String(fileNamePrefix || "workflow").trim().replace(/\s+/g, "_");
+  const safeStage = String(stageName || "round").trim().replace(/\s+/g, "_");
+
+  link.href = url;
+  link.download = `${safePrefix}_${safeStage}_template.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function parseCsvRow(rowText) {
+  const values = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < rowText.length; index += 1) {
+    const char = rowText[index];
+    const nextChar = rowText[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      values.push(current);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current);
+  return values.map((value) => value.trim());
+}
+
+function parseRoundImportCsv(csvText) {
+  const rows = String(csvText || "")
+    .split(/\r?\n/)
+    .map((row) => row.trim())
+    .filter(Boolean);
+
+  if (rows.length <= 1) {
+    return [];
+  }
+
+  const header = parseCsvRow(rows[0]).map((item) => item.toLowerCase());
+
+  return rows
+    .slice(1)
+    .map((rowText) => {
+      const cells = parseCsvRow(rowText);
+      const record = {};
+
+      header.forEach((key, index) => {
+        record[key] = cells[index] ?? "";
+      });
+
+      return {
+        prn: record.prn || record.student_prn || "",
+        stage_result: record.stage_result || record.result || "cleared",
+      };
+    })
+    .filter((item) => item.prn);
+}
 
 function TextWithShowMore({ text, limit = 240 }) {
   const [expanded, setExpanded] = useState(false);
@@ -225,9 +319,38 @@ function getWorkflowIcon(status) {
   return Calendar;
 }
 
-function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
+function HiringWorkflowMindmap({
+  workflow = [],
+  isActive = false,
+  onEditWorkflow,
+  onImportRound,
+  onTypePrn,
+  onDownloadTemplate,
+  typingStageId,
+  manualPrnDraft,
+  manualPrnEntries,
+  onManualPrnDraftChange,
+  onManualPrnDraftKeyDown,
+  onAddManualPrn,
+  onRemoveManualPrn,
+  onSubmitManualPrns,
+  isSubmittingManualPrns = false,
+}) {
   if (!workflow.length) {
-    return <p className="text-sm leading-6 text-slate-500">No workflow data available.</p>;
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-6">
+        <p className="text-sm leading-6 text-slate-500">No workflow data available.</p>
+        {typeof onEditWorkflow === "function" ? (
+          <button
+            type="button"
+            onClick={onEditWorkflow}
+            className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-100"
+          >
+            Edit Workflow
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   const currentStage = workflow.find((item) => item.status === "current")?.stage || "Completed";
@@ -257,6 +380,25 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
               ? "This plan shows the expected hiring journey for the currently active drive."
               : "This map shows how many students progressed at each step of the hiring process."}
           </p>
+          <div className="mt-5 space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Workflow Notes
+            </p>
+            <p className="text-sm leading-6 text-slate-600">
+              Note 1: `Import` is used to upload the dummy Excel/CSV format and bulk update the
+              next round records.
+            </p>
+            <p className="text-sm leading-6 text-slate-600">
+              Note 2: `Type PRN` can be used to manually enter selected student PRNs for a completed round.
+            </p>
+            <button
+              type="button"
+              onClick={() => onDownloadTemplate?.()}
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              Download Dummy Excel Template
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
@@ -306,6 +448,8 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
           const styles = getWorkflowStyles(item.status);
           const Icon = getWorkflowIcon(item.status);
           const isLast = index === workflow.length - 1;
+          const isTypingOpen = typingStageId === item.id;
+          const stageEntries = isTypingOpen ? manualPrnEntries : [];
 
           return (
             <div key={`${item.stage}-${item.date}-${index}`} className="flex gap-4">
@@ -315,7 +459,7 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
               </div>
 
               <div className={`flex-1 rounded-2xl border p-5 ${styles.card}`}>
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-start gap-3">
                     <span className="rounded-2xl bg-white p-3 text-slate-600 shadow-sm">
                       <Icon className="h-5 w-5" />
@@ -328,18 +472,111 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
                     </div>
                   </div>
 
+                  {item.status === "completed" ? (
+                    <div className="flex justify-start lg:justify-center">
+                      <div className="min-w-[108px] rounded-2xl border border-cyan-100 bg-white/95 px-4 py-3 text-center shadow-sm">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Cleared
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-cyan-700">
+                          {item.selectedCount ?? 0}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex flex-wrap gap-2">
+                    {item.status === "completed" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onImportRound?.(item, index)}
+                          className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-50"
+                        >
+                          Import
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onTypePrn?.(item, index)}
+                          className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-50"
+                        >
+                          {isTypingOpen ? "Close PRN Entry" : "Type PRN"}
+                        </button>
+                      </>
+                    ) : null}
                     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${styles.badge}`}>
                       {item.status}
                     </span>
-                    {item.selectedCount !== null && item.selectedCount !== undefined ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
-                        <Users className="h-3.5 w-3.5" />
-                        {item.selectedCount} students
-                      </span>
-                    ) : null}
                   </div>
                 </div>
+
+                {isTypingOpen ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      Manual PRN Entry
+                    </p>
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                      <input
+                        type="text"
+                        value={manualPrnDraft}
+                        onChange={(event) => onManualPrnDraftChange?.(event.target.value)}
+                        onKeyDown={(event) => onManualPrnDraftKeyDown?.(event, item)}
+                        placeholder="Enter one PRN and press Enter"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onAddManualPrn?.(item)}
+                        className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-100"
+                      >
+                        Add PRN
+                      </button>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Added PRNs
+                      </p>
+                      {stageEntries.length ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {stageEntries.map((prn) => (
+                            <span
+                              key={`${item.id}-${prn}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-cyan-700"
+                            >
+                              {prn}
+                              <button
+                                type="button"
+                                onClick={() => onRemoveManualPrn?.(item, prn)}
+                                className="text-cyan-700 transition hover:text-cyan-900"
+                              >
+                                x
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-sm text-slate-500">
+                          Enter a PRN above and press Enter to build the selected list.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => onSubmitManualPrns?.(item)}
+                        disabled={!stageEntries.length || isSubmittingManualPrns}
+                        className="rounded-2xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      >
+                        {isSubmittingManualPrns ? "Submitting..." : "Submit PRNs"}
+                      </button>
+                      <p className="text-sm text-slate-500">
+                        These PRNs will be added into the round result table after submit.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           );
@@ -350,8 +587,11 @@ function HiringWorkflowMindmap({ workflow = [], isActive = false }) {
 }
 
 export default function Placements({ onLogout }) {
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const formRef = useRef(null);
+  const workflowSectionRef = useRef(null);
+  const workflowImportInputRef = useRef(null);
   const [jobs, setJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeListTab, setActiveListTab] = useState("all");
@@ -364,6 +604,12 @@ export default function Placements({ onLogout }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState("job-description");
   const [formData, setFormData] = useState(emptyPlacementForm);
+  const [departmentPickerValue, setDepartmentPickerValue] = useState("");
+  const [shouldScrollToWorkflow, setShouldScrollToWorkflow] = useState(false);
+  const [pendingImportStage, setPendingImportStage] = useState(null);
+  const [typingStageId, setTypingStageId] = useState(null);
+  const [manualPrnDraft, setManualPrnDraft] = useState("");
+  const [manualPrnEntries, setManualPrnEntries] = useState([]);
 
   const ongoingCount = useMemo(
     () => jobs.filter((job) => isPlacementActive(job)).length,
@@ -382,6 +628,19 @@ export default function Placements({ onLogout }) {
     const bySelection = jobs.find((job) => job.id === selectedJobId);
     return bySelection ?? filteredJobs[0] ?? null;
   }, [filteredJobs, jobs, selectedJobId]);
+
+  async function reloadPlacements() {
+    const nextJobs = await fetchPlacements();
+
+    setJobs(nextJobs);
+    setSelectedJobId((currentId) => {
+      const stillExists = nextJobs.some((job) => String(job.id) === String(currentId));
+      return stillExists ? currentId : nextJobs[0]?.id ?? null;
+    });
+    setLoadError("");
+
+    return nextJobs;
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -446,6 +705,19 @@ export default function Placements({ onLogout }) {
 
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [editingJobId, showAddForm]);
+
+  useEffect(() => {
+    if (!showAddForm || !shouldScrollToWorkflow) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      workflowSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setShouldScrollToWorkflow(false);
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [showAddForm, shouldScrollToWorkflow, editingJobId]);
 
   function handleInputChange(event) {
     const { name, value } = event.target;
@@ -556,6 +828,7 @@ export default function Placements({ onLogout }) {
 
   function resetFormState() {
     setFormData(emptyPlacementForm);
+    setDepartmentPickerValue("");
     setAttachmentError("");
     setShowAddForm(false);
     setEditingJobId(null);
@@ -568,6 +841,7 @@ export default function Placements({ onLogout }) {
     }
 
     setFormData(emptyPlacementForm);
+    setDepartmentPickerValue("");
     setEditingJobId(null);
     setShowAddForm(true);
   }
@@ -578,8 +852,224 @@ export default function Placements({ onLogout }) {
     }
 
     setFormData(getPlacementFormFromJob(selectedJob));
+    setDepartmentPickerValue("");
     setEditingJobId(selectedJob.id);
     setShowAddForm(true);
+  }
+
+  function handleEditWorkflow() {
+    if (!selectedJob) {
+      return;
+    }
+
+    setFormData(getPlacementFormFromJob(selectedJob));
+    setDepartmentPickerValue("");
+    setEditingJobId(selectedJob.id);
+    setShowAddForm(true);
+    setShouldScrollToWorkflow(true);
+  }
+
+  function handleDownloadWorkflowTemplate() {
+    downloadRoundTemplate(
+      pendingImportStage?.stage || selectedJob?.workflow?.find((item) => item.status === "completed")?.stage || "round",
+      `${selectedJob?.company || "company"}_${selectedJob?.title || "drive"}`,
+    );
+  }
+
+  function handleImportRound(stage) {
+    if (!stage?.id) {
+      setLoadError("This hiring round is missing a valid stage id.");
+      return;
+    }
+
+    setPendingImportStage(stage);
+    workflowImportInputRef.current?.click();
+  }
+
+  async function handleWorkflowImportChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file || !pendingImportStage?.id) {
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setLoadError("");
+
+      const csvText = await file.text();
+      const results = parseRoundImportCsv(csvText);
+
+      if (!results.length) {
+        throw new Error("The selected file does not contain any valid PRN rows.");
+      }
+
+      const response = await upsertStageResults(pendingImportStage.id, results);
+      await reloadPlacements();
+
+      const missingPrnText = Array.isArray(response?.missingPrns) && response.missingPrns.length
+        ? ` Missing PRNs: ${response.missingPrns.join(", ")}.`
+        : "";
+      const duplicatePrnText = Array.isArray(response?.duplicatePrns) && response.duplicatePrns.length
+        ? ` Duplicate PRNs skipped: ${response.duplicatePrns.join(", ")}.`
+        : "";
+      const failedPrnText = Array.isArray(response?.failedPrns) && response.failedPrns.length
+        ? ` Failed PRNs: ${response.failedPrns.map((item) => item.prn).join(", ")}.`
+        : "";
+
+      if (!response?.updatedCount) {
+        setLoadError(
+          `${response?.message || "No round results were updated."}${missingPrnText}${duplicatePrnText}${failedPrnText}`,
+        );
+        return;
+      }
+
+      setFeedbackMessage(
+        `${response?.updatedCount || results.length} applicant records updated for ${pendingImportStage.stage}.${missingPrnText}${duplicatePrnText}${failedPrnText}`,
+      );
+    } catch (error) {
+      setLoadError(error.response?.data?.message || error.message || "Unable to import round results.");
+    } finally {
+      setIsSubmitting(false);
+      setPendingImportStage(null);
+      event.target.value = "";
+    }
+  }
+
+  function handleTypePrn(stage) {
+    if (!stage?.id) {
+      setLoadError("This hiring round is missing a valid stage id.");
+      return;
+    }
+
+    setLoadError("");
+    setFeedbackMessage("");
+    setManualPrnDraft("");
+    setManualPrnEntries([]);
+    setTypingStageId((currentStageId) => (currentStageId === stage.id ? null : stage.id));
+  }
+
+  function addManualPrnToStage() {
+    const nextPrn = manualPrnDraft.trim().toUpperCase();
+
+    if (!nextPrn) {
+      return;
+    }
+
+    setManualPrnEntries((currentEntries) => {
+      if (currentEntries.includes(nextPrn)) {
+        return currentEntries;
+      }
+
+      return [...currentEntries, nextPrn];
+    });
+    setManualPrnDraft("");
+  }
+
+  function handleManualPrnDraftKeyDown(event) {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    addManualPrnToStage();
+  }
+
+  function handleRemoveManualPrn(stage, prnToRemove) {
+    if (stage?.id !== typingStageId) {
+      return;
+    }
+
+    setManualPrnEntries((currentEntries) => (
+      currentEntries.filter((prn) => prn !== prnToRemove)
+    ));
+  }
+
+  async function handleSubmitManualPrns(stage) {
+    if (!stage?.id) {
+      setLoadError("This hiring round is missing a valid stage id.");
+      return;
+    }
+
+    if (!manualPrnEntries.length) {
+      setLoadError("Enter at least one PRN to update this round.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setLoadError("");
+
+      const response = await upsertStageResults(
+        stage.id,
+        manualPrnEntries.map((prn) => ({
+          prn,
+          stage_result: "cleared",
+        })),
+      );
+
+      await reloadPlacements();
+
+      const missingPrnText = Array.isArray(response?.missingPrns) && response.missingPrns.length
+        ? ` Missing PRNs: ${response.missingPrns.join(", ")}.`
+        : "";
+      const duplicatePrnText = Array.isArray(response?.duplicatePrns) && response.duplicatePrns.length
+        ? ` Duplicate PRNs skipped: ${response.duplicatePrns.join(", ")}.`
+        : "";
+      const failedPrnText = Array.isArray(response?.failedPrns) && response.failedPrns.length
+        ? ` Failed PRNs: ${response.failedPrns.map((item) => item.prn).join(", ")}.`
+        : "";
+
+      if (!response?.updatedCount) {
+        setLoadError(
+          `${response?.message || "No round results were updated."}${missingPrnText}${duplicatePrnText}${failedPrnText}`,
+        );
+        return;
+      }
+
+      setFeedbackMessage(
+        `${response?.updatedCount || manualPrnEntries.length} applicant records updated for ${stage.stage}.${missingPrnText}${duplicatePrnText}${failedPrnText}`,
+      );
+      setTypingStageId(null);
+      setManualPrnDraft("");
+      setManualPrnEntries([]);
+    } catch (error) {
+      setLoadError(error.response?.data?.message || "Unable to update round results.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function handleAddAllowedDepartment(department) {
+    const nextDepartment = String(department ?? "").trim();
+
+    if (!nextDepartment) {
+      return;
+    }
+
+    setFormData((prev) => {
+      const currentDepartments = parsePlacementDepartments(prev.allowedDepartments);
+
+      if (currentDepartments.includes(nextDepartment)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        allowedDepartments: [...currentDepartments, nextDepartment],
+      };
+    });
+    setDepartmentPickerValue("");
+  }
+
+  function handleRemoveAllowedDepartment(departmentToRemove) {
+    setFormData((prev) => ({
+      ...prev,
+      allowedDepartments: parsePlacementDepartments(prev.allowedDepartments).filter(
+        (department) => department !== departmentToRemove,
+      ),
+    }));
   }
 
   async function handleDeletePlacement() {
@@ -721,6 +1211,19 @@ export default function Placements({ onLogout }) {
         <HiringWorkflowMindmap
           workflow={selectedJob.workflow}
           isActive={isPlacementActive(selectedJob)}
+          onEditWorkflow={handleEditWorkflow}
+          onImportRound={handleImportRound}
+          onTypePrn={handleTypePrn}
+          onDownloadTemplate={handleDownloadWorkflowTemplate}
+          typingStageId={typingStageId}
+          manualPrnDraft={manualPrnDraft}
+          manualPrnEntries={manualPrnEntries}
+          onManualPrnDraftChange={setManualPrnDraft}
+          onManualPrnDraftKeyDown={handleManualPrnDraftKeyDown}
+          onAddManualPrn={addManualPrnToStage}
+          onRemoveManualPrn={handleRemoveManualPrn}
+          onSubmitManualPrns={handleSubmitManualPrns}
+          isSubmittingManualPrns={isSubmitting}
         />
       );
     }
@@ -842,6 +1345,13 @@ export default function Placements({ onLogout }) {
       pageTitle="Placements"
       onLogout={onLogout}
     >
+      <input
+        ref={workflowImportInputRef}
+        type="file"
+        accept=".csv"
+        onChange={handleWorkflowImportChange}
+        className="hidden"
+      />
       <section className="mt-4 rounded-[28px] border border-slate-200 bg-white px-5 py-6 sm:px-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1042,18 +1552,6 @@ export default function Placements({ onLogout }) {
                   </label>
 
                   <label className="text-sm font-medium text-slate-700">
-                    Required Skills & Attributes
-                    <textarea
-                      name="skills"
-                      value={formData.skills}
-                      onChange={handleInputChange}
-                      rows={5}
-                      placeholder="Describe the core skills and mindset expected."
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
-                    />
-                  </label>
-
-                  <label className="text-sm font-medium text-slate-700">
                     What We Offer
                     <textarea
                       name="offer"
@@ -1109,13 +1607,50 @@ export default function Placements({ onLogout }) {
 
                   <label className="text-sm font-medium text-slate-700">
                     Allowed Departments
-                    <input
-                      name="allowedDepartments"
-                      value={formData.allowedDepartments}
-                      onChange={handleInputChange}
-                      placeholder="CSE, IT, MECH"
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
-                    />
+                    <div className="mt-2 grid gap-3 md:grid-cols-[minmax(220px,0.9fr)_minmax(0,1.1fr)]">
+                      <select
+                        value={departmentPickerValue}
+                        onChange={(event) => handleAddAllowedDepartment(event.target.value)}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-500"
+                      >
+                        <option value="">Select a department</option>
+                        {placementDepartmentOptions.map((department) => (
+                          <option
+                            key={department}
+                            value={department}
+                            disabled={parsePlacementDepartments(formData.allowedDepartments).includes(department)}
+                          >
+                            {department}
+                          </option>
+                        ))}
+                      </select>
+
+                      <input
+                        value={parsePlacementDepartments(formData.allowedDepartments).join(", ")}
+                        readOnly
+                        placeholder="Selected departments will appear here"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none"
+                      />
+                    </div>
+                    {parsePlacementDepartments(formData.allowedDepartments).length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {parsePlacementDepartments(formData.allowedDepartments).map((department) => (
+                          <span
+                            key={department}
+                            className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700"
+                          >
+                            {department}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAllowedDepartment(department)}
+                              className="text-cyan-700 transition hover:text-cyan-900"
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </label>
 
                   <label className="text-sm font-medium text-slate-700">
@@ -1255,7 +1790,7 @@ export default function Placements({ onLogout }) {
                 </label>
               </section>
 
-              <section>
+              <section ref={workflowSectionRef}>
                 <SectionHeader title="Hiring Workflow" />
                 <div className="mt-4 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
@@ -1448,6 +1983,13 @@ export default function Placements({ onLogout }) {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/tpo-dashboard/placements/${selectedJob.id}/applicants`)}
+                        className="ml-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
+                      >
+                        View Applicants
+                      </button>
                       <button
                         type="button"
                         onClick={handleEditPlacement}

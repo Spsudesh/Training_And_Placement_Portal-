@@ -8,6 +8,7 @@ const tpcOpportunitiesRoutes = require('./routes/tpc_routes/tpc_opportunities_ro
 const tpoPlacementsRoutes = require('./routes/tpo_routes/tpo_placements_routes');
 const tpoNoticeRoutes = require('./routes/tpo_routes/tpo_notice_routes');
 const tpoStudentManagementRoutes = require('./routes/tpo_routes/tpo_student_management_routes');
+const tpoApplicationTrackingRoutes = require('./routes/tpo_routes/application_tracking/tpo_application_tracking_routes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { requireAuth, requireRole } = require('./middleware/authMiddleware');
@@ -37,6 +38,7 @@ app.use('/tpc/notices', requireAuth, requireRole('tpc'), tpoNoticeRoutes);
 app.use('/tpo/opportunities', requireAuth, requireRole('tpo'), tpcOpportunitiesRoutes);
 app.use('/tpo/placements', requireAuth, requireRole('tpo'), tpoPlacementsRoutes);
 app.use('/tpo/notices', requireAuth, requireRole('tpo'), tpoNoticeRoutes);
+app.use('/tpo/application-tracking', requireAuth, requireRole('tpo'), tpoApplicationTrackingRoutes);
 app.use('/tpo', requireAuth, requireRole('tpo'), tpoStudentManagementRoutes);
 
 app.use(errorHandler);

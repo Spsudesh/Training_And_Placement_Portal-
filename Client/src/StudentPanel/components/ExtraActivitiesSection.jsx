@@ -10,7 +10,7 @@ function ExtraActivitiesSection({
 }) {
   return (
     <SectionCard
-      title="Extra Activities"
+      title="Extra Curricular Activities"
       description="Include achievements, leadership activities, clubs, events, or volunteering work."
       actions={
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -57,3 +57,4 @@ function ExtraActivitiesSection({
 }
 
 export default ExtraActivitiesSection;
+

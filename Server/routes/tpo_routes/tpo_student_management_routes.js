@@ -102,6 +102,36 @@ function createDocument(label, url) {
   return url ? { label, url } : null;
 }
 
+function formatShortDate(dateValue) {
+  if (!dateValue) {
+    return '';
+  }
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+async function ensureColumnExists(tableName, columnName, alterSql) {
+  const rows = await query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
+
+  if (!rows.length) {
+    await query(alterSql);
+  }
+}
+
+async function columnExists(tableName, columnName) {
+  const rows = await query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
+  return rows.length > 0;
+}
+
 function mapEducationDetails(education) {
   const details = [];
   const hasDiploma = Boolean(education?.diploma_year);
@@ -223,6 +253,47 @@ function createStudentManagementPayload(student) {
   const fullName = buildFullName(student.personal);
   const education = student.education || {};
   const status = getStatus(student);
+  const placementApplications = student.placementApplications || [];
+
+  const driveHistory = placementApplications.map((application) => ({
+    company: application.company || '-',
+    role: application.role || '-',
+    appliedOn: formatDate(application.submitted_at),
+    outcome:
+      application.application_status === 'pending_verification'
+        ? 'Pending Verification'
+        : application.application_status,
+    currentStage:
+      application.application_status === 'pending_verification'
+        ? 'TPO Verification'
+        : application.application_status,
+    rounds: [
+      {
+        name: 'Applied',
+        date: formatShortDate(application.submitted_at) || 'Pending',
+        status: 'completed',
+      },
+      {
+        name: 'TPO Verification',
+        date: formatShortDate(application.updated_at) || 'Pending',
+        status: application.application_status === 'pending_verification' ? 'current' : 'completed',
+      },
+    ],
+  }));
+
+  const ongoingDrives = placementApplications.map((application) => ({
+    company: application.company || '-',
+    role: application.role || '-',
+    appliedOn: formatDate(application.submitted_at),
+    status:
+      application.application_status === 'pending_verification'
+        ? 'Pending Verification'
+        : application.application_status,
+    currentRound:
+      application.application_status === 'pending_verification'
+        ? 'TPO Verification'
+        : application.application_status,
+  }));
 
   return {
     prn: String(student.personal.PRN || ''),
@@ -265,17 +336,54 @@ function createStudentManagementPayload(student) {
     certifications: mapCertifications(student.certifications),
     activities: mapActivities(student.activities),
     placementTrack: {
-      ongoingDrives: [],
-      driveHistory: [],
+      ongoingDrives,
+      driveHistory,
     },
   };
 }
 
 async function fetchStudentManagementRows() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS placement_applications (
+      id INT NOT NULL AUTO_INCREMENT,
+      opportunity_id INT NOT NULL,
+      PRN VARCHAR(50) NOT NULL,
+      application_status VARCHAR(50) NOT NULL DEFAULT 'pending_verification',
+      eligibility_snapshot JSON NULL,
+      applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY unique_student_opportunity (opportunity_id, PRN),
+      KEY idx_placement_applications_prn (PRN),
+      KEY idx_placement_applications_opportunity (opportunity_id)
+    )
+  `);
+
+  await ensureColumnExists(
+    'placement_applications',
+    'submitted_at',
+    'ALTER TABLE placement_applications ADD COLUMN submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER eligibility_snapshot'
+  );
+
+  if (await columnExists('placement_applications', 'applied_at')) {
+    await query(`
+      UPDATE placement_applications
+      SET submitted_at = COALESCE(submitted_at, applied_at, CURRENT_TIMESTAMP)
+      WHERE submitted_at IS NULL
+    `);
+  } else {
+    await query(`
+      UPDATE placement_applications
+      SET submitted_at = COALESCE(submitted_at, CURRENT_TIMESTAMP)
+      WHERE submitted_at IS NULL
+    `);
+  }
+
   const personalRows = await query(`
     SELECT sp.*, COALESCE(sc.is_profile_verified, FALSE) AS is_profile_verified
     FROM student_personal sp
     LEFT JOIN student_credentials sc ON sc.PRN = sp.PRN
+    WHERE sc.is_profile_verified = TRUE
     ORDER BY sp.PRN ASC
   `);
   const educationRows = await query('SELECT * FROM student_education');
@@ -288,6 +396,12 @@ async function fetchStudentManagementRows() {
   const experienceRows = await query('SELECT * FROM student_experience ORDER BY PRN ASC, exp_number ASC');
   const certificationRows = await query('SELECT * FROM student_certifications ORDER BY PRN ASC, cert_number ASC');
   const activityRows = await query('SELECT * FROM student_activities ORDER BY PRN ASC, act_number ASC');
+  const placementApplicationRows = await query(`
+    SELECT pa.PRN, pa.application_status, pa.submitted_at, pa.updated_at, o.company_name, o.job_title
+    FROM placement_applications pa
+    INNER JOIN tpo_opportunities o ON o.id = pa.opportunity_id
+    ORDER BY pa.submitted_at DESC, pa.id DESC
+  `);
 
   return {
     personalRows,
@@ -297,6 +411,7 @@ async function fetchStudentManagementRows() {
     experienceRows,
     certificationRows,
     activityRows,
+    placementApplicationRows,
   };
 }
 
@@ -307,6 +422,7 @@ function buildGroupedMaps(rows) {
   const experienceMap = new Map();
   const certificationsMap = new Map();
   const activitiesMap = new Map();
+  const placementApplicationsMap = new Map();
 
   rows.skillRows.forEach((row) => {
     const current = skillsMap.get(row.PRN) || {
@@ -348,6 +464,18 @@ function buildGroupedMaps(rows) {
     activitiesMap.set(row.PRN, current);
   });
 
+  rows.placementApplicationRows.forEach((row) => {
+    const current = placementApplicationsMap.get(row.PRN) || [];
+    current.push({
+      company: row.company_name || '',
+      role: row.job_title || '',
+      application_status: row.application_status || 'pending_verification',
+      submitted_at: row.submitted_at,
+      updated_at: row.updated_at,
+    });
+    placementApplicationsMap.set(row.PRN, current);
+  });
+
   return {
     educationMap,
     skillsMap,
@@ -355,6 +483,7 @@ function buildGroupedMaps(rows) {
     experienceMap,
     certificationsMap,
     activitiesMap,
+    placementApplicationsMap,
   };
 }
 
@@ -366,6 +495,7 @@ function buildStudentPayloads(rows) {
     experienceMap,
     certificationsMap,
     activitiesMap,
+    placementApplicationsMap,
   } = buildGroupedMaps(rows);
 
   return rows.personalRows.map((personal) =>
@@ -383,6 +513,7 @@ function buildStudentPayloads(rows) {
       experience: experienceMap.get(personal.PRN) || [],
       certifications: certificationsMap.get(personal.PRN) || [],
       activities: activitiesMap.get(personal.PRN) || [],
+      placementApplications: placementApplicationsMap.get(personal.PRN) || [],
     }),
   );
 }

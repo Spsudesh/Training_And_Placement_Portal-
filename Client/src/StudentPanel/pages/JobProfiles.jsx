@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, CheckCheck, CircleDot, FileText, Users, XCircle } from "lucide-react";
+import { Calendar, CheckCheck, CheckCircle2, CircleDot, FileText, Users, XCircle } from "lucide-react";
 import {
   formatPlacementDeadline,
   hydratePlacementJob,
   isPlacementActive,
   splitLines,
 } from "../../shared/placementJobs";
-import { fetchPlacements } from "../../shared/placementApi";
+import { applyForPlacement, fetchPlacements } from "../../shared/placementApi";
+import { getStudentProfile } from "../profile/services/studentProfileApi";
 
 const STUDENT_ID_STORAGE_KEY = "training-placement-active-student";
 
@@ -75,6 +76,62 @@ function EligibilityMetricCard({ label, value }) {
       <p className="mt-2 text-sm font-semibold text-slate-900">{value || "Not specified"}</p>
     </div>
   );
+}
+
+function parseAllowedDepartments(value) {
+  if (!value) {
+    return [];
+  }
+
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeDepartment(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function evaluateJobEligibility(profile, job) {
+  if (!profile || !job) {
+    return {
+      isEligible: false,
+      reason: "Student profile is still loading.",
+    };
+  }
+
+  const allowedDepartments = parseAllowedDepartments(job.additional?.allowedDepartments);
+  const minCgpa = job.additional?.minCgpa === "" ? null : Number(job.additional?.minCgpa);
+  const maxBacklogs = job.additional?.maxBacklogs === "" ? null : Number(job.additional?.maxBacklogs);
+  const passingYear = job.additional?.passingYear === "" ? null : Number(job.additional?.passingYear);
+
+  const checks = {
+    department:
+      allowedDepartments.length === 0 ||
+      allowedDepartments.map(normalizeDepartment).includes(normalizeDepartment(profile.department)),
+    cgpa: minCgpa === null || Number(profile.currentCgpa) >= minCgpa,
+    backlogs: maxBacklogs === null || Number(profile.backlogs) <= maxBacklogs,
+    passingYear: passingYear === null || Number(profile.passingYear) === passingYear,
+  };
+
+  if (!checks.department) {
+    return { isEligible: false, reason: "Your department is not in the allowed departments list." };
+  }
+
+  if (!checks.cgpa) {
+    return { isEligible: false, reason: "Your current CGPA does not meet the minimum requirement." };
+  }
+
+  if (!checks.backlogs) {
+    return { isEligible: false, reason: "Your active backlog count is above the allowed limit." };
+  }
+
+  if (!checks.passingYear) {
+    return { isEligible: false, reason: "Your passing year does not match this opportunity." };
+  }
+
+  return { isEligible: true, reason: "You are eligible to apply for this opportunity." };
 }
 
 function getStudentWorkflowStyles(status) {
@@ -234,9 +291,12 @@ function StudentWorkflowTimeline({ workflow = [] }) {
 
 export default function JobProfiles() {
   const [jobs, setJobs] = useState([]);
+  const [studentProfile, setStudentProfile] = useState(null);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [applyMessage, setApplyMessage] = useState("");
+  const [isApplying, setIsApplying] = useState(false);
   const [activeListTab, setActiveListTab] = useState("all");
   const [activeDetailTab, setActiveDetailTab] = useState("job-description");
   const [activeAttachment, setActiveAttachment] = useState(null);
@@ -247,12 +307,16 @@ export default function JobProfiles() {
     async function loadJobs() {
       try {
         const studentPrn = window.localStorage.getItem(STUDENT_ID_STORAGE_KEY) || "";
-        const nextJobs = await fetchPlacements("student", studentPrn ? { studentPrn } : {});
+        const [profileData, nextJobs] = await Promise.all([
+          getStudentProfile(),
+          fetchPlacements("student", studentPrn ? { studentPrn } : {}),
+        ]);
 
         if (!isMounted) {
           return;
         }
 
+        setStudentProfile(profileData);
         setJobs(nextJobs);
         setSelectedJobId((currentId) => {
           const stillExists = nextJobs.some((job) => String(job.id) === String(currentId));
@@ -298,7 +362,16 @@ export default function JobProfiles() {
     return bySelection ?? filteredJobs[0] ?? null;
   }, [filteredJobs, jobs, selectedJobId]);
 
+  const selectedJobEligibility = useMemo(
+    () => evaluateJobEligibility(studentProfile, selectedJob),
+    [selectedJob, studentProfile],
+  );
+
   const selectedAttachment = selectedJob ? hydratePlacementJob(selectedJob).attachment?.[0] : null;
+
+  useEffect(() => {
+    setApplyMessage("");
+  }, [selectedJobId]);
 
   function openAttachmentPreview() {
     if (!selectedAttachment?.url) {
@@ -313,6 +386,44 @@ export default function JobProfiles() {
 
   function closeAttachmentPreview() {
     setActiveAttachment(null);
+  }
+
+  async function handleApplyNow() {
+    if (!selectedJob || isApplying || !selectedJobEligibility.isEligible || selectedJob.application) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Submit this application? Your application will be sent to TPO for verification before it moves ahead in the company process.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsApplying(true);
+      const application = await applyForPlacement(selectedJob.id);
+
+      setJobs((prev) =>
+        prev.map((job) =>
+          String(job.id) === String(selectedJob.id)
+            ? {
+                ...job,
+                application,
+              }
+            : job,
+        ),
+      );
+      setApplyMessage("Application submitted. It has been sent to TPO for verification.");
+      window.alert("Application submitted successfully. It has been sent to TPO for verification.");
+    } catch (error) {
+      const message = error.response?.data?.message || "Unable to submit your application right now.";
+      setApplyMessage(message);
+      window.alert(message);
+    } finally {
+      setIsApplying(false);
+    }
   }
 
   function renderJobDetailsContent() {
@@ -501,6 +612,7 @@ export default function JobProfiles() {
                     filteredJobs.map((job) => {
                       const active = selectedJob?.id === job.id;
                       const status = isPlacementActive(job) ? "Active" : "Closed";
+                      const eligibility = evaluateJobEligibility(studentProfile, job);
 
                       return (
                         <button
@@ -513,17 +625,29 @@ export default function JobProfiles() {
                               : "text-slate-700 hover:bg-slate-100/80"
                           }`}
                         >
-                          <p className="truncate text-sm font-semibold text-slate-900">
-                            {job.company} | {job.title}
-                          </p>
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="truncate text-sm font-semibold text-slate-900">
+                              {job.company} | {job.title}
+                            </p>
+                            {eligibility.isEligible ? (
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                            ) : null}
+                          </div>
                           <p className="mt-0.5 truncate text-xs text-slate-600">{job.location}</p>
-                          <p
-                            className={`mt-1 text-xs font-medium ${
-                              status === "Active" ? "text-emerald-600" : "text-rose-600"
-                            }`}
-                          >
-                            {status}
-                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <p
+                              className={`text-xs font-medium ${
+                                status === "Active" ? "text-emerald-600" : "text-rose-600"
+                              }`}
+                            >
+                              {status}
+                            </p>
+                            {job.application ? (
+                              <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-700">
+                                Applied
+                              </span>
+                            ) : null}
+                          </div>
                         </button>
                       );
                     })
@@ -539,6 +663,55 @@ export default function JobProfiles() {
                 ) : (
                   <>
                     <header className="border-b border-slate-200/80 pb-4">
+                      <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              {selectedJobEligibility.isEligible ? (
+                                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-rose-500" />
+                              )}
+                              <p
+                                className={`text-sm font-semibold ${
+                                  selectedJobEligibility.isEligible ? "text-emerald-700" : "text-rose-700"
+                                }`}
+                              >
+                                {selectedJobEligibility.isEligible ? "You are eligible. Apply here." : "You are not eligible."}
+                              </p>
+                            </div>
+                            <p className="mt-1 text-sm text-slate-600">{selectedJobEligibility.reason}</p>
+                            {selectedJob.application ? (
+                              <p className="mt-2 text-sm font-medium text-blue-700">
+                                You have already applied. Current status:{" "}
+                                {selectedJob.application.status?.replaceAll("_", " ") || "pending verification"}.
+                              </p>
+                            ) : null}
+                            {applyMessage ? (
+                              <p className="mt-2 text-sm font-medium text-blue-700">{applyMessage}</p>
+                            ) : null}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleApplyNow}
+                            disabled={
+                              isApplying ||
+                              !selectedJobEligibility.isEligible ||
+                              !isPlacementActive(selectedJob) ||
+                              Boolean(selectedJob.application)
+                            }
+                            className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                          >
+                            {selectedJob.application
+                              ? "Already Applied"
+                              : isApplying
+                                ? "Applying..."
+                                : "Apply Now"}
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="min-w-0">
                         <h3 className="truncate text-xl font-semibold text-slate-900">
                           {selectedJob.title}

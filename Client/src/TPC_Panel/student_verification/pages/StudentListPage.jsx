@@ -1,4 +1,5 @@
 import { CheckCircle2, Clock3, ShieldCheck, Users } from "lucide-react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import StudentTable from "../components/StudentTable";
 
@@ -14,6 +15,12 @@ export default function StudentListPage({
     setSelectedStudent(student);
     navigate(`/tpc-dashboard/student-verification/${student.prn}`);
   };
+
+  const sortedStudents = useMemo(() => {
+    const unverified = students.filter((student) => student.status !== "Verified");
+    const verified = students.filter((student) => student.status === "Verified");
+    return [...unverified, ...verified];
+  }, [students]);
 
   const verifiedCount = students.filter((student) => student.status === "Verified").length;
   const remainingCount = students.length - verifiedCount;
@@ -107,7 +114,7 @@ export default function StudentListPage({
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <StudentTable students={students} onView={handleViewStudent} />
+        <StudentTable students={sortedStudents} onView={handleViewStudent} />
 
         <div className="rounded-[28px] border border-slate-200/80 bg-white p-6 shadow-lg shadow-slate-200/60">
           <div className="flex items-start gap-3">
