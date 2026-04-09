@@ -1,0 +1,97 @@
+<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>shruti vasudev sawant Resume</title>
+      <style>
+        body { font-family: Arial, sans-serif; background: #eef4fb; margin: 0; padding: 24px; color: #0f172a; }
+        .page { max-width: 900px; margin: 0 auto; background: #fff; display: grid; grid-template-columns: 280px 1fr; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08); }
+        .sidebar { background: #0f172a; color: #fff; padding: 28px 24px; }
+        .main { padding: 28px 32px; }
+        h1 { margin: 0; font-size: 30px; line-height: 1.1; }
+        h2 { margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.18em; color: #0f766e; }
+        .sidebar h2 { color: #67e8f9; }
+        .headline { margin-top: 10px; color: #cbd5e1; font-size: 14px; }
+        .contact p, .sidebar li { margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
+        .section { margin-top: 28px; }
+        .entry { margin-bottom: 16px; }
+        .entry h3 { margin: 0 0 4px; font-size: 16px; }
+        .meta { color: #475569; font-size: 13px; margin-bottom: 6px; }
+        .sidebar ul { margin: 0; padding-left: 18px; }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip { background: #ecfeff; color: #0f766e; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+        .summary { font-size: 14px; line-height: 1.7; color: #334155; }
+      </style>
+    </head>
+    <body>
+      <div class="page">
+        <aside class="sidebar">
+          <h1>shruti vasudev sawant</h1>
+          <p class="headline">Computer Engineering | Passing 2027</p>
+          <div class="section contact">
+            <h2>Contact</h2>
+            <p>1478965230</p>
+            <p>shruti123@gmail.com</p>
+            <p>Ishwarpur, Maharashtra</p>
+            <p>PRN: 2453020</p>
+          </div>
+          
+    <section class="section">
+      <h2>Skills</h2>
+      <p>C#</p><p>Java</p><p>React</p><p>GitHub</p><p>Power BI</p><p>korean</p>
+    </section>
+  
+          
+    <section class="section">
+      <h2>Education</h2>
+      
+            <p>Computer Engineering</p>
+            <p>CGPA: 8.9</p>
+            <p>Passing Year: 2027</p>
+          
+    </section>
+  
+          
+        </aside>
+        <main class="main">
+          <section class="section"><h2>Profile</h2><p class="summary">A motivated Computer Science student with strong foundations in Data Structures and Algorithms, and hands-on experience in building full-stack web applications using the MERN stack. Passionate about developing scalable solutions and integrating AI-driven features such as text enhancement and analysis. Eager to contribute to innovative projects while continuously learning and improving technical skills.</p></section>
+          
+          
+    <section class="section">
+      <h2>Experience</h2>
+      
+            <div class="entry">
+              <h3>intern</h3>
+              <p class="meta">Apptech | 60 Days | Feb 2026 - May 2026</p>
+              <p>worked on live proejcts.. </p>
+            </div>
+          
+            <div class="entry">
+              <h3>software intern</h3>
+              <p class="meta">SK solutions | 4 Weeks | Apr 2026 - Apr 2026</p>
+              <p>learn about mern stack..and to use it
+</p>
+            </div>
+          
+    </section>
+  
+          
+    <section class="section">
+      <h2>Extra Curricular Activities</h2>
+      
+            <div class="entry">
+              <h3>Hackathon Winner</h3>
+              <p>Won first prize in inter-college hackathon by developing an AI-based chatbot for student assistance.</p>
+            </div>
+          
+            <div class="entry">
+              <h3>Technical Club Member</h3>
+              <p>Active member of the coding club and participated in multiple coding competitions and workshops.</p>
+            </div>
+          
+    </section>
+  
+        </main>
+      </div>
+    </body>
+  </html>

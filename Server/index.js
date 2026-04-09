@@ -1,8 +1,10 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const studentFormRoutes = require('./routes/student_routes/student_form_routes');
 const studentLoginRoutes = require('./routes/student_routes/student_login_routes');
 const studentProfileGetRoutes = require('./routes/student_routes/studentprofile_get_routes');
+const studentResumeRoutes = require('./routes/student_routes/resume/student_resume_routes');
 const tpcStudentVerificationRoutes = require('./routes/tpc_routes/tpc_student_verification_routes');
 const tpcOpportunitiesRoutes = require('./routes/tpc_routes/tpc_opportunities_routes');
 const tpoPlacementsRoutes = require('./routes/tpo_routes/tpo_placements_routes');
@@ -22,6 +24,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
     res.send('Hello from the server!');
@@ -31,6 +34,7 @@ app.use('/student', studentLoginRoutes);
 app.use('/upload', requireAuth, uploadRoutes);
 app.use('/student/form', requireAuth, requireRole('student'), studentFormRoutes);
 app.use('/student/profile', requireAuth, requireRole('student'), studentProfileGetRoutes);
+app.use('/student/resumes', requireAuth, requireRole('student'), studentResumeRoutes);
 app.use('/student/placements', requireAuth, requireRole('student'), tpoPlacementsRoutes);
 app.use('/tpc/verification', requireAuth, requireRole('tpc'), tpcStudentVerificationRoutes);
 app.use('/tpc/opportunities', requireAuth, requireRole('tpc'), tpcOpportunitiesRoutes);

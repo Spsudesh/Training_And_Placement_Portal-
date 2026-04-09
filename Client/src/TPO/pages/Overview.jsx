@@ -48,9 +48,9 @@ export default function Overview({ onLogout }) {
           <p className="text-sm font-semibold uppercase tracking-[0.24em]">
             Data Notice
           </p>
-          <h2 className="mt-2 text-2xl font-bold">Showing fallback dashboard data</h2>
+          <h2 className="mt-2 text-2xl font-bold">Unable to load dashboard data</h2>
           <p className="mt-2 text-sm text-amber-800">
-            The live dashboard API is not available right now, so the page is using the local snapshot.
+            The dashboard API did not return successfully. Retry once after checking the server data source.
           </p>
           <button
             type="button"
