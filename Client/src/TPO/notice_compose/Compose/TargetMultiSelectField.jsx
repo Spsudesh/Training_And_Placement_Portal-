@@ -24,6 +24,22 @@ function serializeSelectedValues(values, allLabel, emptySerializedValue) {
   return cleanedValues.join(", ");
 }
 
+function normalizeOptions(options) {
+  return options.map((option) => {
+    if (option && typeof option === "object") {
+      return {
+        label: option.label,
+        value: String(option.value ?? ""),
+      };
+    }
+
+    return {
+      label: String(option ?? ""),
+      value: String(option ?? ""),
+    };
+  });
+}
+
 export default function TargetMultiSelectField({
   label,
   value,
@@ -34,6 +50,8 @@ export default function TargetMultiSelectField({
   addPlaceholder,
   emptyLabel,
 }) {
+  const normalizedOptions = normalizeOptions(options);
+  const optionLabelByValue = new Map(normalizedOptions.map((option) => [option.value, option.label]));
   const selectedValues = normalizeSelectedValues(value, allLabel);
 
   function handleAddSelection(nextValue) {
@@ -76,13 +94,13 @@ export default function TargetMultiSelectField({
           className={inputClassName()}
         >
           <option value="">{addPlaceholder}</option>
-          {options.map((option) => (
+          {normalizedOptions.map((option) => (
             <option
-              key={option}
-              value={option}
-              disabled={selectedValues.includes(option) && option !== allLabel}
+              key={option.value || option.label}
+              value={option.value}
+              disabled={selectedValues.includes(option.value) && option.value !== allLabel}
             >
-              {option}
+              {option.label}
             </option>
           ))}
         </select>
@@ -96,7 +114,7 @@ export default function TargetMultiSelectField({
                 key={item}
                 className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700"
               >
-                {item}
+                {optionLabelByValue.get(item) || item}
                 <button
                   type="button"
                   onClick={() => handleRemoveSelection(item)}

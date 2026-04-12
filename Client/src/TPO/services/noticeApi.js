@@ -32,6 +32,8 @@ function appendCommonFields(formData, values, status, scope) {
   formData.append("status", status);
   formData.append("department", values.department);
   formData.append("year", values.year ?? "");
+  formData.append("passingYear", values.year ?? "");
+  formData.append("passingYears", values.year ?? "");
   formData.append("createdByRole", scope.toUpperCase());
   formData.append("createdById", `${scope}-portal`);
 }
@@ -111,6 +113,7 @@ function mapNotice(notice) {
     department: notice.department ?? "All Departments",
     departments: Array.isArray(notice.departments) ? notice.departments : [],
     year: notice.year ?? "",
+    years: Array.isArray(notice.years) ? notice.years : [],
     companyName: notice.companyName ?? "",
     role: notice.role ?? "",
     location: notice.location ?? "",

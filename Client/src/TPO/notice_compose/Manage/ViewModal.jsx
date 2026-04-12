@@ -23,6 +23,13 @@ function InfoBlock({ label, value }) {
   );
 }
 
+function formatTargets(post) {
+  const departments = post.departments?.length ? post.departments.join(", ") : post.department;
+  const batches = post.years?.length ? post.years.join(", ") : post.year;
+
+  return `${departments || "All Departments"}${batches ? ` | Batch ${batches}` : ""}`;
+}
+
 export default function ViewModal({ post, onClose }) {
   if (!post) {
     return null;
@@ -42,7 +49,7 @@ export default function ViewModal({ post, onClose }) {
                 {typeLabels[post.type]}
               </span>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                {post.department}{post.year ? ` | Year ${post.year}` : ""}
+                {formatTargets(post)}
               </span>
             </div>
             <h3 className="mt-4 text-2xl font-bold text-slate-900">{post.title}</h3>

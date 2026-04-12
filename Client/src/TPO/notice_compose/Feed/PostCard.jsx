@@ -10,6 +10,13 @@ const typeLabels = {
   internship: "Internship",
 };
 
+function formatTargets(post) {
+  const departments = post.departments?.length ? post.departments.join(", ") : post.department;
+  const batches = post.years?.length ? post.years.join(", ") : post.year;
+
+  return `${departments || "All Departments"}${batches ? ` | Batch ${batches}` : ""}`;
+}
+
 export default function PostCard({ post }) {
   return (
     <article className="group rounded-[30px] border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-300/50">
@@ -22,7 +29,7 @@ export default function PostCard({ post }) {
           {typeLabels[post.type]}
         </span>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-          {post.department}{post.year ? ` | Year ${post.year}` : ""}
+          {formatTargets(post)}
         </span>
         {post.status === "draft" ? (
           <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">

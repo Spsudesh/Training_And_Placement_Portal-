@@ -54,6 +54,9 @@ export default function PreviewCard({ formData, editMode }) {
           <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">
             {formData.department || "All Departments"}
           </span>
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">
+            {formData.year ? `Batch ${formData.year}` : "All Batches"}
+          </span>
         </div>
 
         <h3 className="mt-4 text-xl font-semibold">

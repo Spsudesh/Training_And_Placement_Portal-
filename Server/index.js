@@ -36,6 +36,7 @@ app.use('/student/form', requireAuth, requireRole('student'), studentFormRoutes)
 app.use('/student/profile', requireAuth, requireRole('student'), studentProfileGetRoutes);
 app.use('/student/resumes', requireAuth, requireRole('student'), studentResumeRoutes);
 app.use('/student/placements', requireAuth, requireRole('student'), tpoPlacementsRoutes);
+app.use('/student/notices', requireAuth, requireRole('student'), tpoNoticeRoutes);
 app.use('/tpc/verification', requireAuth, requireRole('tpc'), tpcStudentVerificationRoutes);
 app.use('/tpc/opportunities', requireAuth, requireRole('tpc'), tpcOpportunitiesRoutes);
 app.use('/tpc/notices', requireAuth, requireRole('tpc'), tpoNoticeRoutes);

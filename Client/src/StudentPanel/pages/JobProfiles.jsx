@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, CheckCheck, CheckCircle2, CircleDot, FileText, Users, XCircle } from "lucide-react";
+import {
+  Award,
+  Calendar,
+  CheckCheck,
+  CheckCircle2,
+  CircleDot,
+  FileText,
+  Sparkles,
+  Users,
+  XCircle,
+} from "lucide-react";
 import {
   formatPlacementDeadline,
   hydratePlacementJob,
@@ -21,6 +31,14 @@ const detailTabs = [
   { key: "eligibility", label: "Eligibility Criteria" },
   { key: "workflow", label: "Hiring Workflow" },
 ];
+
+function isPlacedApplication(application) {
+  return application?.status === "placed" || application?.finalOutcome === "placed";
+}
+
+function getCelebrationStorageKey(application) {
+  return `training-placement-celebrated-${application?.id || application?.opportunityId || "placed"}`;
+}
 
 function TextWithShowMore({ text, limit = 240 }) {
   const [expanded, setExpanded] = useState(false);
@@ -289,6 +307,110 @@ function StudentWorkflowTimeline({ workflow = [] }) {
   );
 }
 
+function PlacementCelebrationModal({ placement, onClose }) {
+  const confettiPieces = Array.from({ length: 120 }, (_, index) => index);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-slate-950/75 px-4 py-6">
+      <style>
+        {`
+          @keyframes placement-paper-fall {
+            0% { transform: translate3d(0, -125vh, 0) rotate(0deg); opacity: 0; }
+            6% { opacity: 1; }
+            100% { transform: translate3d(var(--placement-sway), 125vh, 0) rotate(var(--placement-spin)); opacity: 0.95; }
+          }
+
+          @keyframes placement-ribbon-fall {
+            0% { transform: translate3d(0, -120vh, 0) rotate(0deg) scaleY(1); opacity: 0; }
+            8% { opacity: 1; }
+            55% { transform: translate3d(calc(var(--placement-sway) * 0.55), 15vh, 0) rotate(calc(var(--placement-spin) * 0.55)) scaleY(1.25); }
+            100% { transform: translate3d(var(--placement-sway), 125vh, 0) rotate(var(--placement-spin)) scaleY(0.9); opacity: 0.9; }
+          }
+
+          @keyframes placement-card-rise {
+            0% { transform: translateY(18px) scale(0.96); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+          }
+        `}
+      </style>
+
+      <div className="pointer-events-none absolute inset-0">
+        {confettiPieces.map((piece) => {
+          const colors = ["#fbbf24", "#34d399", "#38bdf8", "#fb7185", "#a3e635", "#f97316"];
+          const isRibbon = piece % 4 === 0;
+          const size = 10 + (piece % 7) * 4;
+          const delay = -(piece % 30) * 0.22;
+          const duration = 4.2 + (piece % 8) * 0.42;
+          const opacity = 0.72 + (piece % 5) * 0.06;
+
+          return (
+            <span
+              key={piece}
+              className={`absolute ${isRibbon ? "rounded-full" : "rounded-[3px]"}`}
+              style={{
+                left: `${(piece * 37) % 100}%`,
+                top: `${-35 - (piece % 12) * 6}%`,
+                width: `${isRibbon ? size * 0.46 : size}px`,
+                height: `${isRibbon ? size * 2.25 : size * 0.68}px`,
+                backgroundColor: colors[piece % colors.length],
+                opacity,
+                animation: `${isRibbon ? "placement-ribbon-fall" : "placement-paper-fall"} ${duration}s linear ${delay}s infinite`,
+                "--placement-sway": `${piece % 2 === 0 ? "" : "-"}${80 + (piece % 9) * 28}px`,
+                "--placement-spin": `${piece % 2 === 0 ? "" : "-"}${560 + (piece % 8) * 120}deg`,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      <div
+        className="relative w-full max-w-2xl overflow-hidden rounded-[36px] border border-amber-200 bg-white shadow-2xl shadow-amber-950/30"
+        style={{ animation: "placement-card-rise 420ms ease-out both" }}
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.28),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.2),transparent_38%)]" />
+        <div className="relative px-6 py-8 text-center sm:px-10 sm:py-10">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-600 shadow-lg shadow-amber-200/70">
+            <Award className="h-10 w-10" />
+          </div>
+
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">
+            <Sparkles className="h-4 w-4" />
+            Placed
+          </div>
+
+          <h2 className="mt-5 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+            Congratulations, you are placed!
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
+            Your final round is cleared and your placement has been confirmed
+            {placement?.company ? ` at ${placement.company}` : ""}. This is a proud milestone.
+          </p>
+
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-white/85 p-5 text-left shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Placement Details
+            </p>
+            <p className="mt-2 text-lg font-semibold text-slate-950">
+              {placement?.company || "Company"} {placement?.title ? `| ${placement.title}` : ""}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              You can continue viewing opportunities and process details, but new applications are locked now because your status is marked as placed.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-7 inline-flex items-center justify-center rounded-2xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Close and view opportunities
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function JobProfiles() {
   const [jobs, setJobs] = useState([]);
   const [studentProfile, setStudentProfile] = useState(null);
@@ -300,6 +422,7 @@ export default function JobProfiles() {
   const [activeListTab, setActiveListTab] = useState("all");
   const [activeDetailTab, setActiveDetailTab] = useState("job-description");
   const [activeAttachment, setActiveAttachment] = useState(null);
+  const [celebrationPlacement, setCelebrationPlacement] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -369,9 +492,35 @@ export default function JobProfiles() {
 
   const selectedAttachment = selectedJob ? hydratePlacementJob(selectedJob).attachment?.[0] : null;
 
+  const placedJob = useMemo(
+    () => jobs.find((job) => isPlacedApplication(job.application)) || null,
+    [jobs],
+  );
+  const isStudentPlaced = Boolean(placedJob);
+
   useEffect(() => {
     setApplyMessage("");
   }, [selectedJobId]);
+
+  useEffect(() => {
+    const placement = placedJob?.application;
+
+    if (!placement) {
+      return;
+    }
+
+    const storageKey = getCelebrationStorageKey(placement);
+
+    if (window.localStorage.getItem(storageKey) === "true") {
+      return;
+    }
+
+    setCelebrationPlacement({
+      ...placement,
+      company: placedJob.company,
+      title: placedJob.title,
+    });
+  }, [placedJob]);
 
   function openAttachmentPreview() {
     if (!selectedAttachment?.url) {
@@ -389,7 +538,13 @@ export default function JobProfiles() {
   }
 
   async function handleApplyNow() {
-    if (!selectedJob || isApplying || !selectedJobEligibility.isEligible || selectedJob.application) {
+    if (
+      !selectedJob ||
+      isApplying ||
+      !selectedJobEligibility.isEligible ||
+      selectedJob.application ||
+      isStudentPlaced
+    ) {
       return;
     }
 
@@ -424,6 +579,14 @@ export default function JobProfiles() {
     } finally {
       setIsApplying(false);
     }
+  }
+
+  function closeCelebrationModal() {
+    if (celebrationPlacement) {
+      window.localStorage.setItem(getCelebrationStorageKey(celebrationPlacement), "true");
+    }
+
+    setCelebrationPlacement(null);
   }
 
   function renderJobDetailsContent() {
@@ -613,6 +776,7 @@ export default function JobProfiles() {
                       const active = selectedJob?.id === job.id;
                       const status = isPlacementActive(job) ? "Active" : "Closed";
                       const eligibility = evaluateJobEligibility(studentProfile, job);
+                      const isJobPlaced = isPlacedApplication(job.application);
 
                       return (
                         <button
@@ -643,8 +807,14 @@ export default function JobProfiles() {
                               {status}
                             </p>
                             {job.application ? (
-                              <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-700">
-                                Applied
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                                  isJobPlaced
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    : "border-blue-200 bg-blue-50 text-blue-700"
+                                }`}
+                              >
+                                {isJobPlaced ? "Placed" : "Applied"}
                               </span>
                             ) : null}
                           </div>
@@ -667,20 +837,34 @@ export default function JobProfiles() {
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div>
                             <div className="flex items-center gap-2">
-                              {selectedJobEligibility.isEligible ? (
+                              {isStudentPlaced ? (
+                                <Award className="h-5 w-5 text-amber-600" />
+                              ) : selectedJobEligibility.isEligible ? (
                                 <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-rose-500" />
                               )}
                               <p
                                 className={`text-sm font-semibold ${
-                                  selectedJobEligibility.isEligible ? "text-emerald-700" : "text-rose-700"
+                                  isStudentPlaced
+                                    ? "text-amber-700"
+                                    : selectedJobEligibility.isEligible
+                                      ? "text-emerald-700"
+                                      : "text-rose-700"
                                 }`}
                               >
-                                {selectedJobEligibility.isEligible ? "You are eligible. Apply here." : "You are not eligible."}
+                                {isStudentPlaced
+                                  ? `You are placed${placedJob?.company ? ` at ${placedJob.company}` : ""}.`
+                                  : selectedJobEligibility.isEligible
+                                    ? "You are eligible. Apply here."
+                                    : "You are not eligible."}
                               </p>
                             </div>
-                            <p className="mt-1 text-sm text-slate-600">{selectedJobEligibility.reason}</p>
+                            <p className="mt-1 text-sm text-slate-600">
+                              {isStudentPlaced
+                                ? "You can view opportunities, but applying is disabled after placement confirmation."
+                                : selectedJobEligibility.reason}
+                            </p>
                             {selectedJob.application ? (
                               <p className="mt-2 text-sm font-medium text-blue-700">
                                 You have already applied. Current status:{" "}
@@ -699,15 +883,20 @@ export default function JobProfiles() {
                               isApplying ||
                               !selectedJobEligibility.isEligible ||
                               !isPlacementActive(selectedJob) ||
-                              Boolean(selectedJob.application)
+                              Boolean(selectedJob.application) ||
+                              isStudentPlaced
                             }
                             className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                           >
-                            {selectedJob.application
-                              ? "Already Applied"
-                              : isApplying
-                                ? "Applying..."
-                                : "Apply Now"}
+                            {isPlacedApplication(selectedJob.application)
+                              ? "Placed"
+                              : isStudentPlaced
+                                ? "View Only"
+                                : selectedJob.application
+                                  ? "Already Applied"
+                                  : isApplying
+                                    ? "Applying..."
+                                    : "Apply Now"}
                           </button>
                         </div>
                       </div>
@@ -788,6 +977,12 @@ export default function JobProfiles() {
             </div>
           </div>
         </div>
+      ) : null}
+      {celebrationPlacement ? (
+        <PlacementCelebrationModal
+          placement={celebrationPlacement}
+          onClose={closeCelebrationModal}
+        />
       ) : null}
     </div>
   );

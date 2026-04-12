@@ -6,6 +6,13 @@ function formatDate(value) {
   });
 }
 
+function formatTargets(post) {
+  const departments = post.departments?.length ? post.departments.join(", ") : post.department;
+  const batches = post.years?.length ? post.years.join(", ") : post.year;
+
+  return `${departments || "All Departments"}${batches ? ` | Batch ${batches}` : ""}`;
+}
+
 const badgeClasses = {
   announcement: "bg-slate-100 text-slate-700",
   placement: "bg-slate-900 text-white",
@@ -57,7 +64,7 @@ export default function PostTable({ posts, onView, onEdit, onDelete }) {
                   <div>
                     <p className="font-semibold text-slate-900">{post.title}</p>
                     <p className="mt-1 text-sm text-slate-500">
-                      {post.department}{post.year ? ` | Year ${post.year}` : ""}
+                      {formatTargets(post)}
                     </p>
                   </div>
                 </td>

@@ -1,3 +1,11 @@
+import FileAttachmentsField from "./FileAttachmentsField";
+import {
+  getPassingYearOptions,
+  noticeDepartmentOptions,
+  selectableNoticeDepartmentOptions,
+} from "./noticeTargetOptions";
+import TargetMultiSelectField from "./TargetMultiSelectField";
+
 function Field({ label, children }) {
   return (
     <label className="block space-y-2">
@@ -11,25 +19,13 @@ function inputClassName() {
   return "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-slate-200";
 }
 
-const departmentOptions = [
-  "Computer Engineering",
-  "Computer Engineering and Information Technology",
-  "Artificial Intelligence and Machine Learning",
-  "Mechatronics Engineering",
-  "Robotics Engineering",
-  "Mechanical Engineering",
-  "Electrical Engineering",
-  "Civil Engineering",
-];
-
-const yearOptions = ["All Years", "1", "2", "3", "4"];
-
 export default function InternshipForm({
   formData,
   onFieldChange,
   onFileChange,
   onRemoveFile,
 }) {
+  const passingYearOptions = getPassingYearOptions();
   const allowedDepartments = formData.allowedDepartments 
     ? (typeof formData.allowedDepartments === 'string' 
         ? JSON.parse(formData.allowedDepartments) 
@@ -67,19 +63,16 @@ export default function InternshipForm({
           />
         </Field>
 
-        <Field label="Department">
-          <select
-            value={formData.department}
-            onChange={(event) => onFieldChange("department", event.target.value)}
-            className={inputClassName()}
-          >
-            {departmentOptions.map((department) => (
-              <option key={department} value={department}>
-                {department}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <TargetMultiSelectField
+          label="Target Departments"
+          value={formData.department}
+          options={noticeDepartmentOptions}
+          allLabel="All Departments"
+          emptySerializedValue="All Departments"
+          onChange={(value) => onFieldChange("department", value)}
+          addPlaceholder="Select department to add"
+          emptyLabel="All Departments"
+        />
 
         <Field label="Company Name">
           <input
@@ -164,19 +157,16 @@ export default function InternshipForm({
           />
         </Field>
 
-        <Field label="Target Year">
-          <select
-            value={formData.year}
-            onChange={(event) => onFieldChange("year", event.target.value)}
-            className={inputClassName()}
-          >
-            {yearOptions.map((year) => (
-              <option key={year} value={year === "All Years" ? "" : year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <TargetMultiSelectField
+          label="Target Passing Years"
+          value={formData.year}
+          options={passingYearOptions}
+          allLabel="All Batches"
+          emptySerializedValue=""
+          onChange={(value) => onFieldChange("year", value)}
+          addPlaceholder="Select passing year to add"
+          emptyLabel="All Batches"
+        />
       </div>
 
       <Field label="Description">
@@ -212,7 +202,7 @@ export default function InternshipForm({
                 className={inputClassName()}
               >
                 <option value="">Select a department to add</option>
-                {departmentOptions.map((department) => (
+                {selectableNoticeDepartmentOptions.map((department) => (
                   <option key={department} value={department} disabled={allowedDepartments.includes(department)}>
                     {department}
                   </option>
@@ -248,8 +238,6 @@ export default function InternshipForm({
           </div>
         </div>
       </div>
-
     </div>
   );
 }
-import FileAttachmentsField from "./FileAttachmentsField";

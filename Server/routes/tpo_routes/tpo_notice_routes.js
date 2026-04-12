@@ -9,6 +9,10 @@ function isTpcScope(req) {
   return req.baseUrl.startsWith('/tpc/');
 }
 
+function isStudentScope(req) {
+  return req.baseUrl.startsWith('/student/');
+}
+
 function query(sql, values = []) {
   return new Promise((resolve, reject) => {
     db.query(sql, values, (error, result) => {
@@ -157,10 +161,55 @@ function parseStringArray(value) {
       return parsed.map((item) => String(item || '').trim()).filter(Boolean);
     }
   } catch (error) {
-    // Fallback to single plain-text value.
+    // Fallback to comma-separated plain text.
   }
 
-  return [normalized];
+  return normalized
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function ensureNoticeTargetsSchema() {
+  await query(
+    'ALTER TABLE notice_targets MODIFY COLUMN department VARCHAR(150) NOT NULL'
+  ).catch(() => {});
+}
+
+function buildNoticeTargets(departmentsValue, yearsValue) {
+  const departments = parseStringArray(departmentsValue).filter(Boolean);
+  const yearValues = parseStringArray(yearsValue)
+    .map((year) => toNullableInteger(year))
+    .filter((year) => year !== null);
+  const targetDepartments = departments.length ? departments : ['All Departments'];
+  const targetYears = yearValues.length ? yearValues : [null];
+  const targets = [];
+
+  for (const department of targetDepartments) {
+    for (const year of targetYears) {
+      targets.push({
+        department,
+        year,
+      });
+    }
+  }
+
+  return targets;
+}
+
+function uniqueNoticeTargets(targets) {
+  const seenTargets = new Set();
+
+  return targets.filter((target) => {
+    const key = `${target.department || 'All Departments'}|${target.year ?? 'all'}`;
+
+    if (seenTargets.has(key)) {
+      return false;
+    }
+
+    seenTargets.add(key);
+    return true;
+  });
 }
 
 function getUploadedFiles(req) {
@@ -208,6 +257,30 @@ function getRoleDefaults(req) {
   };
 }
 
+async function getStudentNoticeTargetContext(req) {
+  const studentPrn = normalizeText(req.auth?.prn || req.query.prn);
+
+  if (!studentPrn) {
+    throw createHttpError(401, 'Student identity is required to fetch notices.');
+  }
+
+  const rows = await query(
+    `
+      SELECT department, passing_year
+      FROM student_education
+      WHERE PRN = ?
+      LIMIT 1
+    `,
+    [studentPrn]
+  );
+  const education = rows[0] || {};
+
+  return {
+    department: normalizeText(education.department),
+    passingYear: toNullableInteger(education.passing_year),
+  };
+}
+
 function buildNoticePayload(req) {
   const { createdByRole, createdById } = getRoleDefaults(req);
   const type = normalizeEnum(req.body.type, ['announcement', 'placement', 'internship']);
@@ -226,10 +299,12 @@ function buildNoticePayload(req) {
       created_by_id: createdById,
       status,
     },
-    targets: parseStringArray(req.body.departments || req.body.department).map((department) => ({
-      department,
-      year: toNullableInteger(req.body.year),
-    })),
+    targets: uniqueNoticeTargets(
+      buildNoticeTargets(
+        req.body.departments || req.body.department,
+        req.body.passingYears || req.body.passing_years || req.body.passingYear || req.body.passing_year || req.body.year
+      )
+    ),
     placement: type === 'placement'
       ? {
           company_name: normalizeText(req.body.companyName || req.body.company_name),
@@ -275,6 +350,8 @@ function buildNoticePayload(req) {
 }
 
 async function insertTargets(noticeId, targets) {
+  await ensureNoticeTargetsSchema();
+
   for (const target of targets) {
     await query(
       `
@@ -356,6 +433,13 @@ async function insertNoticeDetails(noticeId, payload) {
 }
 
 function mapNoticeRow(row, targets = [], files = []) {
+  const departments = [...new Set(targets.map((target) => target.department).filter(Boolean))];
+  const years = [...new Set(
+    targets
+      .map((target) => target.year)
+      .filter((year) => year !== null && year !== undefined)
+  )];
+
   return {
     id: row.id,
     type: row.type,
@@ -365,8 +449,9 @@ function mapNoticeRow(row, targets = [], files = []) {
     createdByRole: row.created_by_role || '',
     createdById: row.created_by_id || '',
     department: targets[0]?.department || 'All Departments',
-    departments: targets.map((target) => target.department),
+    departments,
     year: targets[0]?.year ?? null,
+    years,
     targets,
     files,
     attachmentName: files[0] ? 'Attachment' : '',
@@ -433,6 +518,26 @@ async function getNoticeRecordById(id) {
   );
 }
 
+function noticeMatchesStudentTarget(notice, studentTargetContext) {
+  if (!studentTargetContext) {
+    return true;
+  }
+
+  const targets = Array.isArray(notice.targets) ? notice.targets : [];
+
+  return targets.some((target) => {
+    const departmentMatches =
+      target.department === 'All Departments' ||
+      target.department === studentTargetContext.department;
+    const passingYearMatches =
+      target.year === null ||
+      target.year === undefined ||
+      Number(target.year) === Number(studentTargetContext.passingYear);
+
+    return departmentMatches && passingYearMatches;
+  });
+}
+
 tpoNoticeRoutes.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -441,6 +546,9 @@ tpoNoticeRoutes.get(
     const status = normalizeEnum(req.query.status, ['draft', 'published', 'all'], 'all');
     const department = normalizeText(req.query.department);
     const values = [];
+    const studentTargetContext = isStudentScope(req)
+      ? await getStudentNoticeTargetContext(req)
+      : null;
 
     let sql = `
       SELECT
@@ -480,7 +588,20 @@ tpoNoticeRoutes.get(
       values.push('TPC');
     }
 
-    if (department && department !== 'All Departments') {
+    if (studentTargetContext) {
+      sql += `
+        AND EXISTS (
+          SELECT 1
+          FROM notice_targets nt
+          WHERE nt.notice_id = n.id
+            AND (nt.department = 'All Departments' OR nt.department = ?)
+            AND (nt.year IS NULL OR nt.year = ?)
+        )
+      `;
+      values.push(studentTargetContext.department, studentTargetContext.passingYear);
+    }
+
+    if (!studentTargetContext && department && department !== 'All Departments') {
       sql += ' AND EXISTS (SELECT 1 FROM notice_targets nt WHERE nt.notice_id = n.id AND nt.department = ?)';
       values.push(department);
     }
@@ -550,6 +671,14 @@ tpoNoticeRoutes.get(
       throw createHttpError(403, 'You can access only TPC notices from this panel.');
     }
 
+    if (isStudentScope(req)) {
+      const studentTargetContext = await getStudentNoticeTargetContext(req);
+
+      if (!noticeMatchesStudentTarget(notice, studentTargetContext)) {
+        throw createHttpError(404, 'Notice not found.');
+      }
+    }
+
     res.json({
       success: true,
       data: notice,
@@ -561,6 +690,10 @@ tpoNoticeRoutes.post(
   '/',
   upload.any(),
   asyncHandler(async (req, res) => {
+    if (isStudentScope(req)) {
+      throw createHttpError(403, 'Students can only view notices.');
+    }
+
     const payload = buildNoticePayload(req);
     const files = getUploadedFiles(req);
     const existingFiles = parseExistingFiles(req.body.existingFiles);
@@ -611,6 +744,10 @@ tpoNoticeRoutes.put(
   '/:id',
   upload.any(),
   asyncHandler(async (req, res) => {
+    if (isStudentScope(req)) {
+      throw createHttpError(403, 'Students can only view notices.');
+    }
+
     const existingNotice = await getNoticeRecordById(req.params.id);
 
     if (!existingNotice) {
@@ -679,6 +816,10 @@ tpoNoticeRoutes.put(
 tpoNoticeRoutes.delete(
   '/:id',
   asyncHandler(async (req, res) => {
+    if (isStudentScope(req)) {
+      throw createHttpError(403, 'Students can only view notices.');
+    }
+
     const existingNotice = await getNoticeRecordById(req.params.id);
 
     if (!existingNotice) {

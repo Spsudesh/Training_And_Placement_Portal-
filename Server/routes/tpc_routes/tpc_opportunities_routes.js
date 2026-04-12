@@ -35,6 +35,10 @@ async function ensurePlacementApplicationsTable() {
     )
   `);
 
+  await query(
+    "ALTER TABLE placement_applications MODIFY COLUMN application_status VARCHAR(50) NOT NULL DEFAULT 'pending_verification'"
+  ).catch(() => {});
+
   await ensureColumnExists(
     'placement_applications',
     'submitted_at',
@@ -50,6 +54,9 @@ async function ensurePlacementApplicationsTable() {
     'final_outcome',
     "ALTER TABLE placement_applications ADD COLUMN final_outcome VARCHAR(50) NOT NULL DEFAULT 'in_process' AFTER current_stage_id"
   );
+  await query(
+    "ALTER TABLE placement_applications MODIFY COLUMN final_outcome VARCHAR(50) NOT NULL DEFAULT 'in_process'"
+  ).catch(() => {});
   await ensureColumnExists(
     'placement_applications',
     'verified_at',
@@ -679,7 +686,15 @@ async function getPlacementApplicationsByOpportunityIds(opportunityIds, studentP
   const placeholders = opportunityIds.map(() => '?').join(', ');
   const rows = await query(
     `
-      SELECT id, opportunity_id, PRN, application_status, submitted_at, updated_at
+      SELECT
+        id,
+        opportunity_id,
+        PRN,
+        application_status,
+        final_outcome,
+        submitted_at,
+        updated_at,
+        decision_at
       FROM placement_applications
       WHERE PRN = ? AND opportunity_id IN (${placeholders})
     `,
@@ -693,11 +708,125 @@ async function getPlacementApplicationsByOpportunityIds(opportunityIds, studentP
         id: row.id,
         prn: row.PRN,
         status: row.application_status || 'pending_verification',
+        finalOutcome: row.final_outcome || 'in_process',
         appliedAt: toIsoString(row.submitted_at),
         updatedAt: toIsoString(row.updated_at),
+        decisionAt: toIsoString(row.decision_at),
       },
     ])
   );
+}
+
+async function getStudentPlacedApplication(studentPrn) {
+  if (!studentPrn) {
+    return null;
+  }
+
+  await ensurePlacementApplicationsTable();
+
+  const rows = await query(
+    `
+      SELECT
+        pa.id,
+        pa.opportunity_id,
+        pa.PRN,
+        pa.application_status,
+        pa.final_outcome,
+        pa.decision_at,
+        tpo.company_name,
+        tpo.job_title
+      FROM placement_applications pa
+      INNER JOIN tpo_opportunities tpo ON tpo.id = pa.opportunity_id
+      WHERE pa.PRN = ?
+        AND (
+          pa.application_status = 'placed'
+          OR pa.final_outcome = 'placed'
+        )
+      ORDER BY pa.decision_at DESC, pa.updated_at DESC, pa.id DESC
+      LIMIT 1
+    `,
+    [studentPrn]
+  );
+
+  const placedApplication = rows[0] || null;
+
+  if (!placedApplication) {
+    return null;
+  }
+
+  return {
+    id: placedApplication.id,
+    opportunityId: placedApplication.opportunity_id,
+    prn: placedApplication.PRN,
+    status: placedApplication.application_status || 'placed',
+    finalOutcome: placedApplication.final_outcome || 'placed',
+    decisionAt: toIsoString(placedApplication.decision_at),
+    company: placedApplication.company_name || '',
+    title: placedApplication.job_title || '',
+  };
+}
+
+async function syncStudentFinalRoundPlacements(studentPrn, changedBy = 'system') {
+  if (!studentPrn || !(await tableExists('application_stage_results'))) {
+    return;
+  }
+
+  await ensurePlacementApplicationsTable();
+  await ensureApplicationStatusHistoryTable();
+
+  const rows = await query(
+    `
+      SELECT
+        pa.id,
+        pa.application_status,
+        asr.stage_id
+      FROM placement_applications pa
+      INNER JOIN application_stage_results asr ON asr.application_id = pa.id
+      INNER JOIN hiring_stages hs ON hs.id = asr.stage_id
+      INNER JOIN (
+        SELECT opportunity_id, MAX(stage_order) AS max_stage_order
+        FROM hiring_stages
+        GROUP BY opportunity_id
+      ) max_stage
+        ON max_stage.opportunity_id = hs.opportunity_id
+       AND max_stage.max_stage_order = hs.stage_order
+      WHERE pa.PRN = ?
+        AND LOWER(COALESCE(asr.stage_result, '')) IN ('cleared', 'shortlisted')
+        AND COALESCE(pa.final_outcome, '') <> 'placed'
+    `,
+    [studentPrn]
+  );
+
+  for (const row of rows) {
+    if ((row.application_status || '') !== 'placed') {
+      await query(
+        `
+          INSERT INTO application_status_history
+          (application_id, old_status, new_status, changed_by, change_reason)
+          VALUES (?, ?, ?, ?, ?)
+        `,
+        [
+          row.id,
+          row.application_status || null,
+          'placed',
+          changedBy,
+          'Student marked placed after clearing the final hiring round.',
+        ]
+      );
+    }
+
+    await query(
+      `
+        UPDATE placement_applications
+        SET current_stage_id = ?,
+            application_status = 'placed',
+            final_outcome = 'placed',
+            decision_at = COALESCE(decision_at, CURRENT_TIMESTAMP)
+        WHERE id = ?
+      `,
+      [row.stage_id, row.id]
+    );
+  }
 }
 
 async function attachHiringStages(rows, options = {}) {
@@ -957,6 +1086,8 @@ tpcOpportunitiesRoutes.get(
     const values = [];
     let sql = 'SELECT * FROM tpo_opportunities';
 
+    await syncStudentFinalRoundPlacements(studentPrn, 'system');
+
     if (statusFilter && statusFilter.toLowerCase() !== 'all') {
       sql += ' WHERE status = ?';
       values.push(normalizeStatus(statusFilter));
@@ -979,6 +1110,8 @@ tpcOpportunitiesRoutes.get(
     const studentPrn = normalizeTextValue(
       req.query.studentPrn || (req.auth?.role === 'student' ? req.auth.prn : '')
     );
+    await syncStudentFinalRoundPlacements(studentPrn, 'system');
+
     const opportunities = await attachHiringStages([await getOpportunityById(req.params.id)].filter(Boolean), {
       studentPrn,
     });
@@ -1111,6 +1244,16 @@ tpcOpportunitiesRoutes.post(
       throw createHttpError(404, 'Student profile not found.');
     }
 
+    await syncStudentFinalRoundPlacements(studentPrn, 'system');
+    const placedApplication = await getStudentPlacedApplication(studentPrn);
+
+    if (placedApplication) {
+      throw createHttpError(
+        409,
+        `You are already placed at ${placedApplication.company || 'a company'}. You can view opportunities, but applying is locked.`
+      );
+    }
+
     const eligibility = evaluateOpportunityEligibility(opportunity, studentContext);
 
     if (!eligibility.isEligible) {
@@ -1137,7 +1280,7 @@ tpcOpportunitiesRoutes.post(
 
     const applicationRows = await query(
       `
-        SELECT id, opportunity_id, PRN, application_status, submitted_at, updated_at
+        SELECT id, opportunity_id, PRN, application_status, final_outcome, submitted_at, updated_at
         FROM placement_applications
         WHERE opportunity_id = ? AND PRN = ?
         LIMIT 1
@@ -1171,6 +1314,7 @@ tpcOpportunitiesRoutes.post(
         opportunityId: Number(req.params.id),
         prn: studentPrn,
         status: application?.application_status || 'pending_verification',
+        finalOutcome: application?.final_outcome || 'in_process',
         appliedAt: toIsoString(application?.submitted_at),
         updatedAt: toIsoString(application?.updated_at),
       },

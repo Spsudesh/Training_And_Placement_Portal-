@@ -1,19 +1,10 @@
+import { noticeDepartmentOptions } from "../Compose/noticeTargetOptions";
+
 const typeOptions = [
   { label: "All Types", value: "all" },
   { label: "Announcement", value: "announcement" },
   { label: "Placement Opportunity", value: "placement" },
   { label: "Internship", value: "internship" },
-];
-
-const departmentOptions = [
-  "All Departments",
-  "CSE",
-  "IT",
-  "ECE",
-  "EEE",
-  "Mechanical",
-  "Civil",
-  "MBA",
 ];
 
 function inputClassName() {
@@ -79,7 +70,7 @@ export default function FilterBar({ filters, onChange, onReset }) {
             onChange={(event) => onChange("department", event.target.value)}
             className={inputClassName()}
           >
-            {departmentOptions.map((department) => (
+            {noticeDepartmentOptions.map((department) => (
               <option key={department} value={department}>
                 {department}
               </option>

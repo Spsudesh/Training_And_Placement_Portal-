@@ -1,17 +1,6 @@
 import FileAttachmentsField from "./FileAttachmentsField";
-
-const departmentOptions = [
-  "All Departments",
-  "CSE",
-  "IT",
-  "ECE",
-  "EEE",
-  "Mechanical",
-  "Civil",
-  "MBA",
-];
-
-const yearOptions = ["All Years", "1", "2", "3", "4"];
+import { getPassingYearOptions, noticeDepartmentOptions } from "./noticeTargetOptions";
+import TargetMultiSelectField from "./TargetMultiSelectField";
 
 function Field({ label, children, hint }) {
   return (
@@ -35,6 +24,8 @@ export default function AnnouncementForm({
   onFileChange,
   onRemoveFile,
 }) {
+  const passingYearOptions = getPassingYearOptions();
+
   return (
     <div className="grid gap-5 rounded-[28px] border border-slate-200 bg-slate-50/60 p-5">
       <div>
@@ -55,33 +46,27 @@ export default function AnnouncementForm({
           />
         </Field>
 
-        <Field label="Department">
-          <select
-            value={formData.department}
-            onChange={(event) => onFieldChange("department", event.target.value)}
-            className={inputClassName()}
-          >
-            {departmentOptions.map((department) => (
-              <option key={department} value={department}>
-                {department}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <TargetMultiSelectField
+          label="Target Departments"
+          value={formData.department}
+          options={noticeDepartmentOptions}
+          allLabel="All Departments"
+          emptySerializedValue="All Departments"
+          onChange={(value) => onFieldChange("department", value)}
+          addPlaceholder="Select department to add"
+          emptyLabel="All Departments"
+        />
 
-        <Field label="Target Year">
-          <select
-            value={formData.year}
-            onChange={(event) => onFieldChange("year", event.target.value)}
-            className={inputClassName()}
-          >
-            {yearOptions.map((year) => (
-              <option key={year} value={year === "All Years" ? "" : year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <TargetMultiSelectField
+          label="Target Passing Years"
+          value={formData.year}
+          options={passingYearOptions}
+          allLabel="All Batches"
+          emptySerializedValue=""
+          onChange={(value) => onFieldChange("year", value)}
+          addPlaceholder="Select passing year to add"
+          emptyLabel="All Batches"
+        />
       </div>
 
       <Field label="Description" hint="Required">

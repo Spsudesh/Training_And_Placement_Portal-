@@ -74,8 +74,10 @@ function buildEligibilityText(item) {
     parts.push(`Max ${item.maxBacklogs} backlogs`);
   }
 
-  if (item.year) {
-    parts.push(`Year ${item.year}`);
+  if (item.years?.length) {
+    parts.push(`Batch ${item.years.join(", ")}`);
+  } else if (item.year) {
+    parts.push(`Batch ${item.year}`);
   }
 
   return parts.length ? parts.join(" | ") : "Check the notice for eligibility details.";
@@ -102,7 +104,7 @@ function StudentHome() {
 
     async function loadNotices() {
       try {
-        const records = await fetchNotices("tpo", { status: "published" });
+        const records = await fetchNotices("student", { status: "published" });
 
         if (!isMounted) {
           return;
@@ -141,7 +143,7 @@ function StudentHome() {
         postedAt: formatRelativeTime(item.updatedAt || item.createdAt),
         eligibility: buildEligibilityText(item),
         allowedDepartments: item.departments?.length ? item.departments.join(", ") : item.department,
-        passingYear: item.year || "All Years",
+        passingYear: item.years?.length ? item.years.join(", ") : item.year || "All Batches",
         deadlineLabel: formatDeadline(item.deadline),
       })),
     [notices],

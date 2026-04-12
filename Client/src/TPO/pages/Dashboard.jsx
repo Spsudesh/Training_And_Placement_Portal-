@@ -297,7 +297,9 @@ export function NoticeBoardWorkspace({
           post.description.toLowerCase().includes(searchValue);
         const matchesType = filters.type === "all" || post.type === filters.type;
         const matchesDepartment =
-          filters.department === "All Departments" || post.department === filters.department;
+          filters.department === "All Departments" ||
+          post.department === filters.department ||
+          post.departments?.includes(filters.department);
 
         return matchesSearch && matchesType && matchesDepartment;
       })

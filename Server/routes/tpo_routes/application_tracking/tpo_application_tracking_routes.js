@@ -46,6 +46,10 @@ async function ensurePlacementApplicationsTable() {
     )
   `);
 
+  await query(
+    "ALTER TABLE placement_applications MODIFY COLUMN application_status VARCHAR(50) NOT NULL DEFAULT 'pending_verification'"
+  ).catch(() => {});
+
   await ensureColumnExists(
     'placement_applications',
     'submitted_at',
@@ -60,6 +64,14 @@ async function ensurePlacementApplicationsTable() {
     'placement_applications',
     'final_outcome',
     "ALTER TABLE placement_applications ADD COLUMN final_outcome VARCHAR(50) NOT NULL DEFAULT 'in_process' AFTER current_stage_id"
+  ).catch(() => {});
+  await query(
+    "ALTER TABLE placement_applications MODIFY COLUMN final_outcome VARCHAR(50) NOT NULL DEFAULT 'in_process'"
+  ).catch(() => {});
+  await ensureColumnExists(
+    'placement_applications',
+    'decision_at',
+    'ALTER TABLE placement_applications ADD COLUMN decision_at DATETIME NULL AFTER final_outcome'
   ).catch(() => {});
 
   if (await columnExists('placement_applications', 'applied_at')) {
@@ -143,7 +155,7 @@ function buildApplicantsSummary(applicants) {
     totalApplicants: applicants.length,
     pendingVerification: applicants.filter((item) => item.applicationStatus === 'pending_verification').length,
     inProcess: applicants.filter((item) => ['verified', 'in_process'].includes(item.applicationStatus)).length,
-    selected: applicants.filter((item) => item.applicationStatus === 'selected').length,
+    selected: applicants.filter((item) => ['selected', 'placed'].includes(item.applicationStatus)).length,
   };
 }
 
@@ -168,7 +180,7 @@ function normalizeStageResult(value, fallback = 'cleared') {
   return allowedValues.has(normalizedValue) ? normalizedValue : fallback;
 }
 
-function deriveMasterStatusFromStage(stageResult, stageName) {
+function deriveMasterStatusFromStage(stageResult, stageName, isFinalStage = false) {
   const normalizedStageResult = normalizeStageResult(stageResult, 'not_started');
   const normalizedStageName = String(stageName || '').trim().toLowerCase();
 
@@ -188,11 +200,15 @@ function deriveMasterStatusFromStage(stageResult, stageName) {
 
   if (
     ['cleared', 'shortlisted'].includes(normalizedStageResult) &&
-    (normalizedStageName.includes('offer') || normalizedStageName.includes('selection'))
+    (
+      isFinalStage ||
+      normalizedStageName.includes('offer') ||
+      normalizedStageName.includes('selection')
+    )
   ) {
     return {
-      applicationStatus: 'selected',
-      finalOutcome: 'selected',
+      applicationStatus: 'placed',
+      finalOutcome: 'placed',
     };
   }
 
@@ -304,10 +320,16 @@ async function syncApplicationMasterFromStageResults(applicationId, changedBy = 
         asr.stage_result,
         hs.stage_name,
         hs.stage_order,
-        pa.application_status
+        pa.application_status,
+        max_stage.max_stage_order
       FROM application_stage_results asr
       INNER JOIN hiring_stages hs ON hs.id = asr.stage_id
       INNER JOIN placement_applications pa ON pa.id = asr.application_id
+      INNER JOIN (
+        SELECT opportunity_id, MAX(stage_order) AS max_stage_order
+        FROM hiring_stages
+        GROUP BY opportunity_id
+      ) max_stage ON max_stage.opportunity_id = hs.opportunity_id
       WHERE asr.application_id = ?
       ORDER BY hs.stage_order DESC, hs.id DESC, asr.updated_at DESC, asr.id DESC
       LIMIT 1
@@ -321,7 +343,12 @@ async function syncApplicationMasterFromStageResults(applicationId, changedBy = 
     return;
   }
 
-  const nextState = deriveMasterStatusFromStage(latestStage.stage_result, latestStage.stage_name);
+  const isFinalStage = Number(latestStage.stage_order) === Number(latestStage.max_stage_order);
+  const nextState = deriveMasterStatusFromStage(
+    latestStage.stage_result,
+    latestStage.stage_name,
+    isFinalStage
+  );
   const currentStatus = latestStage.application_status || 'pending_verification';
 
   await query(
@@ -329,12 +356,17 @@ async function syncApplicationMasterFromStageResults(applicationId, changedBy = 
       UPDATE placement_applications
       SET current_stage_id = ?,
           application_status = ?,
-          final_outcome = ?
+          final_outcome = ?,
+          decision_at = CASE
+            WHEN ? IN ('placed', 'not_selected', 'withdrawn') THEN COALESCE(decision_at, CURRENT_TIMESTAMP)
+            ELSE decision_at
+          END
       WHERE id = ?
     `,
     [
       latestStage.stage_id,
       nextState.applicationStatus,
+      nextState.finalOutcome,
       nextState.finalOutcome,
       applicationId,
     ]
@@ -347,6 +379,36 @@ async function syncApplicationMasterFromStageResults(applicationId, changedBy = 
       changedBy,
       `Master application synced from stage result: ${latestStage.stage_result}.`
     );
+  }
+}
+
+async function syncFinalRoundPlacementsForOpportunity(opportunityId, changedBy = 'system') {
+  await ensurePlacementApplicationsTable();
+  await ensureApplicationStageResultsTable();
+
+  const rows = await query(
+    `
+      SELECT pa.id
+      FROM placement_applications pa
+      INNER JOIN application_stage_results asr ON asr.application_id = pa.id
+      INNER JOIN hiring_stages hs ON hs.id = asr.stage_id
+      INNER JOIN (
+        SELECT opportunity_id, MAX(stage_order) AS max_stage_order
+        FROM hiring_stages
+        WHERE opportunity_id = ?
+        GROUP BY opportunity_id
+      ) max_stage
+        ON max_stage.opportunity_id = hs.opportunity_id
+       AND max_stage.max_stage_order = hs.stage_order
+      WHERE pa.opportunity_id = ?
+        AND LOWER(COALESCE(asr.stage_result, '')) IN ('cleared', 'shortlisted')
+        AND COALESCE(pa.final_outcome, '') <> 'placed'
+    `,
+    [opportunityId, opportunityId]
+  );
+
+  for (const row of rows) {
+    await syncApplicationMasterFromStageResults(row.id, changedBy);
   }
 }
 
@@ -373,6 +435,7 @@ tpoApplicationTrackingRoutes.get('/opportunities/:id/applicants', async (req, re
       return;
     }
 
+    await syncFinalRoundPlacementsForOpportunity(req.params.id, 'system');
     const applicants = await fetchApplicantsForOpportunity(req.params.id);
 
     res.json({
@@ -598,6 +661,8 @@ tpoApplicationTrackingRoutes.post('/stages/:stageId/results/upsert', async (req,
         });
       }
     }
+
+    await syncFinalRoundPlacementsForOpportunity(stage.opportunity_id, changedBy);
 
     res.json({
       message: updatedCount > 0

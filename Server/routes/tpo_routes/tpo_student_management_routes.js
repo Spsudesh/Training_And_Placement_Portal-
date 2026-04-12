@@ -199,6 +199,10 @@ async function ensurePlacementApplicationsTable() {
     )
   `);
 
+  await query(
+    "ALTER TABLE placement_applications MODIFY COLUMN application_status VARCHAR(50) NOT NULL DEFAULT 'pending_verification'"
+  ).catch(() => {});
+
   await ensureColumnExists(
     'placement_applications',
     'submitted_at',
@@ -208,6 +212,9 @@ async function ensurePlacementApplicationsTable() {
     'placement_applications',
     'final_outcome',
     "ALTER TABLE placement_applications ADD COLUMN final_outcome VARCHAR(50) NOT NULL DEFAULT 'in_process' AFTER application_status"
+  ).catch(() => {});
+  await query(
+    "ALTER TABLE placement_applications MODIFY COLUMN final_outcome VARCHAR(50) NOT NULL DEFAULT 'in_process'"
   ).catch(() => {});
   await ensureColumnExists(
     'placement_applications',
@@ -265,8 +272,8 @@ async function fetchDashboardData() {
   const hasDecisionAt = await columnExists('placement_applications', 'decision_at');
 
   const placedCondition = hasFinalOutcome
-    ? "LOWER(COALESCE(pa.final_outcome, '')) IN ('selected', 'offer_accepted') OR LOWER(COALESCE(pa.application_status, '')) IN ('selected', 'offer_accepted', 'offer_released')"
-    : "LOWER(COALESCE(pa.application_status, '')) IN ('selected', 'offer_accepted', 'offer_released')";
+    ? "LOWER(COALESCE(pa.final_outcome, '')) IN ('placed', 'selected', 'offer_accepted') OR LOWER(COALESCE(pa.application_status, '')) IN ('placed', 'selected', 'offer_accepted', 'offer_released')"
+    : "LOWER(COALESCE(pa.application_status, '')) IN ('placed', 'selected', 'offer_accepted', 'offer_released')";
 
   const activeApplicationCondition = hasFinalOutcome
     ? "LOWER(COALESCE(pa.application_status, '')) IN ('verified', 'in_process', 'selected', 'offer_released', 'offer_accepted', 'offer_declined', 'not_selected') OR LOWER(COALESCE(pa.final_outcome, '')) IN ('in_process', 'selected', 'not_selected', 'offer_accepted', 'offer_declined')"
@@ -603,6 +610,10 @@ async function fetchStudentManagementRows() {
       KEY idx_placement_applications_opportunity (opportunity_id)
     )
   `);
+
+  await query(
+    "ALTER TABLE placement_applications MODIFY COLUMN application_status VARCHAR(50) NOT NULL DEFAULT 'pending_verification'"
+  ).catch(() => {});
 
   await ensureColumnExists(
     'placement_applications',
