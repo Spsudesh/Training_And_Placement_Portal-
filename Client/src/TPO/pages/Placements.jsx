@@ -126,11 +126,18 @@ function parseRoundImportCsv(csvText) {
       });
 
       return {
-        prn: record.prn || record.student_prn || "",
+        prn: extractNormalizedPrns(record.prn || record.student_prn || "")[0] || "",
         stage_result: record.stage_result || record.result || "cleared",
       };
     })
     .filter((item) => item.prn);
+}
+
+function extractNormalizedPrns(value) {
+  return String(value || "")
+    .split(/[\s,;]+/)
+    .map((item) => item.trim().toUpperCase().replace(/[^A-Z0-9]/g, ""))
+    .filter(Boolean);
 }
 
 function TextWithShowMore({ text, limit = 240 }) {
@@ -951,18 +958,22 @@ export default function Placements({ onLogout }) {
   }
 
   function addManualPrnToStage() {
-    const nextPrn = manualPrnDraft.trim().toUpperCase();
+    const nextPrns = extractNormalizedPrns(manualPrnDraft);
 
-    if (!nextPrn) {
+    if (!nextPrns.length) {
       return;
     }
 
     setManualPrnEntries((currentEntries) => {
-      if (currentEntries.includes(nextPrn)) {
-        return currentEntries;
-      }
+      const nextEntries = [...currentEntries];
 
-      return [...currentEntries, nextPrn];
+      nextPrns.forEach((prn) => {
+        if (!nextEntries.includes(prn)) {
+          nextEntries.push(prn);
+        }
+      });
+
+      return nextEntries;
     });
     setManualPrnDraft("");
   }

@@ -127,7 +127,7 @@ export function normalizePlacementWorkflow(workflow) {
     date: item.roundDate ? formatWorkflowDate(item.roundDate) : "Date not scheduled",
     rawDate: item.roundDate,
     selectedCount: item.selectedCount,
-    status: item.roundDate ? inferredStatuses[index] : item.status || inferredStatuses[index],
+    status: item.status || inferredStatuses[index],
     studentStatus: item.studentStatus || "pending",
     studentUpdatedAt: item.studentUpdatedAt,
   }));

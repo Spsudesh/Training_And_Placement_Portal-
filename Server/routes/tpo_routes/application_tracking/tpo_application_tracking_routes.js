@@ -112,6 +112,17 @@ async function ensureApplicationStageResultsTable() {
       KEY idx_stage_result_status (stage_result)
     )
   `);
+
+  await ensureColumnExists(
+    'application_stage_results',
+    'processed_by',
+    'ALTER TABLE application_stage_results ADD COLUMN processed_by VARCHAR(20) NULL AFTER stage_result'
+  ).catch(() => {});
+  await ensureColumnExists(
+    'application_stage_results',
+    'processed_at',
+    'ALTER TABLE application_stage_results ADD COLUMN processed_at DATETIME NULL AFTER processed_by'
+  ).catch(() => {});
 }
 
 function buildFullName(row) {
@@ -191,7 +202,7 @@ function deriveMasterStatusFromStage(stageResult, stageName) {
   };
 }
 
-async function findOrCreatePlacementApplication(opportunityId, prn) {
+async function findPlacementApplicationByOpportunityAndPrn(opportunityId, prn) {
   const normalizedPrn = normalizePrn(prn);
 
   if (!normalizedPrn) {
@@ -208,71 +219,7 @@ async function findOrCreatePlacementApplication(opportunityId, prn) {
     [opportunityId, normalizedPrn]
   );
 
-  if (existingRows[0]) {
-    return existingRows[0];
-  }
-
-  const studentRows = await query(
-    `
-      SELECT
-        sp.PRN,
-        se.department,
-        se.current_cgpa,
-        se.active_backlogs,
-        se.passing_year
-      FROM student_personal sp
-      LEFT JOIN student_education se ON se.PRN = sp.PRN
-      WHERE sp.PRN = ?
-      LIMIT 1
-    `,
-    [normalizedPrn]
-  );
-
-  const student = studentRows[0];
-
-  if (!student) {
-    return null;
-  }
-
-  const eligibilitySnapshot = JSON.stringify({
-    department: student.department || null,
-    currentCgpa:
-      student.current_cgpa === undefined || student.current_cgpa === null
-        ? null
-        : Number(student.current_cgpa),
-    activeBacklogs:
-      student.active_backlogs === undefined || student.active_backlogs === null
-        ? null
-        : Number(student.active_backlogs),
-    passingYear:
-      student.passing_year === undefined || student.passing_year === null
-        ? null
-        : Number(student.passing_year),
-  });
-
-  await query(
-    `
-      INSERT INTO placement_applications
-      (opportunity_id, PRN, application_status, final_outcome, eligibility_snapshot, submitted_at)
-      VALUES (?, ?, 'in_process', 'in_process', ?, CURRENT_TIMESTAMP)
-      ON DUPLICATE KEY UPDATE
-        id = LAST_INSERT_ID(id),
-        eligibility_snapshot = COALESCE(placement_applications.eligibility_snapshot, VALUES(eligibility_snapshot))
-    `,
-    [opportunityId, normalizedPrn, eligibilitySnapshot]
-  );
-
-  const createdRows = await query(
-    `
-      SELECT id
-      FROM placement_applications
-      WHERE opportunity_id = ? AND PRN = ?
-      LIMIT 1
-    `,
-    [opportunityId, normalizedPrn]
-  );
-
-  return createdRows[0] || null;
+  return existingRows[0] || null;
 }
 
 async function fetchApplicantsForOpportunity(opportunityId) {
@@ -584,7 +531,7 @@ tpoApplicationTrackingRoutes.post('/stages/:stageId/results/upsert', async (req,
     const missingPrns = [];
     const duplicatePrns = [];
     const failedPrns = [];
-    const seenPrns = new Set();
+    const prnCounts = new Map();
 
     for (const item of results) {
       const prn = normalizePrn(item?.prn || item?.PRN);
@@ -593,14 +540,29 @@ tpoApplicationTrackingRoutes.post('/stages/:stageId/results/upsert', async (req,
         continue;
       }
 
-      if (seenPrns.has(prn)) {
-        duplicatePrns.push(prn);
+      prnCounts.set(prn, (prnCounts.get(prn) || 0) + 1);
+    }
+
+    const duplicatedPrnSet = new Set(
+      Array.from(prnCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([prn]) => prn)
+    );
+
+    duplicatePrns.push(...duplicatedPrnSet);
+
+    for (const item of results) {
+      const prn = normalizePrn(item?.prn || item?.PRN);
+
+      if (!prn) {
         continue;
       }
 
-      seenPrns.add(prn);
+      if (duplicatedPrnSet.has(prn)) {
+        continue;
+      }
       try {
-        const application = await findOrCreatePlacementApplication(stage.opportunity_id, prn);
+        const application = await findPlacementApplicationByOpportunityAndPrn(stage.opportunity_id, prn);
 
         if (!application) {
           missingPrns.push(prn);
