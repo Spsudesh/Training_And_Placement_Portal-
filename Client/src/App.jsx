@@ -27,6 +27,8 @@ import TpcSidebar from "./TPC/pages/Tpc_sidebar";
 import JobProfiles from "./StudentPanel/pages/JobProfiles";
 import StudentHome from "./StudentPanel/pages/StudentHome";
 import StudentProfilePage from "./StudentPanel/profile/pages/StudentProfilePage";
+import StudentResumePage from "./StudentPanel/resume/pages/StudentResumePage";
+import StudentResumePreviewPage from "./StudentPanel/resume/pages/StudentResumePreviewPage";
 import StudentSidebar from "./StudentPanel/pages/Student_sidebar";
 import ProfileForm from "./StudentPanel/pages/ProfileForm";
 import StudentDetailsPage from "./TPC_Panel/student_verification/pages/StudentDetailsPage";
@@ -329,10 +331,17 @@ function StudentApp() {
           path="resume"
           element={
             hasSubmittedProfileForm ? (
-              <StudentPlaceholderPage
-                title="Resume"
-                description="Resume tools and downloadable profile assets will be added here in a later step."
-              />
+              <StudentResumePage />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
+          }
+        />
+        <Route
+          path="resume/:resumeId/preview"
+          element={
+            hasSubmittedProfileForm ? (
+              <StudentResumePreviewPage />
             ) : (
               <Navigate to="/student-panel/profile-form" replace />
             )

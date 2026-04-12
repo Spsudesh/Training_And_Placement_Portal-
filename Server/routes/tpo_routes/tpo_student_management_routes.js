@@ -119,6 +119,43 @@ function formatShortDate(dateValue) {
   });
 }
 
+function formatRelativeTime(dateValue) {
+  if (!dateValue) {
+    return '-';
+  }
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+
+  if (diffMinutes < 1) {
+    return 'Just now';
+  }
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60);
+
+  if (diffHours < 24) {
+    return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays < 7) {
+    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  }
+
+  return formatShortDate(dateValue);
+}
+
 async function ensureColumnExists(tableName, columnName, alterSql) {
   const rows = await query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
 
@@ -130,6 +167,214 @@ async function ensureColumnExists(tableName, columnName, alterSql) {
 async function columnExists(tableName, columnName) {
   const rows = await query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
   return rows.length > 0;
+}
+
+async function tableExists(tableName) {
+  const rows = await query('SHOW TABLES LIKE ?', [tableName]);
+  return rows.length > 0;
+}
+
+async function safeQuery(sql, values = [], fallback = []) {
+  try {
+    return await query(sql, values);
+  } catch {
+    return fallback;
+  }
+}
+
+async function ensurePlacementApplicationsTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS placement_applications (
+      id INT NOT NULL AUTO_INCREMENT,
+      opportunity_id INT NOT NULL,
+      PRN VARCHAR(50) NOT NULL,
+      application_status VARCHAR(50) NOT NULL DEFAULT 'pending_verification',
+      eligibility_snapshot JSON NULL,
+      applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY unique_student_opportunity (opportunity_id, PRN),
+      KEY idx_placement_applications_prn (PRN),
+      KEY idx_placement_applications_opportunity (opportunity_id)
+    )
+  `);
+
+  await ensureColumnExists(
+    'placement_applications',
+    'submitted_at',
+    'ALTER TABLE placement_applications ADD COLUMN submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER eligibility_snapshot'
+  );
+  await ensureColumnExists(
+    'placement_applications',
+    'final_outcome',
+    "ALTER TABLE placement_applications ADD COLUMN final_outcome VARCHAR(50) NOT NULL DEFAULT 'in_process' AFTER application_status"
+  ).catch(() => {});
+  await ensureColumnExists(
+    'placement_applications',
+    'decision_at',
+    'ALTER TABLE placement_applications ADD COLUMN decision_at DATETIME NULL AFTER submitted_at'
+  ).catch(() => {});
+
+  if (await columnExists('placement_applications', 'applied_at')) {
+    await query(`
+      UPDATE placement_applications
+      SET submitted_at = COALESCE(submitted_at, applied_at, CURRENT_TIMESTAMP)
+      WHERE submitted_at IS NULL
+    `);
+  } else {
+    await query(`
+      UPDATE placement_applications
+      SET submitted_at = COALESCE(submitted_at, CURRENT_TIMESTAMP)
+      WHERE submitted_at IS NULL
+    `);
+  }
+}
+
+async function fetchDashboardData() {
+  const hasStudentPersonal = await tableExists('student_personal');
+  const hasStudentCredentials = await tableExists('student_credentials');
+  const hasStudentEducation = await tableExists('student_education');
+  const hasTpoOpportunities = await tableExists('tpo_opportunities');
+  const hasStudentBlacklist = hasStudentPersonal
+    ? await columnExists('student_personal', 'is_blacklisted').catch(() => false)
+    : false;
+
+  await ensurePlacementApplicationsTable();
+
+  const totalStudentsRows = hasStudentPersonal
+    ? await safeQuery('SELECT COUNT(*) AS total FROM student_personal', [], [{ total: 0 }])
+    : [{ total: 0 }];
+  const verifiedStudentsRows = hasStudentPersonal && hasStudentCredentials
+    ? await safeQuery(`
+        SELECT COUNT(*) AS total
+        FROM student_personal sp
+        LEFT JOIN student_credentials sc ON sc.PRN = sp.PRN
+        WHERE COALESCE(sc.is_profile_verified, FALSE) = TRUE
+          ${hasStudentBlacklist ? 'AND COALESCE(sp.is_blacklisted, FALSE) = FALSE' : ''}
+      `, [], [{ total: 0 }])
+    : [{ total: 0 }];
+  const jobOpeningsRows = hasTpoOpportunities
+    ? await safeQuery(`
+    SELECT COUNT(*) AS total
+    FROM tpo_opportunities
+    WHERE LOWER(COALESCE(status, 'active')) = 'active'
+  `, [], [{ total: 0 }])
+    : [{ total: 0 }];
+
+  const hasFinalOutcome = await columnExists('placement_applications', 'final_outcome');
+  const hasDecisionAt = await columnExists('placement_applications', 'decision_at');
+
+  const placedCondition = hasFinalOutcome
+    ? "LOWER(COALESCE(pa.final_outcome, '')) IN ('selected', 'offer_accepted') OR LOWER(COALESCE(pa.application_status, '')) IN ('selected', 'offer_accepted', 'offer_released')"
+    : "LOWER(COALESCE(pa.application_status, '')) IN ('selected', 'offer_accepted', 'offer_released')";
+
+  const activeApplicationCondition = hasFinalOutcome
+    ? "LOWER(COALESCE(pa.application_status, '')) IN ('verified', 'in_process', 'selected', 'offer_released', 'offer_accepted', 'offer_declined', 'not_selected') OR LOWER(COALESCE(pa.final_outcome, '')) IN ('in_process', 'selected', 'not_selected', 'offer_accepted', 'offer_declined')"
+    : "LOWER(COALESCE(pa.application_status, '')) IN ('verified', 'in_process', 'selected', 'offer_released', 'offer_accepted', 'offer_declined', 'not_selected')";
+
+  const studentsPlacedRows = await safeQuery(`
+    SELECT COUNT(DISTINCT pa.PRN) AS total
+    FROM placement_applications pa
+    WHERE ${placedCondition}
+  `, [], [{ total: 0 }]);
+
+  const departmentPlacementsRows = hasStudentEducation
+    ? await safeQuery(`
+        SELECT
+          COALESCE(NULLIF(se.department, ''), 'Unknown') AS department,
+          COUNT(DISTINCT CASE WHEN ${activeApplicationCondition} THEN pa.PRN END) AS offers,
+          COUNT(DISTINCT CASE WHEN ${placedCondition} THEN pa.PRN END) AS placed
+        FROM student_education se
+        LEFT JOIN placement_applications pa ON pa.PRN = se.PRN
+        GROUP BY COALESCE(NULLIF(se.department, ''), 'Unknown')
+        HAVING offers > 0 OR placed > 0
+        ORDER BY placed DESC, offers DESC, department ASC
+        LIMIT 8
+      `, [], [])
+    : [];
+
+  const monthlySourceField = hasDecisionAt ? 'COALESCE(pa.decision_at, pa.updated_at, pa.submitted_at)' : 'COALESCE(pa.updated_at, pa.submitted_at)';
+  const monthlyPlacementRows = await safeQuery(`
+    SELECT
+      DATE_FORMAT(${monthlySourceField}, '%b') AS month_label,
+      YEAR(${monthlySourceField}) AS year_value,
+      MONTH(${monthlySourceField}) AS month_value,
+      COUNT(DISTINCT pa.PRN) AS placements
+    FROM placement_applications pa
+    WHERE ${placedCondition}
+      AND ${monthlySourceField} IS NOT NULL
+    GROUP BY YEAR(${monthlySourceField}), MONTH(${monthlySourceField}), DATE_FORMAT(${monthlySourceField}, '%b')
+    ORDER BY year_value DESC, month_value DESC
+    LIMIT 8
+  `, [], []);
+
+  const monthlyPlacementTrend = monthlyPlacementRows
+    .reverse()
+    .map((row) => ({
+      month: row.month_label,
+      placements: Number(row.placements) || 0,
+    }));
+
+  const recentOpportunityRows = hasTpoOpportunities
+    ? await safeQuery(`
+    SELECT
+      id,
+      company_name,
+      job_title,
+      allowed_departments,
+      status,
+      updated_at,
+      created_at
+    FROM tpo_opportunities
+    ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+    LIMIT 6
+  `, [], [])
+    : [];
+
+  const recentActivities = recentOpportunityRows.map((row) => {
+    const normalizedStatus = String(row.status || 'active').trim().toLowerCase();
+    let activityStatus = 'Updated';
+
+    if (normalizedStatus === 'active') {
+      activityStatus = 'Scheduled';
+    } else if (normalizedStatus === 'closed') {
+      activityStatus = 'Completed';
+    }
+
+    return {
+      id: row.id,
+      company: row.company_name || 'Company',
+      event: row.job_title ? `${row.job_title} drive updated` : 'Opportunity updated',
+      department: row.allowed_departments || 'All Departments',
+      status: activityStatus,
+      time: formatRelativeTime(row.updated_at || row.created_at),
+    };
+  });
+
+  const totalStudents = Number(totalStudentsRows[0]?.total) || 0;
+  const eligibleStudents = Number(verifiedStudentsRows[0]?.total) || 0;
+  const jobOpenings = Number(jobOpeningsRows[0]?.total) || 0;
+  const studentsPlaced = Number(studentsPlacedRows[0]?.total) || 0;
+
+  return {
+    overview: {
+      totalStudents,
+      eligibleStudents,
+      jobOpenings,
+      studentsPlaced,
+    },
+    placementRatio: [
+      { name: 'Placed', value: studentsPlaced },
+      { name: 'Not Placed', value: Math.max(totalStudents - studentsPlaced, 0) },
+    ],
+    departmentPlacements: departmentPlacementsRows.map((row) => ({
+      department: row.department,
+      offers: Number(row.offers) || 0,
+      placed: Number(row.placed) || 0,
+    })),
+    monthlyPlacementTrend,
+    recentActivities,
+  };
 }
 
 function mapEducationDetails(education) {
@@ -517,6 +762,22 @@ function buildStudentPayloads(rows) {
     }),
   );
 }
+
+tpoStudentManagementRoutes.get('/dashboard', async (req, res) => {
+  try {
+    const dashboard = await fetchDashboardData();
+
+    res.json({
+      message: 'TPO dashboard data fetched successfully.',
+      data: dashboard,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to fetch TPO dashboard data.',
+      error: error.message,
+    });
+  }
+});
 
 tpoStudentManagementRoutes.get('/students', async (req, res) => {
   try {
