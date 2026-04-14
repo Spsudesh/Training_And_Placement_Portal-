@@ -534,6 +534,7 @@ async function getHiringStagesByOpportunityIds(opportunityIds) {
       order: row.stage_order,
       stage: row.stage_name || '',
       status: normalizeWorkflowStatus(row.lifecycle_status, 'upcoming'),
+      rawDate: toMysqlDate(row.planned_date),
       date: toIsoString(row.planned_date),
     };
 
@@ -666,14 +667,171 @@ function mapStudentStageStatus(value) {
     case 'rejected':
     case 'absent':
     case 'withdrawn':
-      return 'rejected';
+      return 'notqualified';
     case 'appeared':
     case 'scheduled':
     case 'not_started':
     case 'on_hold':
+      return 'inprogress';
     default:
       return 'pending';
   }
+}
+
+function getTodayDateKey() {
+  return toMysqlDate(new Date());
+}
+
+function getStageSchedulePhase(stage, todayDateKey = getTodayDateKey()) {
+  const stageDateKey = String(stage?.rawDate || '').trim();
+
+  if (!stageDateKey) {
+    return 'unknown';
+  }
+
+  if (stageDateKey < todayDateKey) {
+    return 'past';
+  }
+
+  if (stageDateKey === todayDateKey) {
+    return 'current';
+  }
+
+  return 'future';
+}
+
+function deriveStudentWorkflowStatuses(stages, studentStageRecords = new Map(), stageActivityCounts = new Map()) {
+  const derivedStatuses = new Map();
+
+  if (!Array.isArray(stages) || !stages.length) {
+    return derivedStatuses;
+  }
+
+  const todayDateKey = getTodayDateKey();
+  let isStudentEliminated = false;
+  let hasAssignedActiveStage = false;
+  let hasStudentProgress = false;
+
+  for (const stage of stages) {
+    const stageRecord = studentStageRecords.get(stage.id) || null;
+    const explicitStatus = stageRecord?.studentStatus || null;
+    const stageActivityCount = Number(stageActivityCounts.get(stage.id)) || 0;
+
+    if (isStudentEliminated) {
+      derivedStatuses.set(stage.id, {
+        studentStatus: 'notqualified',
+        updatedAt: null,
+      });
+      continue;
+    }
+
+    if (explicitStatus === 'qualified') {
+      derivedStatuses.set(stage.id, {
+        studentStatus: 'qualified',
+        updatedAt: stageRecord.updatedAt || null,
+      });
+      hasStudentProgress = true;
+      continue;
+    }
+
+    if (explicitStatus === 'notqualified') {
+      derivedStatuses.set(stage.id, {
+        studentStatus: 'notqualified',
+        updatedAt: stageRecord.updatedAt || null,
+      });
+      hasStudentProgress = true;
+      isStudentEliminated = true;
+      continue;
+    }
+
+    if (explicitStatus === 'inprogress') {
+      derivedStatuses.set(stage.id, {
+        studentStatus: 'inprogress',
+        updatedAt: stageRecord.updatedAt || null,
+      });
+      hasStudentProgress = true;
+      hasAssignedActiveStage = true;
+      continue;
+    }
+
+    if (stageActivityCount > 0) {
+      derivedStatuses.set(stage.id, {
+        studentStatus: 'notqualified',
+        updatedAt: null,
+      });
+      isStudentEliminated = true;
+      continue;
+    }
+
+    const stageSchedulePhase = getStageSchedulePhase(stage, todayDateKey);
+    const shouldMarkInProgress =
+      !hasAssignedActiveStage &&
+      (
+        hasStudentProgress ||
+        stageSchedulePhase === 'past' ||
+        stageSchedulePhase === 'current'
+      );
+
+    derivedStatuses.set(stage.id, {
+      studentStatus: shouldMarkInProgress ? 'inprogress' : 'pending',
+      updatedAt: null,
+    });
+
+    if (shouldMarkInProgress) {
+      hasAssignedActiveStage = true;
+    }
+  }
+
+  return derivedStatuses;
+}
+
+async function getStageActivityCountsByOpportunityIds(opportunityIds) {
+  if (!opportunityIds.length) {
+    return new Map();
+  }
+
+  const placeholders = opportunityIds.map(() => '?').join(', ');
+  let rows = [];
+
+  if (await tableExists('application_stage_results')) {
+    rows = await query(
+      `
+        SELECT
+          hs.opportunity_id,
+          asr.stage_id,
+          COUNT(*) AS activity_count
+        FROM application_stage_results asr
+        INNER JOIN hiring_stages hs ON hs.id = asr.stage_id
+        WHERE hs.opportunity_id IN (${placeholders})
+        GROUP BY hs.opportunity_id, asr.stage_id
+      `,
+      opportunityIds
+    );
+  } else if (await tableExists('student_stage_records')) {
+    rows = await query(
+      `
+        SELECT
+          hs.opportunity_id,
+          ssr.stage_id,
+          COUNT(*) AS activity_count
+        FROM student_stage_records ssr
+        INNER JOIN hiring_stages hs ON hs.id = ssr.stage_id
+        WHERE hs.opportunity_id IN (${placeholders})
+        GROUP BY hs.opportunity_id, ssr.stage_id
+      `,
+      opportunityIds
+    );
+  }
+
+  const countsByOpportunityId = new Map();
+
+  for (const row of rows) {
+    const currentCounts = countsByOpportunityId.get(row.opportunity_id) || new Map();
+    currentCounts.set(row.stage_id, Number(row.activity_count) || 0);
+    countsByOpportunityId.set(row.opportunity_id, currentCounts);
+  }
+
+  return countsByOpportunityId;
 }
 
 async function getPlacementApplicationsByOpportunityIds(opportunityIds, studentPrn) {
@@ -841,6 +999,9 @@ async function attachHiringStages(rows, options = {}) {
   const stageSelectionCountsByOpportunityId = await getStageSelectionCountsByOpportunityIds(
     rows.map((row) => row.id).filter(Boolean)
   );
+  const stageActivityCountsByOpportunityId = await getStageActivityCountsByOpportunityIds(
+    rows.map((row) => row.id).filter(Boolean)
+  );
   const studentStageRecordsByOpportunityId = await getStudentStageRecordsByOpportunityIds(
     rows.map((row) => row.id).filter(Boolean),
     studentPrn
@@ -850,21 +1011,32 @@ async function attachHiringStages(rows, options = {}) {
     studentPrn
   );
 
-  return rows.map((row) => ({
-    ...row,
-    student_application: placementApplicationsByOpportunityId.get(row.id) || null,
-    workflow: (stagesByOpportunityId.get(row.id) || []).map((stage) => {
-      const studentStageRecord = studentStageRecordsByOpportunityId.get(row.id)?.get(stage.id);
-      const selectedCount = stageSelectionCountsByOpportunityId.get(row.id)?.get(stage.id) ?? 0;
+  return rows.map((row) => {
+    const stages = stagesByOpportunityId.get(row.id) || [];
+    const studentStageRecords = studentStageRecordsByOpportunityId.get(row.id) || new Map();
+    const stageActivityCounts = stageActivityCountsByOpportunityId.get(row.id) || new Map();
+    const derivedStudentStatuses = deriveStudentWorkflowStatuses(
+      stages,
+      studentStageRecords,
+      stageActivityCounts
+    );
 
-      return {
-        ...stage,
-        selectedCount,
-        studentStatus: studentStageRecord?.studentStatus || 'pending',
-        studentUpdatedAt: studentStageRecord?.updatedAt || null,
-      };
-    }),
-  }));
+    return {
+      ...row,
+      student_application: placementApplicationsByOpportunityId.get(row.id) || null,
+      workflow: stages.map((stage) => {
+        const derivedStudentStatus = derivedStudentStatuses.get(stage.id);
+        const selectedCount = stageSelectionCountsByOpportunityId.get(row.id)?.get(stage.id) ?? 0;
+
+        return {
+          ...stage,
+          selectedCount,
+          studentStatus: derivedStudentStatus?.studentStatus || 'pending',
+          studentUpdatedAt: derivedStudentStatus?.updatedAt || null,
+        };
+      }),
+    };
+  });
 }
 
 async function replaceHiringStages(opportunityId, workflow) {

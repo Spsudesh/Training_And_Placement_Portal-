@@ -5,11 +5,14 @@ const studentFormRoutes = require('./routes/student_routes/student_form_routes')
 const studentLoginRoutes = require('./routes/student_routes/student_login_routes');
 const studentProfileGetRoutes = require('./routes/student_routes/studentprofile_get_routes');
 const studentResumeRoutes = require('./routes/student_routes/resume/student_resume_routes');
+const tpcLoginRoutes = require('./routes/tpc_routes/tpc_login_routes');
+const tpoLoginRoutes = require('./routes/tpo_routes/tpo_login_routes');
 const tpcStudentVerificationRoutes = require('./routes/tpc_routes/tpc_student_verification_routes');
 const tpcOpportunitiesRoutes = require('./routes/tpc_routes/tpc_opportunities_routes');
 const tpoPlacementsRoutes = require('./routes/tpo_routes/tpo_placements_routes');
 const tpoNoticeRoutes = require('./routes/tpo_routes/tpo_notice_routes');
 const tpoStudentManagementRoutes = require('./routes/tpo_routes/tpo_student_management_routes');
+const tpoTPCRoutes = require('./routes/tpo_routes/tpo_tpc_routes');
 const tpoApplicationTrackingRoutes = require('./routes/tpo_routes/application_tracking/tpo_application_tracking_routes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const errorHandler = require('./middleware/errorHandler');
@@ -31,6 +34,8 @@ app.get('/', (req, res) => {
 });
 
 app.use('/student', studentLoginRoutes);
+app.use('/tpc', tpcLoginRoutes);
+app.use('/tpo', tpoLoginRoutes);
 app.use('/upload', requireAuth, uploadRoutes);
 app.use('/student/form', requireAuth, requireRole('student'), studentFormRoutes);
 app.use('/student/profile', requireAuth, requireRole('student'), studentProfileGetRoutes);
@@ -43,6 +48,7 @@ app.use('/tpc/notices', requireAuth, requireRole('tpc'), tpoNoticeRoutes);
 app.use('/tpo/opportunities', requireAuth, requireRole('tpo'), tpcOpportunitiesRoutes);
 app.use('/tpo/placements', requireAuth, requireRole('tpo'), tpoPlacementsRoutes);
 app.use('/tpo/notices', requireAuth, requireRole('tpo'), tpoNoticeRoutes);
+app.use('/tpo/tpc', requireAuth, requireRole('tpo'), tpoTPCRoutes);
 app.use('/tpo/application-tracking', requireAuth, requireRole('tpo'), tpoApplicationTrackingRoutes);
 app.use('/tpo', requireAuth, requireRole('tpo'), tpoStudentManagementRoutes);
 

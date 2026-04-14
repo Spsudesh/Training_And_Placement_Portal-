@@ -12,15 +12,7 @@ const db = require('../../config/db').db;
 
 const SALT_ROUNDS = 12;
 const ALLOWED_EMAIL_DOMAIN = '@ritindia.edu';
-const allowedRoles = new Set(['student', 'tpc', 'tpo']);
-const STATIC_TPO_ACCOUNT = {
-  PRN: 'TPO001',
-  email: 'tpo@ritindia.edu',
-  password: 'TPO',
-  role: 'tpo',
-  is_profile_verified: 1,
-  is_active: 1,
-};
+const allowedRoles = new Set(['student']);
 
 function normalizeEmail(email = '') {
   return email.trim().toLowerCase();
@@ -120,17 +112,16 @@ function getNextProfileStepFromProgress(progress) {
 }
 
 router.post('/signup', async (req, res) => {
-  const { PRN, email, password, role } = req.body;
+  const { PRN, email, password } = req.body;
 
   const normalizedPrn = String(PRN || '').trim();
   const normalizedEmail = normalizeEmail(email);
   const normalizedPassword = String(password || '').trim();
-  const normalizedRole = String(role || '').trim().toLowerCase();
 
-  if (!normalizedPrn || !normalizedEmail || !normalizedPassword || !normalizedRole) {
+  if (!normalizedPrn || !normalizedEmail || !normalizedPassword) {
     return res.status(400).json({
       success: false,
-      message: 'PRN, email, password, and role are required.',
+      message: 'PRN, email, and password are required.',
     });
   }
 
@@ -138,13 +129,6 @@ router.post('/signup', async (req, res) => {
     return res.status(400).json({
       success: false,
       message: 'Only @ritindia.edu email addresses are allowed for signup.',
-    });
-  }
-
-  if (!allowedRoles.has(normalizedRole)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid role selected.',
     });
   }
 
@@ -173,11 +157,12 @@ router.post('/signup', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(normalizedPassword, SALT_ROUNDS);
 
+    // Students only have 'student' role
     await promiseDb.query(
       `INSERT INTO Student_Credentials
-        (PRN, email, Password, role, is_profile_verified, is_active)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [normalizedPrn, normalizedEmail, hashedPassword, normalizedRole, 0, 1],
+        (PRN, email, Password, is_profile_verified, is_active)
+       VALUES (?, ?, ?, ?, ?)`,
+      [normalizedPrn, normalizedEmail, hashedPassword, 0, 1],
     );
 
     await promiseDb.query(
@@ -218,7 +203,14 @@ router.post('/login', async (req, res) => {
 
   const normalizedEmail = normalizeEmail(email);
   const normalizedPassword = String(password || '').trim();
-  const selectedRole = String(role || '').trim().toLowerCase();
+  const normalizedRole = String(role || 'student').trim().toLowerCase();
+
+  if (normalizedRole !== 'student') {
+    return res.status(403).json({
+      success: false,
+      message: 'Selected role is not allowed for student login.',
+    });
+  }
 
   if (!normalizedEmail || !normalizedPassword) {
     return res.status(400).json({
@@ -227,31 +219,10 @@ router.post('/login', async (req, res) => {
     });
   }
 
-  if (normalizedEmail === STATIC_TPO_ACCOUNT.email) {
-    if (selectedRole && selectedRole !== STATIC_TPO_ACCOUNT.role) {
-      return res.status(403).json({
-        success: false,
-        message: 'Selected role does not match this account.',
-      });
-    }
-
-    if (normalizedPassword !== STATIC_TPO_ACCOUNT.password) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password.',
-      });
-    }
-
-    return res.json(buildLoginResponse(res, {
-      ...STATIC_TPO_ACCOUNT,
-      is_profile_form_submitted: true,
-    }));
-  }
-
   try {
     const promiseDb = db.promise();
     const [rows] = await promiseDb.query(
-      `SELECT PRN, email, Password, role, is_profile_verified, is_active
+      `SELECT PRN, email, Password, is_profile_verified, is_active
        FROM Student_Credentials
        WHERE LOWER(email) = ?
        LIMIT 1`,
@@ -274,13 +245,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    if (selectedRole && user.role !== selectedRole) {
-      return res.status(403).json({
-        success: false,
-        message: 'Selected role does not match this account.',
-      });
-    }
-
     const passwordMatches = await bcrypt.compare(normalizedPassword, user.Password);
 
     if (!passwordMatches) {
@@ -294,18 +258,18 @@ router.post('/login', async (req, res) => {
     let profileFormNextStep = null;
     let profileFormLastCompletedStep = null;
 
-    if (user.role === 'student') {
-      isProfileFormSubmitted = await getStudentFormSubmissionStatus(promiseDb, user.PRN);
+    // Always 'student' role for students
+    isProfileFormSubmitted = await getStudentFormSubmissionStatus(promiseDb, user.PRN);
 
-      if (!isProfileFormSubmitted) {
-        const progressRow = await getStudentProfileProgressRow(promiseDb, user.PRN);
-        profileFormLastCompletedStep = progressRow?.last_completed_step || null;
-        profileFormNextStep = getNextProfileStepFromProgress(progressRow);
-      }
+    if (!isProfileFormSubmitted) {
+      const progressRow = await getStudentProfileProgressRow(promiseDb, user.PRN);
+      profileFormLastCompletedStep = progressRow?.last_completed_step || null;
+      profileFormNextStep = getNextProfileStepFromProgress(progressRow);
     }
 
     return res.json(buildLoginResponse(res, {
       ...user,
+      role: 'student', // Always set role to 'student'
       is_profile_form_submitted: isProfileFormSubmitted,
       profileFormLastCompletedStep,
       profileFormNextStep,
@@ -334,11 +298,12 @@ router.post('/refresh', async (req, res) => {
     const decodedToken = verifyRefreshToken(refreshToken);
     const normalizedEmail = normalizeEmail(decodedToken.email);
 
-    if (normalizedEmail === STATIC_TPO_ACCOUNT.email) {
-      return res.json(buildLoginResponse(res, {
-        ...STATIC_TPO_ACCOUNT,
-        is_profile_form_submitted: true,
-      }, 'Session refreshed successfully.'));
+    if (decodedToken.role !== 'student') {
+      clearRefreshTokenCookie(res);
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid token for student.',
+      });
     }
 
     const promiseDb = db.promise();

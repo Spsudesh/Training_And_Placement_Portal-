@@ -13,6 +13,7 @@ export default function ComposePage({
   onPublish,
   onCancelEdit,
   isSaving = false,
+  totalPosts = 0,
   title = "Create Post",
   description = "Choose a post type and fill only the fields needed for that format.",
 }) {
@@ -22,20 +23,29 @@ export default function ComposePage({
 
   return (
     <section className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-700">
             Notice Composer
           </p>
           <h2 className="mt-2 text-2xl font-bold text-slate-900">{title}</h2>
-          <p className="mt-2 text-sm text-slate-500">{description}</p>
+          <p className="mt-2 max-w-4xl text-sm text-slate-500">{description}</p>
         </div>
 
-        {editMode ? (
-          <div className="rounded-2xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700">
-            Edit mode is active. Update the selected post or cancel to close this window.
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch lg:justify-end">
+          <div className="min-w-[140px] rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Total Posts
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-slate-950">{totalPosts}</p>
           </div>
-        ) : null}
+
+          {editMode ? (
+            <div className="max-w-sm rounded-2xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700">
+              Edit mode is active. Update the selected post or cancel to close this window.
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-6 space-y-5">

@@ -10,11 +10,18 @@ const REFRESH_COOKIE_NAME = 'training_placement_refresh_token';
 const REFRESH_TOKEN_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 function createTokenPayload(user) {
-  return {
+  const payload = {
     prn: String(user.PRN || user.prn || ''),
     email: user.email,
     role: user.role,
   };
+
+  // Include department for TPC users
+  if (user.role === 'tpc' && user.department) {
+    payload.department = String(user.department || '');
+  }
+
+  return payload;
 }
 
 function createAccessToken(user) {
@@ -38,20 +45,27 @@ function createAuthResponse(user) {
   const accessToken = createAccessToken(user);
   const refreshToken = createRefreshToken(user);
 
+  const responseUser = {
+    PRN: String(user.PRN || user.prn || ''),
+    email: user.email,
+    role: user.role,
+    isProfileVerified: Boolean(user.is_profile_verified),
+    isProfileFormSubmitted: Boolean(user.is_profile_form_submitted),
+    profileFormLastCompletedStep: user.profileFormLastCompletedStep || null,
+    profileFormNextStep: user.profileFormNextStep || null,
+  };
+
+  // Include department for TPC users
+  if (user.role === 'tpc' && user.department) {
+    responseUser.department = String(user.department || '');
+  }
+
   return {
     accessToken,
     refreshToken,
     accessTokenExpiresAt: decodeExpiry(accessToken),
     refreshTokenExpiresAt: decodeExpiry(refreshToken),
-    user: {
-      PRN: String(user.PRN || user.prn || ''),
-      email: user.email,
-      role: user.role,
-      isProfileVerified: Boolean(user.is_profile_verified),
-      isProfileFormSubmitted: Boolean(user.is_profile_form_submitted),
-      profileFormLastCompletedStep: user.profileFormLastCompletedStep || null,
-      profileFormNextStep: user.profileFormNextStep || null,
-    },
+    user: responseUser,
   };
 }
 

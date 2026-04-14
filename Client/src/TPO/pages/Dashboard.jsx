@@ -324,10 +324,10 @@ export function NoticeBoardWorkspace({
     <>
       <div className="space-y-6">
         <section className="overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
-          <div className="relative px-6 py-6 sm:px-8 lg:px-10 lg:py-7">
+          <div className="relative px-6 py-5 sm:px-8 lg:px-10 lg:py-6">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(15,23,42,0.12),_transparent_26%),radial-gradient(circle_at_left,_rgba(100,116,139,0.08),_transparent_32%),linear-gradient(135deg,_#ffffff_0%,_#f8fafc_48%,_#f1f5f9_100%)]" />
-            <div className="relative">
-              <div className="max-w-3xl">
+            <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white">
                     {workspaceLabel} Workspace
@@ -337,10 +337,10 @@ export function NoticeBoardWorkspace({
                   </span>
                 </div>
 
-                <h1 className="mt-5 text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">
+                <h1 className="mt-4 text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">
                   Professional notice management for announcements, placements, and internships.
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-[15px]">
+                <p className="mt-2 max-w-5xl text-sm leading-6 text-slate-600 sm:text-[15px]">
                   Publish updates directly, switch formats with one click, and manage all {workspaceLabel} notices from one clean workspace.
                 </p>
               </div>
@@ -364,6 +364,7 @@ export function NoticeBoardWorkspace({
           onPublish={publishCreatePost}
           onCancelEdit={resetCreateComposer}
           isSaving={isSaving}
+          totalPosts={posts.length}
           title="Create Post"
           description="Select a format and only that form will appear below."
         />

@@ -2,6 +2,7 @@ import axios from "axios";
 import {
   clearAuthSession,
   getAccessToken,
+  getAuthenticatedUser,
   updateAuthSession,
 } from "./authSession";
 
@@ -20,7 +21,14 @@ const apiClient = axios.create({
 let refreshRequestPromise = null;
 
 async function performRefresh() {
-  const response = await publicApi.post("/student/refresh", {}, { skipAuthRefresh: true });
+  const user = getAuthenticatedUser();
+  const endpoint =
+    user?.role === 'tpc'
+      ? '/tpc/refresh'
+      : user?.role === 'tpo'
+        ? '/tpo/refresh'
+        : '/student/refresh';
+  const response = await publicApi.post(endpoint, {}, { skipAuthRefresh: true });
 
   updateAuthSession(response.data);
   return response.data;

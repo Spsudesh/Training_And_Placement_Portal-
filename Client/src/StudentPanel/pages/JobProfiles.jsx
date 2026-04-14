@@ -162,12 +162,21 @@ function getStudentWorkflowStyles(status) {
     };
   }
 
-  if (status === "rejected") {
+  if (status === "notqualified") {
     return {
       dot: "border-rose-500 bg-rose-500",
       line: "bg-rose-200",
       badge: "border border-rose-200 bg-rose-50 text-rose-700",
       card: "border-rose-200 bg-rose-50/60",
+    };
+  }
+
+  if (status === "inprogress") {
+    return {
+      dot: "border-cyan-500 bg-cyan-500",
+      line: "bg-cyan-100",
+      badge: "border border-cyan-200 bg-cyan-50 text-cyan-700",
+      card: "border-cyan-200 bg-cyan-50/60",
     };
   }
 
@@ -184,15 +193,19 @@ function getStudentWorkflowIcon(status) {
     return CheckCheck;
   }
 
-  if (status === "rejected") {
+  if (status === "notqualified") {
     return XCircle;
   }
 
-  if (status === "pending") {
+  if (status === "inprogress") {
     return CircleDot;
   }
 
-  return Calendar;
+  if (status === "pending") {
+    return Calendar;
+  }
+
+  return CircleDot;
 }
 
 function StudentWorkflowTimeline({ workflow = [] }) {
@@ -201,8 +214,8 @@ function StudentWorkflowTimeline({ workflow = [] }) {
   }
 
   const qualifiedCount = workflow.filter((item) => item.studentStatus === "qualified").length;
-  const pendingCount = workflow.filter((item) => item.studentStatus === "pending").length;
-  const rejectedStage = workflow.find((item) => item.studentStatus === "rejected")?.stage || "None";
+  const pendingCount = workflow.filter((item) => ["pending", "inprogress"].includes(item.studentStatus)).length;
+  const notQualifiedStage = workflow.find((item) => item.studentStatus === "notqualified")?.stage || "None";
 
   return (
     <section className="space-y-5">
@@ -250,12 +263,16 @@ function StudentWorkflowTimeline({ workflow = [] }) {
           <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
           Pending
         </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
+          <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" />
+          In Progress
+        </span>
         <span className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
           <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
-          Rejected
+          Not Qualified
         </span>
         <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
-          Rejection Stage: {rejectedStage}
+          Not Qualified From: {notQualifiedStage}
         </span>
       </div>
 

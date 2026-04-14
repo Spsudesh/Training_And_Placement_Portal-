@@ -4,7 +4,7 @@ import { loginUser } from "../../shared/authApi";
 
 const roleOptions = [
   { id: "student", label: "Student" },
-  { id: "tpc", label: "Faculty" },
+  { id: "tpc", label: "TPC" },
   { id: "tpo", label: "TPO" },
 ];
 
@@ -85,7 +85,7 @@ function LoginPage({ onLogin }) {
           </h1>
 
           <p className="mt-1.5 text-center text-sm text-slate-500">
-            Secure access for students and faculty
+            Secure access for students, faculty and TPO
           </p>
 
           <form className="mt-5 space-y-4" onSubmit={handleSubmit}>

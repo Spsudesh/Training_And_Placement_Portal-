@@ -2,14 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { signupUser } from "../../shared/authApi";
 
-const roleOptions = [
-  { id: "student", label: "Student" },
-  { id: "tpc", label: "Faculty" },
-];
-
 function SignupPage() {
   const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState("student");
   const [prn, setPrn] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,7 +44,6 @@ function SignupPage() {
         PRN: prn,
         email,
         password,
-        role: selectedRole,
       });
 
       if (!response?.success) {
@@ -93,38 +86,10 @@ function SignupPage() {
           </h1>
 
           <p className="mt-1.5 text-center text-sm text-slate-500">
-            Secure access for students and faculty
+            Secure access for students
           </p>
 
           <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="mb-3 block text-sm font-medium text-slate-700">Role</label>
-              <div className="grid grid-cols-2 rounded-2xl bg-[#eef3fb] p-1.5">
-                {roleOptions.map((role) => {
-                  const isActive = selectedRole === role.id;
-
-                  return (
-                    <button
-                      key={role.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedRole(role.id);
-                        setErrorMessage("");
-                        setSuccessMessage("");
-                      }}
-                      className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                        isActive
-                          ? "bg-white text-slate-900 shadow-[0_6px_18px_rgba(148,163,184,0.28)]"
-                          : "text-slate-500 hover:text-slate-700"
-                      }`}
-                    >
-                      {role.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             <div>
               <label htmlFor="signup-prn" className="mb-2 block text-sm font-medium text-slate-700">
                 PRN

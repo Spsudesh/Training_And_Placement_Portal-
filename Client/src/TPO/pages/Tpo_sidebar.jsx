@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Megaphone,
   Users,
+  TrendingUp,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import Header from "./TPOheader";
@@ -15,6 +16,7 @@ const navigationItems = [
   { label: "Students", icon: Users, to: "/tpo-dashboard/students" },
   { label: "Opportunities", icon: BriefcaseBusiness, to: "/tpo-dashboard/placements" },
   { label: "Notice Board", icon: Megaphone, to: "/tpo-dashboard/notice-board" },
+  { label: "TPC", icon: TrendingUp, to: "/tpo-dashboard/tpc" },
   { label: "Reports", icon: FileText, to: "/tpo-dashboard", disabled: true },
 ];
 

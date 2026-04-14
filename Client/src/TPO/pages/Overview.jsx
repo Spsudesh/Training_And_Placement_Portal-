@@ -65,24 +65,26 @@ export default function Overview({ onLogout }) {
       {!isLoading && data ? (
         <div className="space-y-6">
           <section className="overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
-            <div className="relative px-6 py-6 sm:px-8 lg:px-10 lg:py-7">
+            <div className="relative px-6 py-5 sm:px-8 lg:px-10 lg:py-6">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(34,211,238,0.18),_transparent_24%),radial-gradient(circle_at_left,_rgba(59,130,246,0.1),_transparent_30%),linear-gradient(135deg,_#ffffff_0%,_#f8fbff_45%,_#eef7ff_100%)]" />
-              <div className="relative">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white">
-                    TPO Workspace
-                  </span>
-                  <span className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-semibold text-cyan-700">
-                    Placement Overview
-                  </span>
-                </div>
+              <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white">
+                      TPO Workspace
+                    </span>
+                    <span className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-semibold text-cyan-700">
+                      Placement Overview
+                    </span>
+                  </div>
 
-                <h1 className="mt-5 max-w-3xl text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">
-                  Track student readiness, placement momentum, and current campus drive performance.
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-[15px]">
-                  Use this dashboard to monitor high-level placement health before moving into detailed notice publishing and drive communication.
-                </p>
+                  <h1 className="mt-4 text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">
+                    Track student readiness, placement momentum, and current campus drive performance.
+                  </h1>
+                  <p className="mt-2 max-w-5xl text-sm leading-6 text-slate-600 sm:text-[15px]">
+                    Use this dashboard to monitor high-level placement health before moving into detailed notice publishing and drive communication.
+                  </p>
+                </div>
               </div>
             </div>
           </section>
