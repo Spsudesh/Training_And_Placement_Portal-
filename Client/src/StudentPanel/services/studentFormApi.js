@@ -30,6 +30,9 @@ function createPersonalFormData(personal) {
   formData.append("handicap", personal.handicap ?? "");
   formData.append("aadhaar", personal.aadhaar ?? "");
   formData.append("panNumber", personal.panNumber ?? "");
+  formData.append("github", personal.github ?? "");
+  formData.append("linkedin", personal.linkedin ?? "");
+  formData.append("portfolio", personal.portfolio ?? "");
   appendFileIfPresent(formData, "profilePhoto", personal.profilePhoto);
 
   return formData;

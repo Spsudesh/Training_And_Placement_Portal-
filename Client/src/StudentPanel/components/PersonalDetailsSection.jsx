@@ -214,6 +214,40 @@ function PersonalDetailsSection({
           helperText="Upload passport-size photograph"
           required
         />
+
+        <div className="mt-4 space-y-1">
+          <p className="text-sm font-semibold text-slate-900">Professional Profiles</p>
+          <p className="text-xs text-slate-500">
+            Add the links you want recruiters and the placement team to review.
+          </p>
+        </div>
+
+        <FieldGrid columns={3}>
+          <TextInput
+            label="GitHub Profile Link"
+            name="github"
+            type="url"
+            value={data.github}
+            onChange={onFieldChange}
+            placeholder="https://github.com/username"
+          />
+          <TextInput
+            label="LinkedIn Profile Link"
+            name="linkedin"
+            type="url"
+            value={data.linkedin}
+            onChange={onFieldChange}
+            placeholder="https://www.linkedin.com/in/username"
+          />
+          <TextInput
+            label="Portfolio Link"
+            name="portfolio"
+            type="url"
+            value={data.portfolio}
+            onChange={onFieldChange}
+            placeholder="https://your-portfolio.com"
+          />
+        </FieldGrid>
       </div>
     </SectionCard>
   );

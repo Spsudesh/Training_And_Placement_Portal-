@@ -173,6 +173,11 @@ function mapProfileToPersonalForm(profileData = {}) {
     handicap: profileData.handicap ?? "",
     aadhaar: profileData.aadhaar ?? "",
     panNumber: profileData.panNumber ?? "",
+    github: profileData.github ?? profileData.githubUrl ?? profileData.github_url ?? "",
+    linkedin:
+      profileData.linkedin ?? profileData.linkedinUrl ?? profileData.linkedin_url ?? "",
+    portfolio:
+      profileData.portfolio ?? profileData.portfolioUrl ?? profileData.portfolio_url ?? "",
     profilePhoto: createProfilePhotoValue(profileData.profilePhotoUrl),
   };
 }
@@ -648,6 +653,9 @@ const initialState = {
       handicap: "",
       aadhaar: "",
       panNumber: "",
+      github: "",
+      linkedin: "",
+      portfolio: "",
       profilePhoto: "",
     },
     education: {

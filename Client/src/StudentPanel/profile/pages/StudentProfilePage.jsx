@@ -3,6 +3,12 @@ import CertificationsSection from "../../components/CertificationsSection";
 import EducationalDetailsSection from "../../components/EducationalDetailsSection";
 import ExperienceSection from "../../components/ExperienceSection";
 import ExtraActivitiesSection from "../../components/ExtraActivitiesSection";
+import {
+  FieldGrid,
+  SaveButton,
+  SectionCard,
+  TextInput,
+} from "../../components/FormUI";
 import PersonalDetailsSection from "../../components/PersonalDetailsSection";
 import ProjectsSection from "../../components/ProjectsSection";
 import TechnicalSkillsSection from "../../components/TechnicalSkillsSection";
@@ -389,7 +395,18 @@ function mapProfileToPersonalForm(profile) {
     handicap: profile.handicap ?? "",
     aadhaar: profile.aadhaar ?? "",
     panNumber: profile.panNumber ?? "",
+    github: profile.github ?? profile.githubUrl ?? profile.github_url ?? "",
+    linkedin: profile.linkedin ?? profile.linkedinUrl ?? profile.linkedin_url ?? "",
+    portfolio: profile.portfolio ?? profile.portfolioUrl ?? profile.portfolio_url ?? "",
     profilePhoto: createExistingFileValue(profile.profilePhotoUrl, "Profile Photo"),
+  };
+}
+
+function mapProfileToProfessionalProfilesForm(profile) {
+  return {
+    github: profile.github ?? profile.githubUrl ?? profile.github_url ?? "",
+    linkedin: profile.linkedin ?? profile.linkedinUrl ?? profile.linkedin_url ?? "",
+    portfolio: profile.portfolio ?? profile.portfolioUrl ?? profile.portfolio_url ?? "",
   };
 }
 
@@ -587,6 +604,8 @@ function createEditorState(profile, sectionKey) {
   switch (sectionKey) {
     case "summary":
       return profile.summary ?? "";
+    case "professional":
+      return mapProfileToProfessionalProfilesForm(profile);
     case "personal":
       return mapProfileToPersonalForm(profile);
     case "academic":
@@ -604,6 +623,48 @@ function createEditorState(profile, sectionKey) {
     default:
       return null;
   }
+}
+
+function ProfessionalProfilesEditor({
+  data,
+  onFieldChange,
+  onSave,
+  isSaved,
+}) {
+  return (
+    <SectionCard
+      title="Professional Profiles"
+      description="Keep your public professional links updated so recruiters can quickly review your work and presence."
+      actions={<SaveButton onClick={onSave} saved={isSaved} label="Save Profiles" />}
+    >
+      <FieldGrid columns={1}>
+        <TextInput
+          label="GitHub Profile Link"
+          name="github"
+          type="url"
+          value={data.github}
+          onChange={onFieldChange}
+          placeholder="https://github.com/username"
+        />
+        <TextInput
+          label="LinkedIn Profile Link"
+          name="linkedin"
+          type="url"
+          value={data.linkedin}
+          onChange={onFieldChange}
+          placeholder="https://www.linkedin.com/in/username"
+        />
+        <TextInput
+          label="Portfolio Link"
+          name="portfolio"
+          type="url"
+          value={data.portfolio}
+          onChange={onFieldChange}
+          placeholder="https://your-portfolio.com"
+        />
+      </FieldGrid>
+    </SectionCard>
+  );
 }
 
 function ProfileEditModal({ title, children, onClose }) {
@@ -977,6 +1038,12 @@ function StudentProfilePage() {
         case "summary":
           await saveProfileSummaryDetails(profile.prn, editorState);
           break;
+        case "professional":
+          await savePersonalDetails({
+            ...mapProfileToPersonalForm(profile),
+            ...editorState,
+          });
+          break;
         case "personal":
           await savePersonalDetails(editorState);
           break;
@@ -1016,11 +1083,18 @@ function StudentProfilePage() {
         };
       }
 
+      if (editingSection === "professional") {
+        nextProfile = {
+          ...nextProfile,
+          ...editorState,
+        };
+      }
+
       if (editingSection === "academic") {
         nextProfile = mapEducationFormToProfile(nextProfile, editorState);
       }
 
-      if (editingSection === "personal") {
+      if (["personal", "professional"].includes(editingSection)) {
         nextSectionVerification = {
           ...nextSectionVerification,
           personal: false,
@@ -1082,6 +1156,15 @@ function StudentProfilePage() {
               </button>
             </div>
           </div>
+        );
+      case "professional":
+        return (
+          <ProfessionalProfilesEditor
+            data={editorState}
+            onFieldChange={handleEditorFieldChange}
+            onSave={handleSectionSave}
+            isSaved={isSavingSection}
+          />
         );
       case "academic":
         return (
@@ -1222,6 +1305,39 @@ function StudentProfilePage() {
                 </p>
               </div>
             )}
+          </ProfileSection>
+
+          <ProfileSection
+            id="professional-profiles"
+            title="Professional Profiles"
+            description="Public links that help recruiters review the student's coding presence, work samples, and online portfolio."
+            statusLabel={personalSectionVerified ? "Verified" : "Pending Verification"}
+            actionLabel={
+              profile.github || profile.linkedin || profile.portfolio
+                ? "Update Professional Profiles"
+                : "Add Professional Profiles"
+            }
+            actionVariant={
+              profile.github || profile.linkedin || profile.portfolio ? "update" : "add"
+            }
+            onAction={() => requestEdit("professional")}
+          >
+            <ProfileFieldList
+              items={[
+                {
+                  label: "GitHub Profile",
+                  value: profile.github ?? profile.githubUrl ?? profile.github_url,
+                },
+                {
+                  label: "LinkedIn Profile",
+                  value: profile.linkedin ?? profile.linkedinUrl ?? profile.linkedin_url,
+                },
+                {
+                  label: "Portfolio",
+                  value: profile.portfolio ?? profile.portfolioUrl ?? profile.portfolio_url,
+                },
+              ]}
+            />
           </ProfileSection>
 
           <ProfileSection
@@ -1619,6 +1735,8 @@ function StudentProfilePage() {
           title={
             editingSection === "summary"
               ? "Profile Summary"
+              : editingSection === "professional"
+              ? "Professional Profiles"
               : editingSection === "personal"
               ? "Edit Personal Details"
               : editingSection === "academic"
