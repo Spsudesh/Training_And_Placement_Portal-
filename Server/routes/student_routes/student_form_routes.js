@@ -2,6 +2,7 @@ const express = require('express');
 const upload = require('../../config/upload');
 const { uploadFile } = require('../../config/storageService');
 const db = require('../../config/db').db;
+const { ensureCertificationDurationColumns } = require('../../utils/ensureCertificationDurationColumns');
 
 const studentFormRoutes = express.Router();
 
@@ -407,10 +408,12 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
 
   const {
     prn,
+    schoolName10,
     marks10,
     mathsMarks10,
     board10,
     year10,
+    collegeName12,
     marks12,
     mathsMarks12,
     board12,
@@ -440,11 +443,14 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
   );
   const existingEducation = existingEducationRows[0] || {};
 
+  const nextTenthSchoolName = normalizeTextValue(schoolName10);
   const nextTenthMarks = toNullableNumber(marks10);
   const nextTenthMathsMarks = toNullableNumber(mathsMarks10);
   const nextTenthBoard = board10 || null;
   const nextTenthYear = toNullableNumber(year10);
   const nextTenthMarksheetUrl = tenthMarksheetUrl || existingEducation.tenth_marksheet_url || null;
+  const nextTwelfthCollegeName =
+    normalizedEducationTrack === 'twelfth' ? normalizeTextValue(collegeName12) : null;
   const nextTwelfthMarks =
     normalizedEducationTrack === 'twelfth' ? toNullableNumber(marks12) : null;
   const nextTwelfthMathsMarks =
@@ -488,6 +494,7 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
 
   const nextTenthVerified =
     Boolean(existingEducation.tenth_verified) &&
+    valuesMatch(existingEducation.tenth_school_name, nextTenthSchoolName) &&
     numbersMatch(existingEducation.tenth_marks, nextTenthMarks) &&
     numbersMatch(existingEducation.tenth_maths_marks, nextTenthMathsMarks) &&
     valuesMatch(existingEducation.tenth_board, nextTenthBoard) &&
@@ -496,6 +503,7 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
 
   const nextTwelfthVerified =
     Boolean(existingEducation.twelfth_verified) &&
+    valuesMatch(existingEducation.twelfth_college_name, nextTwelfthCollegeName) &&
     numbersMatch(existingEducation.twelfth_marks, nextTwelfthMarks) &&
     numbersMatch(existingEducation.twelfth_maths_marks, nextTwelfthMathsMarks) &&
     valuesMatch(existingEducation.twelfth_board, nextTwelfthBoard) &&
@@ -535,18 +543,20 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
   await query(
     `
       INSERT INTO student_education
-      (PRN, tenth_marks, tenth_maths_marks, tenth_board, tenth_year, tenth_marksheet_url, tenth_verified,
-       twelfth_marks, twelfth_maths_marks, twelfth_board, twelfth_year, entrance_exam_type, entrance_exam_score, entrance_exam_marksheet_url, entrance_exam_verified, twelfth_marksheet_url, twelfth_verified,
+      (PRN, tenth_school_name, tenth_marks, tenth_maths_marks, tenth_board, tenth_year, tenth_marksheet_url, tenth_verified,
+       twelfth_college_name, twelfth_marks, twelfth_maths_marks, twelfth_board, twelfth_year, entrance_exam_type, entrance_exam_score, entrance_exam_marksheet_url, entrance_exam_verified, twelfth_marksheet_url, twelfth_verified,
        diploma_marks, diploma_institute, diploma_year, diploma_marksheet_url, diploma_verified,
        gap, gap_reason, gap_certificate_url, gap_verified, department, current_cgpa, percentage, cgpa_verified, active_backlogs, dead_backlog_semesters, dead_backlog_count, backlogs_verified, passing_year)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
+        tenth_school_name = VALUES(tenth_school_name),
         tenth_marks = VALUES(tenth_marks),
         tenth_maths_marks = VALUES(tenth_maths_marks),
         tenth_board = VALUES(tenth_board),
         tenth_year = VALUES(tenth_year),
         tenth_marksheet_url = COALESCE(VALUES(tenth_marksheet_url), tenth_marksheet_url),
         tenth_verified = VALUES(tenth_verified),
+        twelfth_college_name = VALUES(twelfth_college_name),
         twelfth_marks = VALUES(twelfth_marks),
         twelfth_maths_marks = VALUES(twelfth_maths_marks),
         twelfth_board = VALUES(twelfth_board),
@@ -578,12 +588,14 @@ studentFormRoutes.post('/education_details', asyncHandler(async (req, res) => {
     `,
     [
       prn,
+      nextTenthSchoolName,
       nextTenthMarks,
       nextTenthMathsMarks,
       nextTenthBoard,
       nextTenthYear,
       nextTenthMarksheetUrl,
       nextTenthVerified ? 1 : 0,
+      nextTwelfthCollegeName,
       nextTwelfthMarks,
       nextTwelfthMathsMarks,
       nextTwelfthBoard,
@@ -827,6 +839,8 @@ studentFormRoutes.post('/experience', asyncHandler(async (req, res) => {
 }));
 
 studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
+  await ensureCertificationDurationColumns();
+
   const { prn, certifications = '[]' } = req.body;
   const parsedCertifications = parseJsonField(certifications);
   const certificateUrls = await uploadIndexedFiles(req, 'certificationFile_', 'students/certifications');
@@ -846,6 +860,18 @@ studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
     const existingEntry = existingCertificationMap.get(certNumber);
     const nextName = entry.name || null;
     const nextPlatform = entry.platform || null;
+    const nextLink = entry.link || null;
+    const nextDurationUnit = entry.durationUnit || null;
+    const parsedDurationValue = Number(entry.durationValue);
+    const nextDurationValue =
+      entry.durationValue === '' ||
+      entry.durationValue === undefined ||
+      entry.durationValue === null ||
+      Number.isNaN(parsedDurationValue)
+        ? null
+        : parsedDurationValue;
+    const nextDurationSummary = entry.durationSummary || entry.duration || null;
+    const nextDuration = entry.duration || nextDurationSummary || null;
     const nextCertificateUrl =
       certificateUrls[index] || entry.certificateUrl || existingEntry?.certificate_url || null;
 
@@ -853,11 +879,21 @@ studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
       certNumber,
       name: nextName,
       platform: nextPlatform,
+      link: nextLink,
+      durationUnit: nextDurationUnit,
+      durationValue: nextDurationValue,
+      durationSummary: nextDurationSummary,
+      duration: nextDuration,
       certificateUrl: nextCertificateUrl,
       isVerified:
         Boolean(existingEntry?.is_verified) &&
         valuesMatch(existingEntry?.name, nextName) &&
         valuesMatch(existingEntry?.platform, nextPlatform) &&
+        valuesMatch(existingEntry?.link, nextLink) &&
+        valuesMatch(existingEntry?.duration_unit, nextDurationUnit) &&
+        valuesMatch(existingEntry?.duration_value, nextDurationValue) &&
+        valuesMatch(existingEntry?.duration_summary, nextDurationSummary) &&
+        valuesMatch(existingEntry?.duration, nextDuration) &&
         valuesMatch(existingEntry?.certificate_url, nextCertificateUrl),
     };
   });
@@ -874,7 +910,19 @@ studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
   await query(
     `
       INSERT INTO student_certifications
-      (PRN, cert_number, name, platform, certificate_url, is_verified)
+      (
+        PRN,
+        cert_number,
+        name,
+        platform,
+        link,
+        duration_unit,
+        duration_summary,
+        duration_value,
+        duration,
+        certificate_url,
+        is_verified
+      )
       VALUES ?
     `,
     [
@@ -883,6 +931,11 @@ studentFormRoutes.post('/certifications', asyncHandler(async (req, res) => {
         entry.certNumber,
         entry.name || null,
         entry.platform || null,
+        entry.link || null,
+        entry.durationUnit || null,
+        entry.durationSummary || null,
+        entry.durationValue ?? null,
+        entry.duration || null,
         entry.certificateUrl || null,
         entry.isVerified ? 1 : 0,
       ]),

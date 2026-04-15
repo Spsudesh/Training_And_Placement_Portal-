@@ -2,6 +2,7 @@ import FileAttachmentsField from "./FileAttachmentsField";
 import {
   getPassingYearOptions,
   noticeDepartmentOptions,
+  parseAllowedDepartments,
   selectableNoticeDepartmentOptions,
 } from "./noticeTargetOptions";
 import TargetMultiSelectField from "./TargetMultiSelectField";
@@ -26,11 +27,7 @@ export default function InternshipForm({
   onRemoveFile,
 }) {
   const passingYearOptions = getPassingYearOptions();
-  const allowedDepartments = formData.allowedDepartments 
-    ? (typeof formData.allowedDepartments === 'string' 
-        ? JSON.parse(formData.allowedDepartments) 
-        : formData.allowedDepartments)
-    : [];
+  const allowedDepartments = parseAllowedDepartments(formData.allowedDepartments);
 
   const handleAddDepartment = (department) => {
     if (department && !allowedDepartments.includes(department)) {

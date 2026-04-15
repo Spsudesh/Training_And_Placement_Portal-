@@ -61,6 +61,13 @@ const createProjectEntry = () => ({
 const createCertificationEntry = () => ({
   name: "",
   platform: "",
+  link: "",
+  duration: "",
+  durationSummary: "",
+  durationValue: "",
+  durationUnit: "",
+  startMonth: "",
+  endMonth: "",
   certificate: "",
   certificateUrl: "",
 });
@@ -311,11 +318,13 @@ function createExistingFileValue(fileUrl, fallbackLabel) {
 function mapProfileToEducationForm(profile) {
   return {
     educationTrack: profile.education.diploma?.year ? "diploma" : "twelfth",
+    schoolName10: profile.education.tenth?.schoolName ?? "",
     marks10: profile.education.tenth?.marks ?? "",
     mathsMarks10: profile.education.tenth?.mathsMarks ?? "",
     marksheet10: createExistingFileValue(profile.education.tenth?.marksheetUrl, "10th Marksheet"),
     board10: profile.education.tenth?.board ?? "",
     year10: profile.education.tenth?.year ?? "",
+    collegeName12: profile.education.twelfth?.collegeName ?? "",
     marks12: profile.education.twelfth?.marks ?? "",
     mathsMarks12: profile.education.twelfth?.mathsMarks ?? "",
     marksheet12: createExistingFileValue(profile.education.twelfth?.marksheetUrl, "12th Marksheet"),
@@ -428,9 +437,15 @@ function mapProfileToExperienceForm(profile) {
 function mapProfileToCertificationsForm(profile) {
   return profile.certifications.length
     ? profile.certifications.map((item) => ({
+        ...parseExperienceDuration(item.durationSummary || item.duration),
         certNumber: item.certNumber,
         name: item.name ?? "",
         platform: item.platform ?? "",
+        link: item.link ?? "",
+        duration: item.duration ?? item.durationSummary ?? "",
+        durationSummary: item.durationSummary ?? item.duration ?? "",
+        durationValue: item.durationValue ?? "",
+        durationUnit: item.durationUnit ?? "",
         certificate: createExistingFileValue(item.certificateUrl, `${item.name || "Certificate"}.pdf`),
         certificateUrl: buildDocumentUrl(item.certificateUrl),
       }))
@@ -474,6 +489,7 @@ function mapEducationFormToProfile(profile, formData) {
       tenth:
         formData.year10 || formData.board10 || formData.marks10 || currentTenth?.marksheetUrl
           ? {
+              schoolName: formData.schoolName10 ?? "",
               marks: formData.marks10 === "" ? "" : formData.marks10,
               mathsMarks: formData.mathsMarks10 === "" ? "" : formData.mathsMarks10,
               board: formData.board10 ?? "",
@@ -485,6 +501,7 @@ function mapEducationFormToProfile(profile, formData) {
         selectedTrack === "twelfth" &&
         (formData.year12 || formData.board12 || formData.marks12 || currentTwelfth?.marksheetUrl)
           ? {
+              collegeName: formData.collegeName12 ?? "",
               marks: formData.marks12 === "" ? "" : formData.marks12,
               mathsMarks: formData.mathsMarks12 === "" ? "" : formData.mathsMarks12,
               board: formData.board12 ?? "",
@@ -856,7 +873,7 @@ function StudentProfilePage() {
     const { name, value } = event.target;
 
     if (
-      editingSection === "experience" &&
+      ["experience", "certifications"].includes(editingSection) &&
       ["durationUnit", "durationValue", "startMonth", "endMonth"].includes(name)
     ) {
       setEditorState((current) =>
@@ -872,12 +889,22 @@ function StudentProfilePage() {
 
           return {
             ...nextItem,
-            duration: buildExperienceDuration(
+            [editingSection === "experience" ? "duration" : "durationSummary"]: buildExperienceDuration(
               nextItem.durationValue,
               nextItem.durationUnit,
               nextItem.startMonth,
               nextItem.endMonth,
             ),
+            ...(editingSection === "certifications"
+              ? {
+                  duration: buildExperienceDuration(
+                    nextItem.durationValue,
+                    nextItem.durationUnit,
+                    nextItem.startMonth,
+                    nextItem.endMonth,
+                  ),
+                }
+              : {}),
           };
         }),
       );
@@ -1489,26 +1516,40 @@ function StudentProfilePage() {
                   <ProfileItemCard
                     key={item.certNumber}
                     title={item.name}
-                    subtitle={item.platform}
+                    subtitle={
+                      [item.platform, item.durationSummary || item.duration || ""]
+                        .filter(Boolean)
+                        .join(" | ")
+                    }
                     meta={`Certificate ${item.certNumber}`}
                     links={
-                      item.certificateUrl
-                        ? [
-                            {
-                              label: "View Certificate",
-                              onClick: () =>
-                                setPreviewDocument({
-                                  url: buildPreviewUrl(
-                                    buildDocumentUrl(item.certificateUrl),
-                                    `${item.name}.pdf`
-                                  ),
-                                  sourceUrl: buildDocumentUrl(item.certificateUrl),
-                                  label: item.name,
-                                  type: inferFileType(item.certificateUrl),
-                                }),
-                            },
-                          ]
-                        : []
+                      [
+                        ...(item.link
+                          ? [
+                              {
+                                label: "Link",
+                                href: normalizeExternalUrl(item.link),
+                              },
+                            ]
+                          : []),
+                        ...(item.certificateUrl
+                          ? [
+                              {
+                                label: "View Certificate",
+                                onClick: () =>
+                                  setPreviewDocument({
+                                    url: buildPreviewUrl(
+                                      buildDocumentUrl(item.certificateUrl),
+                                      `${item.name}.pdf`
+                                    ),
+                                    sourceUrl: buildDocumentUrl(item.certificateUrl),
+                                    label: item.name,
+                                    type: inferFileType(item.certificateUrl),
+                                  }),
+                              },
+                            ]
+                          : []),
+                      ]
                     }
                   />
                 ))

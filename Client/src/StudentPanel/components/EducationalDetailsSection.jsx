@@ -53,6 +53,14 @@ function EducationalDetailsSection({
         <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
           Secondary Education
         </h3>
+        <TextInput
+          label="10th School Name"
+          name="schoolName10"
+          value={data.schoolName10}
+          onChange={onFieldChange}
+          placeholder="Enter 10th school name"
+          required
+        />
         <UploadRow
           label="10th Marksheet"
           name="marksheet10"
@@ -109,6 +117,14 @@ function EducationalDetailsSection({
             <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
               Higher Secondary Education
             </h3>
+            <TextInput
+              label="12th College Name"
+              name="collegeName12"
+              value={data.collegeName12}
+              onChange={onFieldChange}
+              placeholder="Enter 12th college name"
+              required
+            />
             <UploadRow
               label="12th Marksheet"
               name="marksheet12"

@@ -8,7 +8,7 @@ import {
   deleteTPCById,
 } from "../services/tpcApi";
 
-function TPCManagement() {
+function TPCManagement({ onLogout }) {
   const [tpcList, setTpcList] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -130,7 +130,7 @@ function TPCManagement() {
   };
 
   return (
-    <TpoSidebar pageTitle="TPC Management">
+    <TpoSidebar pageTitle="TPC Management" onLogout={onLogout}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

@@ -114,6 +114,13 @@ const createProject = () => ({
 const createCertification = () => ({
   name: "",
   platform: "",
+  link: "",
+  duration: "",
+  durationSummary: "",
+  durationValue: "",
+  durationUnit: "",
+  startMonth: "",
+  endMonth: "",
   certificate: "",
 });
 
@@ -210,6 +217,7 @@ function calculatePercentageFromCgpa(cgpaValue) {
 function mapProfileToEducationForm(profileData = {}) {
   return {
     educationTrack: profileData.education?.diploma?.year ? "diploma" : "twelfth",
+    schoolName10: profileData.education?.tenth?.schoolName ?? "",
     marks10: profileData.education?.tenth?.marks ?? "",
     mathsMarks10: profileData.education?.tenth?.mathsMarks ?? "",
     marksheet10: createExistingFileValue(
@@ -218,6 +226,7 @@ function mapProfileToEducationForm(profileData = {}) {
     ),
     board10: profileData.education?.tenth?.board ?? "",
     year10: profileData.education?.tenth?.year ?? "",
+    collegeName12: profileData.education?.twelfth?.collegeName ?? "",
     marks12: profileData.education?.twelfth?.marks ?? "",
     mathsMarks12: profileData.education?.twelfth?.mathsMarks ?? "",
     marksheet12: createExistingFileValue(
@@ -377,9 +386,15 @@ function mapProfileToSkillsForm(profileData = {}) {
 function mapProfileToCertificationsForm(profileData = {}) {
   return profileData.certifications?.length
     ? profileData.certifications.map((entry) => ({
+        ...parseExperienceDuration(entry.durationSummary || entry.duration),
         certNumber: entry.certNumber,
         name: entry.name ?? "",
         platform: entry.platform ?? "",
+        link: entry.link ?? "",
+        duration: entry.duration ?? entry.durationSummary ?? "",
+        durationSummary: entry.durationSummary ?? entry.duration ?? "",
+        durationValue: entry.durationValue ?? "",
+        durationUnit: entry.durationUnit ?? "",
         certificate: createExistingFileValue(
           entry.certificateUrl,
           `${entry.name || "Certificate"}.pdf`,
@@ -571,6 +586,7 @@ function getMissingEducationFields(education) {
       : "twelfth");
 
   const requiredFields = [
+    ["schoolName10", "10th School Name"],
     ["marks10", "10th Marks"],
     ["mathsMarks10", "10th Maths Marks"],
     ["board10", "10th Board"],
@@ -592,6 +608,7 @@ function getMissingEducationFields(education) {
     );
   } else {
     requiredFields.push(
+      ["collegeName12", "12th College Name"],
       ["marks12", "12th Marks"],
       ["mathsMarks12", "12th Maths Marks"],
       ["board12", "12th Board"],
@@ -635,11 +652,13 @@ const initialState = {
     },
     education: {
       educationTrack: "twelfth",
+      schoolName10: "",
       marks10: "",
       mathsMarks10: "",
       marksheet10: "",
       board10: "",
       year10: "",
+      collegeName12: "",
       marks12: "",
       mathsMarks12: "",
       marksheet12: "",
@@ -982,7 +1001,7 @@ function ProfileForm({ onComplete, initialStep }) {
     const { name, value } = event.target;
 
     if (
-      section === "experience" &&
+      ["experience", "certifications"].includes(section) &&
       ["durationUnit", "durationValue", "startMonth", "endMonth"].includes(name)
     ) {
       const currentEntry = state.formData[section][index];
@@ -1004,7 +1023,7 @@ function ProfileForm({ onComplete, initialStep }) {
         section,
         stepIndex,
         index,
-        name: "duration",
+        name: section === "experience" ? "duration" : "durationSummary",
         value: buildExperienceDuration(
           nextEntry.durationValue,
           nextEntry.durationUnit,
@@ -1012,6 +1031,22 @@ function ProfileForm({ onComplete, initialStep }) {
           nextEntry.endMonth,
         ),
       });
+
+      if (section === "certifications") {
+        dispatch({
+          type: "UPDATE_LIST_ITEM",
+          section,
+          stepIndex,
+          index,
+          name: "duration",
+          value: buildExperienceDuration(
+            nextEntry.durationValue,
+            nextEntry.durationUnit,
+            nextEntry.startMonth,
+            nextEntry.endMonth,
+          ),
+        });
+      }
       return;
     }
 

@@ -5,23 +5,19 @@ import SkillSelector from "./SkillSelector";
 const skillSections = [
   {
     key: "languages",
-    title: "Languages",
-    placeholder: "Java, Python, SQL",
+    title: "Programming Languages",
   },
   {
     key: "tools",
-    title: "Tools",
-    placeholder: "Git, Postman, Docker",
+    title: "Tools & Platforms",
   },
   {
     key: "frameworks",
-    title: "Frameworks",
-    placeholder: "React, Spring Boot, Express",
+    title: "Frameworks & Libraries",
   },
   {
     key: "otherLanguages",
-    title: "Other Languages",
-    placeholder: "German, French, Spanish, etc.",
+    title: "Spoken / Other Languages",
   },
 ];
 
@@ -64,7 +60,7 @@ function TechnicalSkillsSection({ data, onSkillsChange, onSave, isSaved }) {
   return (
     <SectionCard
       title="Technical Skills"
-      description="Capture skills in a structured way so they can be stored directly in the student skills table."
+      description="Pick skills from guided options for cleaner student profiles, better recruiter filtering, and more consistent interview-ready data."
       actions={<SaveButton onClick={onSave} saved={isSaved} />}
     >
       <FieldGrid columns={2}>

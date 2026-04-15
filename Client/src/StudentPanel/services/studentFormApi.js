@@ -44,10 +44,15 @@ function createEducationFormData(prn, education) {
       : "twelfth");
 
   formData.append("prn", prn ?? "");
+  formData.append("schoolName10", education.schoolName10 ?? "");
   formData.append("marks10", education.marks10 ?? "");
   formData.append("mathsMarks10", education.mathsMarks10 ?? "");
   formData.append("board10", education.board10 ?? "");
   formData.append("year10", education.year10 ?? "");
+  formData.append(
+    "collegeName12",
+    educationTrack === "twelfth" ? education.collegeName12 ?? "" : ""
+  );
   formData.append("marks12", educationTrack === "twelfth" ? education.marks12 ?? "" : "");
   formData.append(
     "mathsMarks12",
@@ -148,7 +153,10 @@ function createExperienceFormData(prn, experience) {
 }
 
 function createCertificationsFormData(prn, certifications) {
-  const sanitizedCertifications = omitFields(certifications, ["certificate"]);
+  const sanitizedCertifications = omitFields(certifications, ["certificate"]).map((entry) => ({
+    ...entry,
+    durationSummary: entry.durationSummary || entry.duration || "",
+  }));
   const formData = createJsonArrayFormData(prn, "certifications", sanitizedCertifications);
 
   certifications.forEach((entry, index) => {

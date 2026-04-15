@@ -30,6 +30,7 @@ import StudentHome from "./StudentPanel/pages/StudentHome";
 import StudentProfilePage from "./StudentPanel/profile/pages/StudentProfilePage";
 import StudentResumePage from "./StudentPanel/resume/pages/StudentResumePage";
 import StudentResumePreviewPage from "./StudentPanel/resume/pages/StudentResumePreviewPage";
+import AtsResumePage from "./StudentPanel/ats-resume/pages/AtsResumePage";
 import StudentSidebar from "./StudentPanel/pages/Student_sidebar";
 import ProfileForm from "./StudentPanel/pages/ProfileForm";
 import StudentDetailsPage from "./TPC_Panel/student_verification/pages/StudentDetailsPage";
@@ -329,6 +330,17 @@ function StudentApp() {
           }
         />
         <Route
+          path="ats-resume"
+          element={
+            hasSubmittedProfileForm ? (
+              <AtsResumePage />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
+          }
+        />
+
+        <Route
           path="resume"
           element={
             hasSubmittedProfileForm ? (
@@ -532,7 +544,7 @@ function TpoTPCManagementApp() {
     });
   };
 
-  return <TPCManagement />;
+  return <TPCManagement onLogout={handleLogout} />;
 }
 
 function TpcApp() {

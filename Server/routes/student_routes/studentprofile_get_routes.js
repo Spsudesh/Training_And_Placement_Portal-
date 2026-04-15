@@ -1,6 +1,7 @@
 
 const express = require('express');
 const db = require('../../config/db').db;
+const { ensureCertificationDurationColumns } = require('../../utils/ensureCertificationDurationColumns');
 
 const studentProfileGetRoutes = express.Router();
 const DEFAULT_PRN = '2453014';
@@ -97,6 +98,8 @@ async function handleGetStudentProfile(req, res) {
       : req.params.prn || req.query.prn || DEFAULT_PRN;
 
   try {
+    await ensureCertificationDurationColumns();
+
     const personalRows = await query(
       'SELECT * FROM student_personal WHERE PRN = ? LIMIT 1',
       [prn]
@@ -157,7 +160,17 @@ async function handleGetStudentProfile(req, res) {
 
     const certificationRows = await query(
       `
-        SELECT cert_number, name, platform, certificate_url, is_verified
+        SELECT
+          cert_number,
+          name,
+          platform,
+          link,
+          duration_unit,
+          duration_summary,
+          duration_value,
+          duration,
+          certificate_url,
+          is_verified
         FROM student_certifications
         WHERE PRN = ?
         ORDER BY cert_number ASC
@@ -239,6 +252,7 @@ async function handleGetStudentProfile(req, res) {
       education: {
         tenth: education.tenth_year
           ? {
+              schoolName: education.tenth_school_name || '',
               marks: education.tenth_marks,
               mathsMarks: education.tenth_maths_marks,
               board: education.tenth_board,
@@ -248,6 +262,7 @@ async function handleGetStudentProfile(req, res) {
           : null,
         twelfth: education.twelfth_year
           ? {
+              collegeName: education.twelfth_college_name || '',
               marks: education.twelfth_marks,
               mathsMarks: education.twelfth_maths_marks,
               board: education.twelfth_board,
@@ -309,6 +324,11 @@ async function handleGetStudentProfile(req, res) {
         certNumber: item.cert_number,
         name: item.name || '',
         platform: item.platform || '',
+        link: item.link || '',
+        durationUnit: item.duration_unit || '',
+        durationSummary: item.duration_summary || item.duration || '',
+        durationValue: item.duration_value ?? '',
+        duration: item.duration_summary || item.duration || '',
         certificateUrl: item.certificate_url || '',
       })),
       activities: activityRows.map((item) => ({

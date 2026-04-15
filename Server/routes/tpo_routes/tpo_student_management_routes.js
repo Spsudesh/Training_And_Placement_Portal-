@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../../config/db').db;
+const { ensureCertificationDurationColumns } = require('../../utils/ensureCertificationDurationColumns');
 
 const tpoStudentManagementRoutes = express.Router();
 
@@ -488,7 +489,9 @@ function mapExperience(experience) {
 function mapCertifications(certifications) {
   return (certifications || []).map((entry) => ({
     title: entry.name || `Certification ${entry.cert_number}`,
-    platform: entry.platform || '-',
+    platform: [entry.platform || '-', entry.duration_summary || entry.duration || '']
+      .filter(Boolean)
+      .join(' | '),
     description: entry.description || 'No description added.',
     document: createDocument('View Certificate', entry.certificate_url),
   }));
@@ -595,6 +598,8 @@ function createStudentManagementPayload(student) {
 }
 
 async function fetchStudentManagementRows() {
+  await ensureCertificationDurationColumns();
+
   await query(`
     CREATE TABLE IF NOT EXISTS placement_applications (
       id INT NOT NULL AUTO_INCREMENT,

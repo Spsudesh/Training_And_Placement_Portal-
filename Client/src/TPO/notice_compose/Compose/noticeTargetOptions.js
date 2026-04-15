@@ -32,3 +32,35 @@ export function getPassingYearOptions(referenceDate = new Date()) {
     { label: `1st Year - Batch ${finalYearBatch + 3}`, value: String(finalYearBatch + 3) },
   ];
 }
+
+export function parseAllowedDepartments(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item ?? "").trim()).filter(Boolean);
+  }
+
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return [];
+  }
+
+  if (trimmedValue.startsWith("[")) {
+    try {
+      const parsedValue = JSON.parse(trimmedValue);
+      return Array.isArray(parsedValue)
+        ? parsedValue.map((item) => String(item ?? "").trim()).filter(Boolean)
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return trimmedValue
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}

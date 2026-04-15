@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-const SKILL_CATALOG = [
-  {
-    key: "languages",
-    label: "Languages",
+const SKILL_CATALOG = {
+  languages: {
+    helperText: "Select core programming languages relevant to your role preparation.",
+    searchPlaceholder: "Search programming languages",
+    emptyLabel: "No programming languages selected yet.",
     options: [
       "C",
       "C++",
       "C#",
+      "CSS",
       "Dart",
       "Go",
+      "HTML",
       "Java",
       "JavaScript",
       "Kotlin",
+      "MATLAB",
       "PHP",
       "Python",
       "R",
@@ -23,28 +27,38 @@ const SKILL_CATALOG = [
       "TypeScript",
     ],
   },
-  {
-    key: "tools",
-    label: "Tools",
+  tools: {
+    helperText: "Choose tools and platforms you can confidently use in projects and internships.",
+    searchPlaceholder: "Search tools and platforms",
+    emptyLabel: "No tools selected yet.",
     options: [
       "Android Studio",
+      "Canva",
       "Docker",
+      "Eclipse",
       "Figma",
+      "Firebase",
       "Git",
       "GitHub",
+      "GitHub Actions",
+      "IntelliJ IDEA",
+      "Jupyter Notebook",
       "Linux",
       "MATLAB",
       "Netlify",
       "Postman",
       "Power BI",
+      "PyCharm",
       "Render",
+      "Tableau",
       "Vercel",
       "VS Code",
     ],
   },
-  {
-    key: "frameworks",
-    label: "Frameworks",
+  frameworks: {
+    helperText: "Add frameworks, libraries, and platforms you have used in academic or personal work.",
+    searchPlaceholder: "Search frameworks and libraries",
+    emptyLabel: "No frameworks selected yet.",
     options: [
       ".NET",
       "Angular",
@@ -54,203 +68,213 @@ const SKILL_CATALOG = [
       "FastAPI",
       "Flask",
       "Flutter",
+      "Hibernate",
       "Laravel",
       "Next.js",
       "Node.js",
+      "NumPy",
+      "Pandas",
       "React",
       "React Native",
+      "Spring",
       "Spring Boot",
       "Tailwind CSS",
+      "TensorFlow",
       "Vue.js",
     ],
   },
-  {
-    key: "other",
-    label: "Other",
-    options: [],
-  },
-  {
-    key: "soft_skills",
-    label: "Non-Technical Skills",
+  other: {
+    helperText: "Mention spoken or foreign languages that can support HR rounds, client interaction, or international roles.",
+    searchPlaceholder: "Search spoken languages",
+    emptyLabel: "No spoken languages selected yet.",
     options: [
-      "Leadership",
-      "Communication",
-      "Teamwork",
-      "Problem Solving",
-      "Time Management",
-      "Adaptability",
-      "Critical Thinking",
-      "Emotional Intelligence",
-      "Presentation",
-      "Negotiation",
-      "Conflict Resolution",
-      "Creativity",
-      "Project Management",
-      "Decision Making",
-      "Public Speaking",
+      "English",
+      "Hindi",
+      "Marathi",
+      "Gujarati",
+      "Punjabi",
+      "Bengali",
+      "Tamil",
+      "Telugu",
+      "Kannada",
+      "Malayalam",
+      "Urdu",
+      "Sanskrit",
+      "French",
+      "German",
+      "Japanese",
+      "Spanish",
+      "Italian",
+      "Mandarin",
+      "Arabic",
+      "Russian",
     ],
   },
-];
+};
 
-function parseSkillValue(value) {
+function normalizeSkills(value) {
   if (!value) {
     return [];
   }
 
-  return Array.isArray(value)
+  const items = Array.isArray(value)
     ? value
     : String(value)
         .split(",")
         .map((item) => item.trim())
-        .filter(Boolean)
-        .filter(
-          (item, index, items) =>
-            items.findIndex((entry) => entry.toLowerCase() === item.toLowerCase()) === index
-        );
-}
+        .filter(Boolean);
 
-function joinSkillValue(items) {
-  return items;
+  return items.filter(
+    (item, index, allItems) =>
+      allItems.findIndex((entry) => entry.toLowerCase() === item.toLowerCase()) === index,
+  );
 }
 
 function SkillSelector({ title, value, onChange, skillType }) {
-  const [inputValue, setInputValue] = useState("");
+  const [searchValue, setSearchValue] = useState("");
+  const [customValue, setCustomValue] = useState("");
 
-  const selectedItems = parseSkillValue(value);
-  const currentCategory =
-    SKILL_CATALOG.find((category) => category.key === skillType) ?? SKILL_CATALOG[0];
-  
-  // Get the last word being typed (after the last comma)
-  const inputParts = inputValue.split(",").map((s) => s.trim());
-  const lastInput = inputParts[inputParts.length - 1].toLowerCase();
-  
-  // Filter options based on last input
-  const visibleOptions = currentCategory.options.filter((option) =>
-    option.toLowerCase().includes(lastInput) && !isSelected(option)
-  );
+  const config = SKILL_CATALOG[skillType] ?? SKILL_CATALOG.languages;
+  const selectedItems = useMemo(() => normalizeSkills(value), [value]);
+  const normalizedSearch = searchValue.trim().toLowerCase();
 
-  function isSelected(option) {
-    return selectedItems.some((item) => item.toLowerCase() === option.toLowerCase());
-  }
+  const filteredOptions = config.options.filter((option) => {
+    const matchesSearch = !normalizedSearch || option.toLowerCase().includes(normalizedSearch);
+    const isAlreadySelected = selectedItems.some(
+      (item) => item.toLowerCase() === option.toLowerCase(),
+    );
+
+    return matchesSearch && !isAlreadySelected;
+  });
 
   function updateSelection(nextItems) {
-    onChange(joinSkillValue(nextItems));
-  }
-
-  function handleAddSkillsFromInput() {
-    const newSkills = inputValue
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    if (newSkills.length) {
-      const mergedSkills = [...selectedItems, ...newSkills].filter(
-        (skill, index, allSkills) =>
-          allSkills.findIndex(
-            (entry) => entry.toLowerCase() === skill.toLowerCase()
-          ) === index
-      );
-      updateSelection(mergedSkills);
-      setInputValue("");
-    }
-  }
-
-  function removeItem(option) {
-    updateSelection(
-      selectedItems.filter((item) => item.toLowerCase() !== option.toLowerCase())
+    onChange(
+      nextItems.filter(
+        (item, index, allItems) =>
+          allItems.findIndex((entry) => entry.toLowerCase() === item.toLowerCase()) === index,
+      ),
     );
   }
 
-  function handleSelectSuggestion(option) {
-    // Replace last word with selected option and keep comma-separated format
-    const newParts = [...inputParts.slice(0, -1), option];
-    setInputValue(newParts.join(", ") + ", ");
+  function addItem(item) {
+    const trimmedItem = String(item || "").trim();
+
+    if (!trimmedItem) {
+      return;
+    }
+
+    if (selectedItems.some((entry) => entry.toLowerCase() === trimmedItem.toLowerCase())) {
+      return;
+    }
+
+    updateSelection([...selectedItems, trimmedItem]);
   }
 
-  // Create display value: selected items + current input
-  const displayValue = selectedItems.length > 0 
-    ? selectedItems.join(", ") + (inputValue.trim() ? ", " + inputValue : "")
-    : inputValue;
+  function removeItem(item) {
+    updateSelection(
+      selectedItems.filter((entry) => entry.toLowerCase() !== item.toLowerCase()),
+    );
+  }
+
+  function handleAddCustomValue() {
+    addItem(customValue);
+    setCustomValue("");
+  }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <span>{title}</span>
+    <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-blue-50/60 p-5 shadow-sm">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white">
+            {selectedItems.length} selected
+          </span>
         </div>
-        <p className="text-sm text-slate-500">
-          Type skills separated by commas or select from suggestions.
-        </p>
+        <p className="text-sm leading-6 text-slate-500">{config.helperText}</p>
       </div>
 
-      <div className="mt-4">
-        <div className="flex flex-col gap-2">
-          <input
-            type="text"
-            value={displayValue}
-            onChange={(event) => {
-              const newValue = event.target.value;
-              // Only update if it's a new addition
-              if (newValue.length > displayValue.length) {
-                // User is typing
-                setInputValue(newValue.substring(selectedItems.join(", ").length).replace(/^, /, ""));
-              } else {
-                // User deleted
-                setInputValue(newValue);
-              }
-            }}
-            onKeyPress={(e) => {
-              if (e.key === "Enter") {
-                handleAddSkillsFromInput();
-              }
-            }}
-            placeholder={`Type ${title.toLowerCase()} separated by commas...`}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-          />
-          <button
-            type="button"
-            onClick={handleAddSkillsFromInput}
-            className="rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-600"
-          >
-            Add
-          </button>
+      <div className="mt-5 space-y-4">
+        <input
+          type="text"
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.target.value)}
+          placeholder={config.searchPlaceholder}
+          className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+        />
+
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Selected
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {selectedItems.length > 0 ? (
+              selectedItems.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => removeItem(item)}
+                  className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-600"
+                >
+                  <span>{item}</span>
+                  <span className="text-base leading-none">x</span>
+                </button>
+              ))
+            ) : (
+              <p className="text-sm text-slate-400">{config.emptyLabel}</p>
+            )}
+          </div>
         </div>
 
-        {lastInput && visibleOptions.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
-            <p className="w-full text-xs font-semibold uppercase text-slate-600">Suggestions:</p>
-            {visibleOptions.map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => handleSelectSuggestion(option)}
-                className="rounded-full border border-blue-300 bg-white px-3 py-1 text-sm text-blue-700 transition hover:bg-blue-100"
-              >
-                {option}
-              </button>
-            ))}
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Suggested Options
+          </p>
+          <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto pr-1">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => addItem(option)}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  {option}
+                </button>
+              ))
+            ) : (
+              <p className="text-sm text-slate-400">No matching options. Add a custom value below.</p>
+            )}
           </div>
-        )}
+        </div>
+
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+            Add Custom
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              value={customValue}
+              onChange={(event) => setCustomValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleAddCustomValue();
+                }
+              }}
+              placeholder={`Add custom ${title.toLowerCase()}`}
+              className="flex-1 rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            />
+            <button
+              type="button"
+              onClick={handleAddCustomValue}
+              className="rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800"
+            >
+              Add
+            </button>
+          </div>
+        </div>
       </div>
-
-      {selectedItems.length > 0 && (
-        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-xs font-semibold uppercase text-slate-600">Selected:</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {selectedItems.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => removeItem(item)}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-2 text-sm font-medium text-emerald-800 transition hover:bg-emerald-200"
-              >
-                <span>{item}</span>
-                <span className="text-base leading-none">x</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
