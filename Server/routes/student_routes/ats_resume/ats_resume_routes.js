@@ -59,6 +59,19 @@ function buildFullName(row) {
   return [row.first_name, row.middle_name, row.last_name].filter(Boolean).join(' ').trim();
 }
 
+function hasMeaningfulText(value) {
+  return String(value || '').trim().length > 0;
+}
+
+function hasSkills(profile) {
+  return Boolean(
+    profile?.skills?.languages?.length ||
+      profile?.skills?.frameworks?.length ||
+      profile?.skills?.tools?.length ||
+      profile?.skills?.otherLanguages?.length,
+  );
+}
+
 async function ensureStudentResumesTable() {
   await query(`
     CREATE TABLE IF NOT EXISTS student_resumes (
@@ -338,6 +351,87 @@ function buildEducationEntries(profile) {
   return entries;
 }
 
+function buildSectionOrder(requestedOrder, availableSections) {
+  const validKeys = ['summary', 'education', 'experience', 'projects', 'skills', 'certifications', 'activities'];
+  const requestedKeys = Array.isArray(requestedOrder)
+    ? requestedOrder.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
+    : [];
+  const uniqueRequestedKeys = requestedKeys.filter(
+    (key, index) => validKeys.includes(key) && requestedKeys.indexOf(key) === index,
+  );
+  const fallbackOrder = validKeys.filter((key) => availableSections[key]);
+
+  if (!uniqueRequestedKeys.length) {
+    return fallbackOrder;
+  }
+
+  return uniqueRequestedKeys.filter((key) => availableSections[key]);
+}
+
+function buildSectionMarkup(profile, selections, sectionKey) {
+  switch (sectionKey) {
+    case 'summary':
+      return hasMeaningfulText(profile.summary)
+        ? `<div class="section"><h2>PROFILE</h2><p class="desc">${escapeHtml(profile.summary)}</p></div>`
+        : '';
+    case 'education':
+      return renderListSection('EDUCATION', selections.education, (item) => `
+          <div class="education-row">
+            <div class="flex-between">
+              <h3>${escapeHtml(item.title)}</h3>
+              <span class="education-period">${escapeHtml(item.period)}</span>
+            </div>
+            ${item.detail ? `<p class="education-detail">- ${escapeHtml(item.detail)}</p>` : ''}
+          </div>
+        `);
+    case 'experience':
+      return renderListSection('PROFESSIONAL EXPERIENCE', selections.experience, (item) => `
+          <div class="entry">
+            <div class="flex-between">
+              <h3>${escapeHtml(item.role || item.type)} - ${escapeHtml(item.companyName)}</h3>
+              <span class="meta">${escapeHtml(item.duration)}</span>
+            </div>
+            <p class="desc">${escapeHtml(item.description)}</p>
+          </div>
+        `);
+    case 'projects':
+      return renderListSection('PROJECTS', selections.projects, (item) => `
+          <div class="entry">
+            <h3>${escapeHtml(item.title)} ${item.techStack ? `| ${escapeHtml(item.techStack)}` : ''}</h3>
+            <p class="desc">${escapeHtml(item.description)}</p>
+          </div>
+        `);
+    case 'skills':
+      return renderListSection('TECHNICAL SKILLS', [[profile.skills]], () => `
+          <div>
+            ${profile.skills.languages.length ? `<div class="skills-row"><strong>Programming:</strong> ${escapeHtml(profile.skills.languages.join(', '))}</div>` : ''}
+            ${profile.skills.frameworks.length ? `<div class="skills-row"><strong>Frameworks:</strong> ${escapeHtml(profile.skills.frameworks.join(', '))}</div>` : ''}
+            ${profile.skills.tools.length ? `<div class="skills-row"><strong>Tools:</strong> ${escapeHtml(profile.skills.tools.join(', '))}</div>` : ''}
+            ${profile.skills.otherLanguages.length ? `<div class="skills-row"><strong>Other:</strong> ${escapeHtml(profile.skills.otherLanguages.join(', '))}</div>` : ''}
+          </div>
+        `);
+    case 'certifications':
+      return renderListSection('CERTIFICATIONS', selections.certifications, (item) => `
+          <div class="entry">
+            <h3>
+              ${escapeHtml(item.name)}
+              ${item.link ? ` | <a href="${escapeHtml(item.link)}">Link</a>` : ''}
+            </h3>
+            ${item.platform ? `<p class="desc">${escapeHtml(item.platform)}</p>` : ''}
+          </div>
+        `);
+    case 'activities':
+      return renderListSection('EXTRA CURRICULAR ACTIVITIES', selections.activities, (item) => `
+          <div class="entry">
+            <h3>${escapeHtml(item.title)}</h3>
+            <p class="desc">${escapeHtml(item.description)}</p>
+          </div>
+        `);
+    default:
+      return '';
+  }
+}
+
 function buildAtsTemplate(profile, selections) {
   return `<!doctype html>
   <html>
@@ -462,6 +556,75 @@ function buildAtsTemplate(profile, selections) {
   </html>`;
 }
 
+function buildAtsTemplateOrdered(profile, selections, sectionOrder) {
+  return `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>${escapeHtml(profile.personal.fullName)} ATS Resume</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #fff; margin: 0; padding: 26px 30px; color: #000; font-size: 10px; line-height: 1.22; }
+        .page { width: 100%; max-width: 760px; margin: 0 auto; }
+        .header { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 8px; }
+        .header-photo-wrap { width: 92px; flex-shrink: 0; }
+        .header-photo { width: 92px; height: 92px; object-fit: cover; border: 1px solid #cfd6e2; display: block; }
+        .header-content { flex: 1; text-align: center; padding-top: 4px; }
+        h1 { margin: 0 0 7px 0; font-size: 18px; font-weight: 800; text-transform: uppercase; color: #233f72; letter-spacing: 0.3px; }
+        .contact { font-size: 9.2px; margin-bottom: 5px; font-weight: 700; line-height: 1.2; }
+        .contact a { color: #0b51ff; text-decoration: underline; }
+        .section { margin-top: 8px; }
+        h2 { margin: 0 0 5px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #215da8; border-bottom: 1px solid #000; padding-bottom: 1px; }
+        h3 { margin: 0 0 1px 0; font-size: 10.2px; font-weight: 800; }
+        p { margin: 0 0 2px 0; }
+        .entry { margin-bottom: 6px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+        .meta { font-size: 9.2px; font-weight: 700; white-space: nowrap; }
+        .desc { font-size: 9.4px; text-align: justify; line-height: 1.22; }
+        .skills-row { margin-bottom: 2px; font-size: 9.4px; }
+        .education-row { margin-bottom: 4px; }
+        .education-period { font-size: 9.6px; font-weight: 800; white-space: nowrap; }
+        .education-detail { margin: 1px 0 0 0; font-size: 9.5px; }
+      </style>
+    </head>
+    <body>
+      <div class="page">
+        <div class="header">
+          ${
+            profile.personal.profilePhotoUrl
+              ? `<div class="header-photo-wrap"><img class="header-photo" src="${escapeHtml(profile.personal.profilePhotoUrl)}" alt="Profile Photo" /></div>`
+              : ''
+          }
+          <div class="header-content">
+            <h1>${escapeHtml(profile.personal.fullName || profile.prn)}</h1>
+            <div class="contact">
+              Phone: ${escapeHtml(profile.personal.mobile)} | Email:
+              <a href="mailto:${escapeHtml(profile.personal.email || profile.personal.collegeEmail)}">${escapeHtml(profile.personal.email || profile.personal.collegeEmail)}</a>
+              | ${escapeHtml(joinNonEmpty([profile.personal.city, profile.personal.state], ', '))}
+            </div>
+            <div class="contact">
+              LinkedIn:
+              ${
+                profile.personal.linkedin
+                  ? `<a href="${escapeHtml(profile.personal.linkedin)}">${escapeHtml(profile.personal.linkedin)}</a>`
+                  : 'N/A'
+              }
+              | Github:
+              ${
+                profile.personal.github
+                  ? `<a href="${escapeHtml(profile.personal.github)}">${escapeHtml(profile.personal.github)}</a>`
+                  : 'N/A'
+              }
+            </div>
+          </div>
+        </div>
+
+        ${sectionOrder.map((sectionKey) => buildSectionMarkup(profile, selections, sectionKey)).join('')}
+      </div>
+    </body>
+  </html>`;
+}
+
 atsResumeRoutes.get('/templates', async (req, res) => {
   res.json({
     message: 'ATS Templates fetched.',
@@ -530,8 +693,24 @@ atsResumeRoutes.post('/generate', async (req, res) => {
       experience: selectItemsByIds(profile.experience, req.body?.selectedExperience),
       activities: selectItemsByIds(profile.activities, req.body?.selectedActivities),
     };
+    const availableSections = {
+      summary: hasMeaningfulText(profile.summary),
+      education: selections.education.length > 0,
+      experience: selections.experience.length > 0,
+      projects: selections.projects.length > 0,
+      skills: hasSkills(profile),
+      certifications: selections.certifications.length > 0,
+      activities: selections.activities.length > 0,
+    };
+    const sectionOrder = buildSectionOrder(req.body?.sectionOrder, availableSections);
 
-    const htmlContent = buildAtsTemplate(profile, selections);
+    if (!sectionOrder.length) {
+      return res.status(400).json({
+        message: 'Select at least one populated section to generate the ATS resume.',
+      });
+    }
+
+    const htmlContent = buildAtsTemplateOrdered(profile, selections, sectionOrder);
     const resumeTitle = req.body?.resumeTitle || `${prn}-ATS-Resume`;
     const folder = `student-resumes/${sanitizeFileName(prn)}`;
 
