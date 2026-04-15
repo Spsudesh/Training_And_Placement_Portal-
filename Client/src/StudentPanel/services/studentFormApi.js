@@ -6,6 +6,32 @@ function appendFileIfPresent(formData, fieldName, fileValue) {
   }
 }
 
+function normalizeDateOnlyValue(dateValue) {
+  if (dateValue === undefined || dateValue === null || dateValue === "") {
+    return "";
+  }
+
+  const normalizedValue = String(dateValue).trim();
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const dateMatch = normalizedValue.match(/^(\d{4}-\d{2}-\d{2})/);
+
+  if (dateMatch) {
+    return dateMatch[1];
+  }
+
+  const parsedDate = new Date(normalizedValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return normalizedValue;
+  }
+
+  return parsedDate.toISOString().slice(0, 10);
+}
+
 function createPersonalFormData(personal) {
   const formData = new FormData();
 
@@ -22,7 +48,7 @@ function createPersonalFormData(personal) {
   formData.append("district", personal.district ?? "");
   formData.append("state", personal.state ?? "");
   formData.append("pincode", personal.pincode ?? "");
-  formData.append("dob", personal.dob ?? "");
+  formData.append("dob", normalizeDateOnlyValue(personal.dob));
   formData.append("age", personal.age ?? "");
   formData.append("bloodGroup", personal.bloodGroup ?? "");
   formData.append("gender", personal.gender ?? "");

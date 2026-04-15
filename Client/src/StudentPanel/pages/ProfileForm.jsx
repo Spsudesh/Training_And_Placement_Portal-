@@ -70,6 +70,32 @@ function calculateAgeFromDob(dobValue) {
   return age >= 0 ? String(age) : "";
 }
 
+function normalizeDateOnlyValue(dateValue) {
+  if (dateValue === undefined || dateValue === null || dateValue === "") {
+    return "";
+  }
+
+  const normalizedValue = String(dateValue).trim();
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const dateMatch = normalizedValue.match(/^(\d{4}-\d{2}-\d{2})/);
+
+  if (dateMatch) {
+    return dateMatch[1];
+  }
+
+  const parsedDate = new Date(normalizedValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return normalizedValue;
+  }
+
+  return parsedDate.toISOString().slice(0, 10);
+}
+
 function normalizeLocationInput(value) {
   const normalizedValue = String(value ?? "")
     .replace(/\s+/g, " ")
@@ -162,7 +188,7 @@ function mapProfileToPersonalForm(profileData = {}) {
     district: profileData.district ?? "",
     city: profileData.city ?? "",
     pincode: profileData.pincode ?? "",
-    dob: profileData.dob ?? "",
+    dob: normalizeDateOnlyValue(profileData.dob),
     age:
       profileData.age !== undefined && profileData.age !== null && profileData.age !== ""
         ? String(profileData.age)

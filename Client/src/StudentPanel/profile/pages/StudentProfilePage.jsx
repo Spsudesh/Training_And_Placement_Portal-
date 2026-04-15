@@ -101,6 +101,32 @@ function formatDate(dateValue) {
   });
 }
 
+function normalizeDateOnlyValue(dateValue) {
+  if (dateValue === undefined || dateValue === null || dateValue === "") {
+    return "";
+  }
+
+  const normalizedValue = String(dateValue).trim();
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const dateMatch = normalizedValue.match(/^(\d{4}-\d{2}-\d{2})/);
+
+  if (dateMatch) {
+    return dateMatch[1];
+  }
+
+  const parsedDate = new Date(normalizedValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return normalizedValue;
+  }
+
+  return parsedDate.toISOString().slice(0, 10);
+}
+
 function formatAddress(profile) {
   return [
     profile.address,
@@ -387,7 +413,7 @@ function mapProfileToPersonalForm(profile) {
     district: profile.district ?? "",
     city: profile.city ?? "",
     pincode: profile.pincode ?? "",
-    dob: profile.dob ?? "",
+    dob: normalizeDateOnlyValue(profile.dob),
     age: profile.age ?? "",
     bloodGroup: profile.bloodGroup ?? "",
     gender: profile.gender ?? "",

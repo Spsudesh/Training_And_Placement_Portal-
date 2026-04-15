@@ -168,6 +168,32 @@ function normalizeEmailValue(value) {
   return String(value).trim().toLowerCase();
 }
 
+function normalizeDateValue(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const normalizedValue = String(value).trim();
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const dateMatch = normalizedValue.match(/^(\d{4}-\d{2}-\d{2})/);
+
+  if (dateMatch) {
+    return dateMatch[1];
+  }
+
+  const parsedDate = new Date(normalizedValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return normalizedValue;
+  }
+
+  return parsedDate.toISOString().slice(0, 10);
+}
+
 function valuesMatch(currentValue, nextValue) {
   return normalizeTextValue(currentValue) === normalizeTextValue(nextValue);
 }
@@ -347,7 +373,7 @@ studentFormRoutes.post('/personal_details', asyncHandler(async (req, res) => {
       normalizeLocationValue(district),
       normalizeLocationValue(state),
       pincode || null,
-      dob || null,
+      normalizeDateValue(dob),
       toNullableNumber(age),
       normalizeTextValue(bloodGroup),
       gender || null,
