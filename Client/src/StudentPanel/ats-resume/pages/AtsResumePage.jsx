@@ -414,11 +414,42 @@ function FinalizePanel({
   );
 }
 
+function GenerationOverlay({ status }) {
+  if (!status) {
+    return null;
+  }
+
+  const isDone = status === 'done';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 backdrop-blur-sm">
+      <div className="mx-4 w-full max-w-md rounded-[28px] border border-white/60 bg-white/90 px-6 py-7 text-center shadow-[0_24px_90px_rgba(15,23,42,0.22)]">
+        <div
+          className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full ${
+            isDone ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-700'
+          }`}
+        >
+          {isDone ? <CheckCircle2 className="h-8 w-8" /> : <Loader2 className="h-8 w-8 animate-spin" />}
+        </div>
+        <h2 className="mt-5 text-2xl font-semibold text-slate-950">
+          {isDone ? 'Resume Ready' : 'Resume Is In Process'}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          {isDone
+            ? 'Done. Opening your generated ATS resume now.'
+            : 'Please wait while we generate and prepare your resume.'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function AtsResumePage() {
   const [profile, setProfile] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [resumeTitle, setResumeTitle] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
@@ -512,7 +543,9 @@ export default function AtsResumePage() {
       return;
     }
 
+    const resumeWindow = window.open('', '_blank');
     setGenerating(true);
+    setGenerationStatus('processing');
     try {
       const data = await generateAtsResume({
         templateCode: 'ats_standard',
@@ -529,14 +562,33 @@ export default function AtsResumePage() {
       setHistory(normalizeHistory(newHistory));
 
       const fileUrl = resolveFileUrl(data?.fileUrl);
-      if (fileUrl) window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      setGenerationStatus('done');
+
+      window.setTimeout(() => {
+        if (fileUrl) {
+          if (resumeWindow && !resumeWindow.closed) {
+            resumeWindow.location.href = fileUrl;
+          } else {
+            window.open(fileUrl, '_blank', 'noopener,noreferrer');
+          }
+        } else if (resumeWindow && !resumeWindow.closed) {
+          resumeWindow.close();
+        }
+
+        setGenerationStatus('');
+      }, 700);
     } catch (err) {
+      if (resumeWindow && !resumeWindow.closed) {
+        resumeWindow.close();
+      }
+
       const message =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         err?.message ||
         'Failed to generate ATS resume.';
       alert(message);
+      setGenerationStatus('');
     } finally {
       setGenerating(false);
     }
@@ -560,6 +612,7 @@ export default function AtsResumePage() {
   }
 
   return (
+    <>
     <div className="mx-auto max-w-6xl pb-16">
       <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -693,5 +746,7 @@ export default function AtsResumePage() {
         )}
       </section>
     </div>
+    <GenerationOverlay status={generationStatus} />
+    </>
   );
 }

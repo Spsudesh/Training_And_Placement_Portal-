@@ -74,6 +74,24 @@ function formatLinkLabel(url, fallback) {
   return raw.replace(/^https?:\/\//i, '').replace(/\/+$/g, '');
 }
 
+function formatPhoneNumber(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+
+  if (!digits) {
+    return '';
+  }
+
+  if (digits.length === 10) {
+    return `+91-${digits}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return `+91-${digits.slice(2)}`;
+  }
+
+  return String(value || '').trim();
+}
+
 function formatDurationValue(durationValue, durationUnit) {
   const value = String(durationValue ?? '').trim();
   const unit = String(durationUnit || '').trim().toLowerCase();
@@ -132,15 +150,15 @@ function buildCertificationLine(item) {
 function getInlineIconSvg(type) {
   const icons = {
     phone:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.6 3.2 3.9 5.5 7.1 7.1l2.4-2.4c.3-.3.7-.4 1-.3 1.1.4 2.2.6 3.4.6.6 0 1 .4 1 1V21c0 .6-.4 1-1 1C10.8 22 2 13.2 2 2c0-.6.4-1 1-1h4.2c.6 0 1 .4 1 1 0 1.2.2 2.3.6 3.4.1.4 0 .8-.3 1l-2.4 2.4Z" fill="currentColor"/></svg>',
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5l-2.5 1.5a11 11 0 0 0 5 5l1.5 -2.5l5 2v4a2 2 0 0 1 -2 2a16 16 0 0 1 -15 -15a2 2 0 0 1 2 -2" /></svg>',
     email:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v.2l9 5.6 9-5.6V7H3Zm18 10V9.5l-8.5 5.3a1 1 0 0 1-1 0L3 9.5V17h18Z" fill="currentColor"/></svg>',
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10" /><path d="M3 7l9 6l9 -6" /></svg>',
     location:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Zm0-9a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" fill="currentColor"/></svg>',
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /><path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0" /></svg>',
     linkedin:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.9 8.6A1.9 1.9 0 1 1 6.9 4.8a1.9 1.9 0 0 1 0 3.8ZM5.2 10h3.4v8.8H5.2V10Zm5.5 0h3.2v1.2h.1c.4-.8 1.5-1.6 3.1-1.6 3.3 0 3.9 2.1 3.9 4.9v4.3h-3.4V15c0-.9 0-2.1-1.3-2.1s-1.5 1-1.5 2V19h-3.4V10Z" fill="currentColor"/></svg>',
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11v5" /><path d="M8 8v.01" /><path d="M12 16v-5" /><path d="M16 16v-3a2 2 0 1 0 -4 0" /><path d="M3 7a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v10a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4l0 -10" /></svg>',
     github:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .8a11.2 11.2 0 0 0-3.5 21.8c.6.1.8-.3.8-.6v-2.1c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.2-1.6-1.2-1.6-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 2.6 3.3 1.9.1-.7.4-1.2.7-1.5-2.6-.3-5.4-1.3-5.4-5.8 0-1.3.4-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.9 1.2 1.9 1.2 3.2 0 4.5-2.8 5.5-5.4 5.8.4.4.8 1 .8 2v2.9c0 .3.2.7.8.6A11.2 11.2 0 0 0 12 .8Z" fill="currentColor"/></svg>',
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" /></svg>',
   };
 
   return icons[type] || '';
@@ -159,29 +177,54 @@ function renderContactChip(iconType, content) {
   `;
 }
 
+function renderInlineContact(iconType, content) {
+  if (!content) {
+    return '';
+  }
+
+  return `
+    <span class="contact-item contact-item-${iconType}">
+      <span class="contact-icon">${getInlineIconSvg(iconType)}</span>
+      <span class="contact-text">${content}</span>
+    </span>
+  `;
+}
+
 function renderAtsHeader(profile) {
   const email = profile.personal.email || profile.personal.collegeEmail;
   const location = joinNonEmpty([profile.personal.city, profile.personal.state], ', ');
-  const primaryContactChips = [
-    renderContactChip('phone', escapeHtml(profile.personal.mobile)),
-    renderContactChip(
-      'email',
-      email
-        ? `<a class="external-link" href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>`
-        : '',
-    ),
-    renderContactChip('location', escapeHtml(location)),
-  ].filter(Boolean);
-  const secondaryContactChips = [
-    renderContactChip(
-      'linkedin',
-      renderExternalLink(profile.personal.linkedin, formatLinkLabel(profile.personal.linkedin, 'LinkedIn')),
-    ),
-    renderContactChip(
-      'github',
-      renderExternalLink(profile.personal.github, formatLinkLabel(profile.personal.github, 'GitHub')),
-    ),
-  ].filter(Boolean);
+  const primaryContactLine = joinNonEmpty(
+    [
+      renderInlineContact('phone', escapeHtml(formatPhoneNumber(profile.personal.mobile))),
+      renderInlineContact(
+        'email',
+        email
+          ? `<a class="external-link" href="mailto:${escapeHtml(email)}" target="_blank" rel="noopener noreferrer">${escapeHtml(email)}</a>`
+          : '',
+      ),
+      renderInlineContact('location', escapeHtml(location)),
+    ],
+    ' <span class="contact-separator">|</span> ',
+  );
+  const professionalLinksLine = joinNonEmpty(
+    [
+      renderInlineContact(
+        'linkedin',
+        renderExternalLink(
+          profile.personal.linkedin,
+          formatLinkLabel(profile.personal.linkedin, 'LinkedIn')
+        )
+      ),
+      renderInlineContact(
+        'github',
+        renderExternalLink(
+          profile.personal.github,
+          formatLinkLabel(profile.personal.github, 'GitHub')
+        )
+      ),
+    ],
+    ' <span class="contact-separator">|</span> ',
+  );
 
   return `
     <div class="header">
@@ -193,8 +236,8 @@ function renderAtsHeader(profile) {
         }
         <div class="header-content">
           <h1>${escapeHtml(profile.personal.fullName || profile.prn)}</h1>
-          ${primaryContactChips.length ? `<div class="contact-grid primary">${primaryContactChips.join('')}</div>` : ''}
-          ${secondaryContactChips.length ? `<div class="contact-grid secondary">${secondaryContactChips.join('')}</div>` : ''}
+          ${primaryContactLine ? `<div class="contact-line primary">${primaryContactLine}</div>` : ''}
+          ${professionalLinksLine ? `<div class="contact-line secondary">${professionalLinksLine}</div>` : ''}
         </div>
       </div>
     </div>
@@ -608,14 +651,16 @@ function buildAtsTemplate(profile, selections) {
         .header-photo-wrap { width: 108px; height: 108px; flex-shrink: 0; }
         .header-photo { width: 108px; height: 108px; object-fit: cover; border: 1px solid #cfd6e2; display: block; }
         .header-content { min-height: 108px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        h1 { margin: 0 0 8px 0; font-size: 20px; font-weight: 800; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
-        .contact-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 12px; align-items: center; }
-        .contact-grid.secondary { margin-top: 6px; }
-        .contact-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 9.3px; font-weight: 600; line-height: 1.2; }
-        .contact-icon { width: 11px; height: 11px; display: inline-flex; color: #215da8; flex-shrink: 0; }
-        .contact-icon svg { width: 11px; height: 11px; display: block; }
-        .contact-value { display: inline-block; }
-        .external-link { color: #0b51ff; text-decoration: underline; font-weight: 400; }
+        h1 { margin: 0 0 10px 0; font-size: 22px; font-weight: 800; font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
+        .contact-line { font-size: 10.1px; font-weight: 600; line-height: 1.45; text-align: center; word-break: break-word; }
+        .contact-line.secondary { margin-top: 10px; }
+        .contact-item { display: inline-flex; align-items: center; gap: 7px; vertical-align: middle; }
+        .contact-icon { width: 13px; height: 13px; display: inline-flex; color: #111827; flex-shrink: 0; }
+        .contact-icon svg { width: 13px; height: 13px; display: block; }
+        .contact-item-phone .contact-icon { color: #ef4444; }
+        .contact-text { display: inline-block; }
+        .contact-separator { color: #000; padding: 0 12px; font-weight: 700; }
+        .external-link { color: #0b51ff; text-decoration: none; font-weight: 700; }
         .section { margin-top: 9px; }
         h2 { margin: 0 0 5px 0; font-size: 10.8px; font-weight: 800; color: #215da8; border-bottom: 1px solid #000; padding-bottom: 1px; }
         h3 { margin: 0 0 2px 0; font-size: 10.1px; font-weight: 800; }
@@ -720,14 +765,16 @@ function buildAtsTemplateOrdered(profile, selections, sectionOrder) {
         .header-photo-wrap { width: 108px; height: 108px; flex-shrink: 0; }
         .header-photo { width: 108px; height: 108px; object-fit: cover; border: 1px solid #cfd6e2; display: block; }
         .header-content { min-height: 108px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        h1 { margin: 0 0 8px 0; font-size: 20px; font-weight: 800; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
-        .contact-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 12px; align-items: center; }
-        .contact-grid.secondary { margin-top: 6px; }
-        .contact-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 9.3px; font-weight: 600; line-height: 1.2; }
-        .contact-icon { width: 11px; height: 11px; display: inline-flex; color: #215da8; flex-shrink: 0; }
-        .contact-icon svg { width: 11px; height: 11px; display: block; }
-        .contact-value { display: inline-block; }
-        .external-link { color: #0b51ff; text-decoration: underline; font-weight: 400; }
+        h1 { margin: 0 0 10px 0; font-size: 22px; font-weight: 800; font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
+        .contact-line { font-size: 10.1px; font-weight: 600; line-height: 1.45; text-align: center; word-break: break-word; }
+        .contact-line.secondary { margin-top: 10px; }
+        .contact-item { display: inline-flex; align-items: center; gap: 7px; vertical-align: middle; }
+        .contact-icon { width: 13px; height: 13px; display: inline-flex; color: #111827; flex-shrink: 0; }
+        .contact-icon svg { width: 13px; height: 13px; display: block; }
+        .contact-item-phone .contact-icon { color: #ef4444; }
+        .contact-text { display: inline-block; }
+        .contact-separator { color: #000; padding: 0 12px; font-weight: 700; }
+        .external-link { color: #0b51ff; text-decoration: none; font-weight: 700; }
         .section { margin-top: 9px; }
         h2 { margin: 0 0 5px 0; font-size: 10.8px; font-weight: 800; color: #215da8; border-bottom: 1px solid #000; padding-bottom: 1px; }
         h3 { margin: 0 0 2px 0; font-size: 10.1px; font-weight: 800; }
