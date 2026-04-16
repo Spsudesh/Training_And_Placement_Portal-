@@ -52,6 +52,7 @@ app.use('/tpo/placements', requireAuth, requireRole('tpo'), tpoPlacementsRoutes)
 app.use('/tpo/notices', requireAuth, requireRole('tpo'), tpoNoticeRoutes);
 app.use('/tpo/tpc', requireAuth, requireRole('tpo'), tpoTPCRoutes);
 app.use('/tpo/application-tracking', requireAuth, requireRole('tpo'), tpoApplicationTrackingRoutes);
+app.use('/tpc/application-tracking', requireAuth, requireRole('tpc'), tpoApplicationTrackingRoutes);
 app.use('/tpo', requireAuth, requireRole('tpo'), tpoStudentManagementRoutes);
 
 app.use(errorHandler);

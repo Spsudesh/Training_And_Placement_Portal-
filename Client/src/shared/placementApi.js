@@ -5,6 +5,18 @@ import {
   normalizePlacementAttachment,
 } from "./placementJobs";
 
+function resolvePlacementBasePath(scope = "tpo") {
+  if (scope === "student") {
+    return "/student/placements";
+  }
+
+  if (scope === "tpc") {
+    return "/tpc/opportunities";
+  }
+
+  return "/tpo/placements";
+}
+
 function appendPlacementFields(target, payload) {
   target.append("company", payload.company);
   target.append("title", payload.title);
@@ -68,16 +80,16 @@ function mapApiPlacement(responseData) {
 }
 
 export async function fetchPlacements(scope = "tpo", options = {}) {
-  const response = await apiClient.get(`/${scope}/placements`, {
+  const response = await apiClient.get(resolvePlacementBasePath(scope), {
     params: options,
   });
   const placements = Array.isArray(response.data?.data) ? response.data.data : [];
   return placements.map(mapApiPlacement);
 }
 
-export async function createPlacement(formValues) {
+export async function createPlacement(formValues, scope = "tpo") {
   const response = await apiClient.post(
-    "/tpo/placements",
+    resolvePlacementBasePath(scope),
     createPlacementFormData(formValues),
     {
       headers: {
@@ -89,9 +101,9 @@ export async function createPlacement(formValues) {
   return mapApiPlacement(response.data?.data);
 }
 
-export async function updatePlacement(id, formValues, existingPlacement = null) {
+export async function updatePlacement(id, formValues, existingPlacement = null, scope = "tpo") {
   const response = await apiClient.put(
-    `/tpo/placements/${id}`,
+    `${resolvePlacementBasePath(scope)}/${id}`,
     createPlacementFormData(formValues, existingPlacement),
     {
       headers: {
@@ -103,8 +115,8 @@ export async function updatePlacement(id, formValues, existingPlacement = null) 
   return mapApiPlacement(response.data?.data);
 }
 
-export async function deletePlacement(id) {
-  await apiClient.delete(`/tpo/placements/${id}`);
+export async function deletePlacement(id, scope = "tpo") {
+  await apiClient.delete(`${resolvePlacementBasePath(scope)}/${id}`);
 }
 
 export async function applyForPlacement(id) {

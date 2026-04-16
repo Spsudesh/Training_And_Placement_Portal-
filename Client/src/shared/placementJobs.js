@@ -502,6 +502,8 @@ export function hydratePlacementJob(job) {
     ...job,
     workflow: normalizeWorkflow(job),
     attachment: normalizePlacementAttachment(job.attachment),
+    createdBy: job.createdBy ?? null,
+    updatedBy: job.updatedBy ?? null,
   };
 }
 

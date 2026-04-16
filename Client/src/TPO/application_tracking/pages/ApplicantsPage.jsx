@@ -98,9 +98,10 @@ function exportApplicantsToCsv(opportunity, applicants) {
   URL.revokeObjectURL(url);
 }
 
-export default function ApplicantsPage() {
+export default function ApplicantsPage({ panelScope = "tpo" }) {
   const navigate = useNavigate();
   const { placementId } = useParams();
+  const isTpcPanel = panelScope === "tpc";
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -128,7 +129,7 @@ export default function ApplicantsPage() {
 
     try {
       setErrorMessage("");
-      const data = await fetchOpportunityApplicants(placementId);
+      const data = await fetchOpportunityApplicants(placementId, panelScope);
       setPageData(data);
     } catch (error) {
       setErrorMessage(
@@ -146,7 +147,7 @@ export default function ApplicantsPage() {
 
   useEffect(() => {
     loadApplicants();
-  }, [placementId]);
+  }, [placementId, panelScope]);
 
   const filteredApplicants = useMemo(() => {
     const searchValue = search.trim().toLowerCase();
@@ -188,7 +189,7 @@ export default function ApplicantsPage() {
 
     try {
       setIsSubmittingAction(true);
-      await verifyAllOpportunityApplicants(placementId);
+      await verifyAllOpportunityApplicants(placementId, panelScope);
       await loadApplicants({ silent: true });
     } catch (error) {
       setErrorMessage(
@@ -211,7 +212,7 @@ export default function ApplicantsPage() {
 
     try {
       setIsSubmittingAction(true);
-      await rejectAllOpportunityApplicants(placementId);
+      await rejectAllOpportunityApplicants(placementId, panelScope);
       await loadApplicants({ silent: true });
     } catch (error) {
       setErrorMessage(
@@ -228,7 +229,7 @@ export default function ApplicantsPage() {
   async function handleVerifyApplicant(applicationId) {
     try {
       setActiveApplicationId(applicationId);
-      await verifyOpportunityApplicant(applicationId);
+      await verifyOpportunityApplicant(applicationId, panelScope);
       await loadApplicants({ silent: true });
     } catch (error) {
       setErrorMessage(
@@ -245,7 +246,7 @@ export default function ApplicantsPage() {
   async function handleRejectApplicant(applicationId) {
     try {
       setActiveApplicationId(applicationId);
-      await rejectOpportunityApplicant(applicationId);
+      await rejectOpportunityApplicant(applicationId, panelScope);
       await loadApplicants({ silent: true });
     } catch (error) {
       setErrorMessage(
@@ -270,7 +271,7 @@ export default function ApplicantsPage() {
           <div>
             <button
               type="button"
-              onClick={() => navigate("/tpo-dashboard/placements")}
+              onClick={() => navigate(isTpcPanel ? "/tpc-dashboard/placements" : "/tpo-dashboard/placements")}
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -312,7 +313,9 @@ export default function ApplicantsPage() {
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Applicants</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Review students who submitted applications for this company drive.
+                {isTpcPanel
+                  ? "Review applicants from your assigned department for this company drive."
+                  : "Review students who submitted applications for this company drive."}
               </p>
             </div>
 
@@ -325,22 +328,26 @@ export default function ApplicantsPage() {
               >
                 Export Excel
               </button>
-              <button
-                type="button"
-                onClick={handleVerifyAll}
-                disabled={isSubmittingAction}
-                className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmittingAction ? "Working..." : "Allow All"}
-              </button>
-              <button
-                type="button"
-                onClick={handleRejectAll}
-                disabled={isSubmittingAction}
-                className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmittingAction ? "Working..." : "Reject All"}
-              </button>
+              {!isTpcPanel ? (
+                <button
+                  type="button"
+                  onClick={handleVerifyAll}
+                  disabled={isSubmittingAction}
+                  className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmittingAction ? "Working..." : "Allow All"}
+                </button>
+              ) : null}
+              {!isTpcPanel ? (
+                <button
+                  type="button"
+                  onClick={handleRejectAll}
+                  disabled={isSubmittingAction}
+                  className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmittingAction ? "Working..." : "Reject All"}
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -403,8 +410,8 @@ export default function ApplicantsPage() {
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Current Stage</th>
                     <th className="px-6 py-4">View Student</th>
-                    <th className="px-6 py-4">Allow</th>
-                    <th className="px-6 py-4">Reject</th>
+                    {!isTpcPanel ? <th className="px-6 py-4">Allow</th> : null}
+                    {!isTpcPanel ? <th className="px-6 py-4">Reject</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -425,43 +432,53 @@ export default function ApplicantsPage() {
                         <td className="px-6 py-4">
                           <button
                             type="button"
-                            onClick={() => navigate(`/tpo-dashboard/students/${applicant.prn}`)}
+                            onClick={() =>
+                              navigate(
+                                isTpcPanel
+                                  ? `/tpc-dashboard/student-verification/${applicant.prn}`
+                                  : `/tpo-dashboard/students/${applicant.prn}`,
+                              )
+                            }
                             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                           >
                             View Student
                           </button>
                         </td>
-                        <td className="px-6 py-4">
-                          <button
-                            type="button"
-                            onClick={() => handleVerifyApplicant(applicant.applicationId)}
-                            disabled={
-                              activeApplicationId === applicant.applicationId ||
-                              applicant.applicationStatus !== "pending_verification"
-                            }
-                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {activeApplicationId === applicant.applicationId ? "Allowing..." : "Allow"}
-                          </button>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            type="button"
-                            onClick={() => handleRejectApplicant(applicant.applicationId)}
-                            disabled={
-                              activeApplicationId === applicant.applicationId ||
-                              applicant.applicationStatus !== "pending_verification"
-                            }
-                            className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {activeApplicationId === applicant.applicationId ? "Rejecting..." : "Reject"}
-                          </button>
-                        </td>
+                        {!isTpcPanel ? (
+                          <td className="px-6 py-4">
+                            <button
+                              type="button"
+                              onClick={() => handleVerifyApplicant(applicant.applicationId)}
+                              disabled={
+                                activeApplicationId === applicant.applicationId ||
+                                applicant.applicationStatus !== "pending_verification"
+                              }
+                              className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {activeApplicationId === applicant.applicationId ? "Allowing..." : "Allow"}
+                            </button>
+                          </td>
+                        ) : null}
+                        {!isTpcPanel ? (
+                          <td className="px-6 py-4">
+                            <button
+                              type="button"
+                              onClick={() => handleRejectApplicant(applicant.applicationId)}
+                              disabled={
+                                activeApplicationId === applicant.applicationId ||
+                                applicant.applicationStatus !== "pending_verification"
+                              }
+                              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {activeApplicationId === applicant.applicationId ? "Rejecting..." : "Reject"}
+                            </button>
+                          </td>
+                        ) : null}
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={10} className="px-6 py-8 text-center text-sm text-slate-500">
+                      <td colSpan={isTpcPanel ? 8 : 10} className="px-6 py-8 text-center text-sm text-slate-500">
                         No applicants found for this search.
                       </td>
                     </tr>

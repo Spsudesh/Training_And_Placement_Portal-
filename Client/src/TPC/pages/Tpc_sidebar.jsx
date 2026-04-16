@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  BriefcaseBusiness,
   CalendarDays,
   CircleHelp,
   ClipboardCheck,
@@ -14,6 +15,7 @@ import Header from "./TPCheader";
 const navigationItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/tpc-dashboard" },
   { label: "Students", icon: Users, to: "/tpc-dashboard/student-verification" },
+  { label: "Opportunities", icon: BriefcaseBusiness, to: "/tpc-dashboard/placements" },
   { label: "Notice", icon: Megaphone, to: "/tpc-dashboard/notice-board" },
   { label: "Drive Tasks", icon: ClipboardCheck, to: "/tpc-dashboard", disabled: true },
   { label: "Schedules", icon: CalendarDays, to: "/tpc-dashboard", disabled: true },

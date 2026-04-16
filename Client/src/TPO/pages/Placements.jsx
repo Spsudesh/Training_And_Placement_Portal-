@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import TpoSidebar from "./Tpo_sidebar";
+import TpcSidebar from "../../TPC/pages/Tpc_sidebar";
 import {
   emptyPlacementForm,
   formatPlacementDeadline,
@@ -23,6 +24,7 @@ import {
   placementDepartmentOptions,
   splitLines,
 } from "../../shared/placementJobs";
+import { getAuthenticatedUser } from "../../shared/authSession";
 import {
   createPlacement,
   deletePlacement,
@@ -281,6 +283,17 @@ function EligibilityMetricCard({ label, value }) {
       <p className="mt-2 text-sm font-semibold text-slate-900">{value || "Not specified"}</p>
     </div>
   );
+}
+
+function formatActorLabel(actor) {
+  if (!actor) {
+    return "Not tracked";
+  }
+
+  const roleLabel = String(actor.role || "panel").toUpperCase();
+  const identifier = actor.email || actor.id || actor.department || "";
+
+  return identifier ? `${roleLabel} | ${identifier}` : roleLabel;
 }
 
 function getWorkflowStyles(status) {
@@ -593,8 +606,15 @@ function HiringWorkflowMindmap({
   );
 }
 
-export default function Placements({ onLogout }) {
+export default function Placements({
+  onLogout,
+  panelScope = "tpo",
+  pageTitle = "Placement Opportunities",
+}) {
   const navigate = useNavigate();
+  const authenticatedUser = getAuthenticatedUser();
+  const SidebarComponent = panelScope === "tpc" ? TpcSidebar : TpoSidebar;
+  const canViewApplicants = true;
   const fileInputRef = useRef(null);
   const formRef = useRef(null);
   const workflowSectionRef = useRef(null);
@@ -637,7 +657,7 @@ export default function Placements({ onLogout }) {
   }, [filteredJobs, jobs, selectedJobId]);
 
   async function reloadPlacements() {
-    const nextJobs = await fetchPlacements();
+    const nextJobs = await fetchPlacements(panelScope);
 
     setJobs(nextJobs);
     setSelectedJobId((currentId) => {
@@ -654,7 +674,7 @@ export default function Placements({ onLogout }) {
 
     async function loadJobs() {
       try {
-        const nextJobs = await fetchPlacements();
+        const nextJobs = await fetchPlacements(panelScope);
 
         if (!isMounted) {
           return;
@@ -685,7 +705,7 @@ export default function Placements({ onLogout }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [panelScope]);
 
   useEffect(() => {
     if (!feedbackMessage) {
@@ -912,7 +932,7 @@ export default function Placements({ onLogout }) {
         throw new Error("The selected file does not contain any valid PRN rows.");
       }
 
-      const response = await upsertStageResults(pendingImportStage.id, results);
+      const response = await upsertStageResults(pendingImportStage.id, results, panelScope);
       await reloadPlacements();
 
       const missingPrnText = Array.isArray(response?.missingPrns) && response.missingPrns.length
@@ -1018,6 +1038,7 @@ export default function Placements({ onLogout }) {
           prn,
           stage_result: "cleared",
         })),
+        panelScope,
       );
 
       await reloadPlacements();
@@ -1099,7 +1120,7 @@ export default function Placements({ onLogout }) {
     const deletedJobId = selectedJob.id;
 
     try {
-      await deletePlacement(deletedJobId);
+      await deletePlacement(deletedJobId, panelScope);
 
       const deletedIndex = jobs.findIndex((job) => job.id === deletedJobId);
       const updatedJobs = jobs.filter((job) => job.id !== deletedJobId);
@@ -1133,7 +1154,12 @@ export default function Placements({ onLogout }) {
     try {
       if (editingJobId) {
         const existingPlacement = jobs.find((job) => String(job.id) === String(editingJobId)) ?? null;
-        const updatedPlacement = await updatePlacement(editingJobId, formData, existingPlacement);
+        const updatedPlacement = await updatePlacement(
+          editingJobId,
+          formData,
+          existingPlacement,
+          panelScope,
+        );
 
         setJobs((prev) =>
           prev.map((job) => (String(job.id) === String(editingJobId) ? updatedPlacement : job)),
@@ -1141,7 +1167,7 @@ export default function Placements({ onLogout }) {
         setSelectedJobId(updatedPlacement.id);
         setFeedbackMessage("Placement updated successfully");
       } else {
-        const createdPlacement = await createPlacement(formData);
+        const createdPlacement = await createPlacement(formData, panelScope);
 
         setJobs((prev) => [createdPlacement, ...prev]);
         setSelectedJobId(createdPlacement.id);
@@ -1352,8 +1378,8 @@ export default function Placements({ onLogout }) {
   }
 
   return (
-    <TpoSidebar
-      pageTitle="Placements"
+    <SidebarComponent
+      pageTitle={pageTitle}
       onLogout={onLogout}
     >
       <input
@@ -1994,13 +2020,21 @@ export default function Placements({ onLogout }) {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/tpo-dashboard/placements/${selectedJob.id}/applicants`)}
-                        className="ml-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
-                      >
-                        View Applicants
-                      </button>
+                      {canViewApplicants ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(
+                              panelScope === "tpc"
+                                ? `/tpc-dashboard/placements/${selectedJob.id}/applicants`
+                                : `/tpo-dashboard/placements/${selectedJob.id}/applicants`,
+                            )
+                          }
+                          className="ml-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
+                        >
+                          View Applicants
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={handleEditPlacement}
@@ -2019,6 +2053,38 @@ export default function Placements({ onLogout }) {
                   </header>
 
                   <div className="mt-5 min-h-0 flex-1 overflow-y-auto scroll-smooth pr-1">
+                    <div className="mb-5 grid gap-3 md:grid-cols-3">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Created By
+                        </p>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">
+                          {formatActorLabel(selectedJob.createdBy)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Last Updated By
+                        </p>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">
+                          {formatActorLabel(selectedJob.updatedBy)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Active Panel
+                        </p>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">
+                          {formatActorLabel({
+                            role: panelScope,
+                            email: authenticatedUser?.email || "",
+                            id: authenticatedUser?.PRN || "",
+                            department: authenticatedUser?.department || "",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="flex flex-wrap gap-6 border-b border-slate-200/80 pb-3">
                       {detailTabs.map((tab) => {
                         const active = activeDetailTab === tab.key;
@@ -2048,6 +2114,6 @@ export default function Placements({ onLogout }) {
           </div>
         </div>
       </section>
-    </TpoSidebar>
+    </SidebarComponent>
   );
 }

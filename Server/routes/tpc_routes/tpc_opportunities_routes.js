@@ -132,6 +132,96 @@ async function ensureApplicationStatusHistoryTable() {
   `);
 }
 
+async function ensureOpportunityTrackingSchema() {
+  await ensureColumnExists(
+    'tpo_opportunities',
+    'created_by_role',
+    "ALTER TABLE tpo_opportunities ADD COLUMN created_by_role VARCHAR(20) NULL AFTER status"
+  );
+  await ensureColumnExists(
+    'tpo_opportunities',
+    'created_by_id',
+    "ALTER TABLE tpo_opportunities ADD COLUMN created_by_id VARCHAR(100) NULL AFTER created_by_role"
+  );
+  await ensureColumnExists(
+    'tpo_opportunities',
+    'created_by_email',
+    "ALTER TABLE tpo_opportunities ADD COLUMN created_by_email VARCHAR(255) NULL AFTER created_by_id"
+  );
+  await ensureColumnExists(
+    'tpo_opportunities',
+    'updated_by_role',
+    "ALTER TABLE tpo_opportunities ADD COLUMN updated_by_role VARCHAR(20) NULL AFTER created_by_email"
+  );
+  await ensureColumnExists(
+    'tpo_opportunities',
+    'updated_by_id',
+    "ALTER TABLE tpo_opportunities ADD COLUMN updated_by_id VARCHAR(100) NULL AFTER updated_by_role"
+  );
+  await ensureColumnExists(
+    'tpo_opportunities',
+    'updated_by_email',
+    "ALTER TABLE tpo_opportunities ADD COLUMN updated_by_email VARCHAR(255) NULL AFTER updated_by_id"
+  );
+
+  await query(
+    `
+      UPDATE tpo_opportunities
+      SET
+        created_by_role = COALESCE(created_by_role, 'tpo'),
+        created_by_id = COALESCE(created_by_id, 'legacy-record'),
+        updated_by_role = COALESCE(updated_by_role, created_by_role, 'tpo'),
+        updated_by_id = COALESCE(updated_by_id, created_by_id, 'legacy-record')
+      WHERE
+        created_by_role IS NULL OR
+        created_by_id IS NULL OR
+        updated_by_role IS NULL OR
+        updated_by_id IS NULL
+    `
+  ).catch(() => {});
+}
+
+async function ensurePanelActivityLogsTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS panel_activity_logs (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      entity_type VARCHAR(50) NOT NULL,
+      entity_id BIGINT NULL,
+      form_type VARCHAR(50) NOT NULL,
+      action_type VARCHAR(50) NOT NULL,
+      actor_role VARCHAR(20) NULL,
+      actor_id VARCHAR(100) NULL,
+      actor_email VARCHAR(255) NULL,
+      summary VARCHAR(255) NULL,
+      details_json JSON NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_panel_activity_entity (entity_type, entity_id),
+      KEY idx_panel_activity_form (form_type),
+      KEY idx_panel_activity_actor (actor_role, actor_id)
+    )
+  `);
+}
+
+async function ensureOpportunityLogTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS opportunity_log (
+      id INT NOT NULL AUTO_INCREMENT,
+      opportunity_id INT NOT NULL,
+      action_type VARCHAR(20) NOT NULL,
+      actor_role VARCHAR(20) NOT NULL,
+      actor_name VARCHAR(100) NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_opportunity_log_opportunity (opportunity_id),
+      CONSTRAINT fk_opportunity_log_opportunity
+        FOREIGN KEY (opportunity_id)
+        REFERENCES tpo_opportunities(id)
+        ON DELETE CASCADE
+    )
+  `);
+}
+
 function asyncHandler(handler) {
   return async (req, res) => {
     try {
@@ -157,6 +247,143 @@ function createHttpError(statusCode, message) {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+}
+
+function getRequestActor(req) {
+  const role = normalizeTextValue(req.auth?.role) || 'system';
+  const actorId = normalizeTextValue(req.auth?.prn || req.auth?.userId) || `${role}-portal`;
+  const email = normalizeTextValue(req.auth?.email);
+  const department = normalizeTextValue(req.auth?.department);
+  const name =
+    normalizeTextValue(req.auth?.name) ||
+    normalizeTextValue(req.auth?.fullName) ||
+    normalizeTextValue(req.auth?.displayName);
+
+  return {
+    role,
+    id: actorId,
+    email,
+    department,
+    name,
+  };
+}
+
+async function resolveOpportunityActorName(actor) {
+  const actorName = normalizeTextValue(actor?.name);
+
+  if (actorName) {
+    return actorName;
+  }
+
+  if (actor?.role === 'tpc') {
+    const hasTpcCredentials = await tableExists('TPC_Credentials');
+
+    if (hasTpcCredentials) {
+      const hasNameColumn = await columnExists('TPC_Credentials', 'name');
+
+      if (hasNameColumn) {
+        const actorLookupValue = normalizeTextValue(actor?.id);
+        const emailLookupValue = normalizeTextValue(actor?.email);
+
+        if (actorLookupValue || emailLookupValue) {
+          const rows = await query(
+            `
+              SELECT name
+              FROM TPC_Credentials
+              WHERE (? IS NOT NULL AND CAST(id AS CHAR) = ?)
+                 OR (? IS NOT NULL AND LOWER(email) = LOWER(?))
+              LIMIT 1
+            `,
+            [actorLookupValue, actorLookupValue, emailLookupValue, emailLookupValue]
+          ).catch(() => []);
+
+          const resolvedName = normalizeTextValue(rows[0]?.name);
+
+          if (resolvedName) {
+            return resolvedName;
+          }
+        }
+      }
+    }
+  }
+
+  if (actor?.role === 'tpo') {
+    return normalizeTextValue(process.env.TPO_NAME) || 'TPO';
+  }
+
+  if (actor?.email) {
+    const emailPrefix = String(actor.email).split('@')[0].replace(/[._-]+/g, ' ').trim();
+
+    if (emailPrefix) {
+      return emailPrefix;
+    }
+  }
+
+  return normalizeTextValue(actor?.id) || normalizeTextValue(actor?.role) || 'system';
+}
+
+async function writeOpportunityLog({ opportunityId, actionType, actor }) {
+  await ensureOpportunityLogTable();
+
+  await query(
+    `
+      INSERT INTO opportunity_log
+      (
+        opportunity_id,
+        action_type,
+        actor_role,
+        actor_name
+      )
+      VALUES (?, ?, ?, ?)
+    `,
+    [
+      Number(opportunityId),
+      normalizeTextValue(actionType) || 'updated',
+      normalizeTextValue(actor?.role) || 'system',
+      await resolveOpportunityActorName(actor),
+    ]
+  );
+}
+
+async function writePanelActivityLog({
+  entityType,
+  entityId,
+  formType,
+  actionType,
+  actor,
+  summary,
+  details,
+}) {
+  await ensurePanelActivityLogsTable();
+
+  await query(
+    `
+      INSERT INTO panel_activity_logs
+      (
+        entity_type,
+        entity_id,
+        form_type,
+        action_type,
+        actor_role,
+        actor_id,
+        actor_email,
+        summary,
+        details_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      entityType,
+      entityId ?? null,
+      formType,
+      actionType,
+      actor?.role || null,
+      actor?.id || null,
+      actor?.email || null,
+      summary || null,
+      details ? JSON.stringify(details) : null,
+    ]
+  );
 }
 
 function firstDefined(...values) {
@@ -500,6 +727,16 @@ function mapRowToOpportunity(row) {
     attachment: attachments,
     workflow,
     status: row.status || 'active',
+    createdBy: {
+      role: row.created_by_role || '',
+      id: row.created_by_id || '',
+      email: row.created_by_email || '',
+    },
+    updatedBy: {
+      role: row.updated_by_role || row.created_by_role || '',
+      id: row.updated_by_id || row.created_by_id || '',
+      email: row.updated_by_email || row.created_by_email || '',
+    },
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
   };
@@ -1251,6 +1488,8 @@ function buildOpportunityPayload(body, options = {}) {
 tpcOpportunitiesRoutes.get(
   '/',
   asyncHandler(async (req, res) => {
+    await ensureOpportunityTrackingSchema();
+
     const statusFilter = normalizeTextValue(req.query.status);
     const studentPrn = normalizeTextValue(
       req.query.studentPrn || (req.auth?.role === 'student' ? req.auth.prn : '')
@@ -1279,6 +1518,8 @@ tpcOpportunitiesRoutes.get(
 tpcOpportunitiesRoutes.get(
   '/:id',
   asyncHandler(async (req, res) => {
+    await ensureOpportunityTrackingSchema();
+
     const studentPrn = normalizeTextValue(
       req.query.studentPrn || (req.auth?.role === 'student' ? req.auth.prn : '')
     );
@@ -1304,6 +1545,9 @@ tpcOpportunitiesRoutes.post(
   '/',
   upload.any(),
   asyncHandler(async (req, res) => {
+    await ensureOpportunityTrackingSchema();
+
+    const actor = getRequestActor(req);
     const existingAttachments = parseAttachmentValue(
       firstDefined(req.body.existingAttachments, req.body.attachment_url, req.body.attachmentUrl)
     );
@@ -1340,9 +1584,15 @@ tpcOpportunitiesRoutes.post(
           allowed_departments,
           passing_year,
           attachment_url,
-          status
+          status,
+          created_by_role,
+          created_by_id,
+          created_by_email,
+          updated_by_role,
+          updated_by_id,
+          updated_by_email
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         payload.company_name,
@@ -1367,10 +1617,35 @@ tpcOpportunitiesRoutes.post(
         payload.passing_year,
         payload.attachment_url,
         payload.status,
+        actor.role,
+        actor.id,
+        actor.email,
+        actor.role,
+        actor.id,
+        actor.email,
       ]
     );
 
     await replaceHiringStages(result.insertId, payload.workflow);
+    await writeOpportunityLog({
+      opportunityId: result.insertId,
+      actionType: 'created',
+      actor,
+    });
+    await writePanelActivityLog({
+      entityType: 'opportunity',
+      entityId: result.insertId,
+      formType: 'opportunity',
+      actionType: 'create',
+      actor,
+      summary: `${payload.company_name || 'Opportunity'} - ${payload.job_title || 'Opportunity'} created`,
+      details: {
+        company: payload.company_name,
+        title: payload.job_title,
+        panelScope: actor.role,
+        status: payload.status,
+      },
+    });
 
     const createdOpportunity = (
       await attachHiringStages([await getOpportunityById(result.insertId)].filter(Boolean))
@@ -1498,6 +1773,9 @@ tpcOpportunitiesRoutes.put(
   '/:id',
   upload.any(),
   asyncHandler(async (req, res) => {
+    await ensureOpportunityTrackingSchema();
+
+    const actor = getRequestActor(req);
     const existingOpportunity = await getOpportunityById(req.params.id);
 
     if (!existingOpportunity) {
@@ -1552,7 +1830,10 @@ tpcOpportunitiesRoutes.put(
           allowed_departments = ?,
           passing_year = ?,
           attachment_url = ?,
-          status = ?
+          status = ?,
+          updated_by_role = ?,
+          updated_by_id = ?,
+          updated_by_email = ?
         WHERE id = ?
       `,
       [
@@ -1578,11 +1859,33 @@ tpcOpportunitiesRoutes.put(
         payload.passing_year,
         payload.attachment_url,
         payload.status,
+        actor.role,
+        actor.id,
+        actor.email,
         req.params.id,
       ]
     );
 
     await replaceHiringStages(req.params.id, payload.workflow);
+    await writeOpportunityLog({
+      opportunityId: req.params.id,
+      actionType: 'updated',
+      actor,
+    });
+    await writePanelActivityLog({
+      entityType: 'opportunity',
+      entityId: Number(req.params.id),
+      formType: 'opportunity',
+      actionType: 'update',
+      actor,
+      summary: `${payload.company_name || existingOpportunity.company_name || 'Opportunity'} - ${payload.job_title || existingOpportunity.job_title || 'Opportunity'} updated`,
+      details: {
+        company: payload.company_name || existingOpportunity.company_name || '',
+        title: payload.job_title || existingOpportunity.job_title || '',
+        panelScope: actor.role,
+        status: payload.status,
+      },
+    });
 
     const updatedOpportunity = (
       await attachHiringStages([await getOpportunityById(req.params.id)].filter(Boolean))
@@ -1599,6 +1902,9 @@ tpcOpportunitiesRoutes.put(
 tpcOpportunitiesRoutes.patch(
   '/:id/status',
   asyncHandler(async (req, res) => {
+    await ensureOpportunityTrackingSchema();
+
+    const actor = getRequestActor(req);
     const existingOpportunity = await getOpportunityById(req.params.id);
 
     if (!existingOpportunity) {
@@ -1611,7 +1917,33 @@ tpcOpportunitiesRoutes.patch(
       throw createHttpError(400, 'A valid status is required.');
     }
 
-    await query('UPDATE tpo_opportunities SET status = ? WHERE id = ?', [nextStatus, req.params.id]);
+    await query(
+      `
+        UPDATE tpo_opportunities
+        SET status = ?, updated_by_role = ?, updated_by_id = ?, updated_by_email = ?
+        WHERE id = ?
+      `,
+      [nextStatus, actor.role, actor.id, actor.email, req.params.id]
+    );
+    await writeOpportunityLog({
+      opportunityId: req.params.id,
+      actionType: 'updated',
+      actor,
+    });
+    await writePanelActivityLog({
+      entityType: 'opportunity',
+      entityId: Number(req.params.id),
+      formType: 'opportunity',
+      actionType: 'status_update',
+      actor,
+      summary: `${existingOpportunity.company_name || 'Opportunity'} status changed to ${nextStatus}`,
+      details: {
+        previousStatus: existingOpportunity.status || null,
+        nextStatus,
+        company: existingOpportunity.company_name || '',
+        title: existingOpportunity.job_title || '',
+      },
+    });
 
     const updatedOpportunity = await getOpportunityById(req.params.id);
 
@@ -1626,12 +1958,28 @@ tpcOpportunitiesRoutes.patch(
 tpcOpportunitiesRoutes.delete(
   '/:id',
   asyncHandler(async (req, res) => {
+    await ensureOpportunityTrackingSchema();
+
+    const actor = getRequestActor(req);
     const existingOpportunity = await getOpportunityById(req.params.id);
 
     if (!existingOpportunity) {
       throw createHttpError(404, 'Opportunity not found.');
     }
 
+    await writePanelActivityLog({
+      entityType: 'opportunity',
+      entityId: Number(req.params.id),
+      formType: 'opportunity',
+      actionType: 'delete',
+      actor,
+      summary: `${existingOpportunity.company_name || 'Opportunity'} - ${existingOpportunity.job_title || 'Opportunity'} deleted`,
+      details: {
+        company: existingOpportunity.company_name || '',
+        title: existingOpportunity.job_title || '',
+        previousStatus: existingOpportunity.status || '',
+      },
+    });
     await query('DELETE FROM tpo_opportunities WHERE id = ?', [req.params.id]);
 
     res.json({

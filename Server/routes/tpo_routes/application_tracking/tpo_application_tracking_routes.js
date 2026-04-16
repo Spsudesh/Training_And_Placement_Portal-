@@ -163,6 +163,36 @@ function normalizePrn(value) {
   return String(value || '').trim().toUpperCase();
 }
 
+function normalizeDepartmentValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function departmentMatchesScope(studentDepartment, scopedDepartment) {
+  const normalizedStudentDepartment = normalizeDepartmentValue(studentDepartment);
+  const normalizedScopedDepartment = normalizeDepartmentValue(scopedDepartment);
+
+  if (!normalizedStudentDepartment || !normalizedScopedDepartment) {
+    return false;
+  }
+
+  return (
+    normalizedStudentDepartment === normalizedScopedDepartment ||
+    normalizedStudentDepartment.includes(normalizedScopedDepartment) ||
+    normalizedScopedDepartment.includes(normalizedStudentDepartment)
+  );
+}
+
+function ensureTpoMutationAccess(req, res) {
+  if (req.auth?.role === 'tpo' || req.auth?.role === 'tpc') {
+    return true;
+  }
+
+  res.status(403).json({
+    message: 'Only TPO or TPC can update applicant tracking records.',
+  });
+  return false;
+}
+
 function normalizeStageResult(value, fallback = 'cleared') {
   const normalizedValue = String(value || fallback).trim().toLowerCase();
   const allowedValues = new Set([
@@ -238,7 +268,8 @@ async function findPlacementApplicationByOpportunityAndPrn(opportunityId, prn) {
   return existingRows[0] || null;
 }
 
-async function fetchApplicantsForOpportunity(opportunityId) {
+async function fetchApplicantsForOpportunity(opportunityId, options = {}) {
+  const { role = 'tpo', department = '' } = options;
   const applicantRows = await query(
     `
       SELECT
@@ -269,7 +300,7 @@ async function fetchApplicantsForOpportunity(opportunityId) {
     [opportunityId]
   );
 
-  return applicantRows.map((row) => ({
+  const applicants = applicantRows.map((row) => ({
     applicationId: row.application_id,
     prn: String(row.PRN || ''),
     name: buildFullName(row) || String(row.PRN || ''),
@@ -285,6 +316,12 @@ async function fetchApplicantsForOpportunity(opportunityId) {
     finalOutcome: row.final_outcome || 'in_process',
     currentStage: row.current_stage_name || '',
   }));
+
+  if (role !== 'tpc') {
+    return applicants;
+  }
+
+  return applicants.filter((applicant) => departmentMatchesScope(applicant.department, department));
 }
 
 async function writeStatusHistory(applicationIds, newStatus, changedBy, changeReason) {
@@ -436,7 +473,10 @@ tpoApplicationTrackingRoutes.get('/opportunities/:id/applicants', async (req, re
     }
 
     await syncFinalRoundPlacementsForOpportunity(req.params.id, 'system');
-    const applicants = await fetchApplicantsForOpportunity(req.params.id);
+    const applicants = await fetchApplicantsForOpportunity(req.params.id, {
+      role: req.auth?.role || 'tpo',
+      department: req.auth?.department || '',
+    });
 
     res.json({
       message: 'Opportunity applicants fetched successfully.',
@@ -464,6 +504,10 @@ tpoApplicationTrackingRoutes.get('/opportunities/:id/applicants', async (req, re
 
 tpoApplicationTrackingRoutes.post('/applications/:applicationId/verify', async (req, res) => {
   try {
+    if (!ensureTpoMutationAccess(req, res)) {
+      return;
+    }
+
     await ensurePlacementApplicationsTable();
     const applicationId = Number(req.params.applicationId);
 
@@ -513,6 +557,10 @@ tpoApplicationTrackingRoutes.post('/applications/:applicationId/verify', async (
 
 tpoApplicationTrackingRoutes.post('/applications/:applicationId/reject', async (req, res) => {
   try {
+    if (!ensureTpoMutationAccess(req, res)) {
+      return;
+    }
+
     await ensurePlacementApplicationsTable();
     const applicationId = Number(req.params.applicationId);
 
@@ -562,6 +610,10 @@ tpoApplicationTrackingRoutes.post('/applications/:applicationId/reject', async (
 
 tpoApplicationTrackingRoutes.post('/stages/:stageId/results/upsert', async (req, res) => {
   try {
+    if (!ensureTpoMutationAccess(req, res)) {
+      return;
+    }
+
     await ensurePlacementApplicationsTable();
     await ensureApplicationStageResultsTable();
 
@@ -684,6 +736,10 @@ tpoApplicationTrackingRoutes.post('/stages/:stageId/results/upsert', async (req,
 
 tpoApplicationTrackingRoutes.post('/opportunities/:id/applicants/verify-all', async (req, res) => {
   try {
+    if (!ensureTpoMutationAccess(req, res)) {
+      return;
+    }
+
     await ensurePlacementApplicationsTable();
     const opportunityId = Number(req.params.id);
 
@@ -730,6 +786,10 @@ tpoApplicationTrackingRoutes.post('/opportunities/:id/applicants/verify-all', as
 
 tpoApplicationTrackingRoutes.post('/opportunities/:id/applicants/reject-all', async (req, res) => {
   try {
+    if (!ensureTpoMutationAccess(req, res)) {
+      return;
+    }
+
     await ensurePlacementApplicationsTable();
     const opportunityId = Number(req.params.id);
 

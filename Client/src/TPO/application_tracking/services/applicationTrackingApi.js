@@ -1,8 +1,12 @@
 import { apiClient } from "../../../shared/apiClient";
 
-export async function fetchOpportunityApplicants(opportunityId) {
+function resolveApplicationTrackingBasePath(scope = "tpo") {
+  return scope === "tpc" ? "/tpc/application-tracking" : "/tpo/application-tracking";
+}
+
+export async function fetchOpportunityApplicants(opportunityId, scope = "tpo") {
   const response = await apiClient.get(
-    `/tpo/application-tracking/opportunities/${opportunityId}/applicants`,
+    `${resolveApplicationTrackingBasePath(scope)}/opportunities/${opportunityId}/applicants`,
   );
 
   return response.data?.data || {
@@ -17,41 +21,41 @@ export async function fetchOpportunityApplicants(opportunityId) {
   };
 }
 
-export async function verifyAllOpportunityApplicants(opportunityId) {
+export async function verifyAllOpportunityApplicants(opportunityId, scope = "tpo") {
   const response = await apiClient.post(
-    `/tpo/application-tracking/opportunities/${opportunityId}/applicants/verify-all`,
+    `${resolveApplicationTrackingBasePath(scope)}/opportunities/${opportunityId}/applicants/verify-all`,
   );
 
   return response.data || null;
 }
 
-export async function rejectAllOpportunityApplicants(opportunityId) {
+export async function rejectAllOpportunityApplicants(opportunityId, scope = "tpo") {
   const response = await apiClient.post(
-    `/tpo/application-tracking/opportunities/${opportunityId}/applicants/reject-all`,
+    `${resolveApplicationTrackingBasePath(scope)}/opportunities/${opportunityId}/applicants/reject-all`,
   );
 
   return response.data || null;
 }
 
-export async function verifyOpportunityApplicant(applicationId) {
+export async function verifyOpportunityApplicant(applicationId, scope = "tpo") {
   const response = await apiClient.post(
-    `/tpo/application-tracking/applications/${applicationId}/verify`,
+    `${resolveApplicationTrackingBasePath(scope)}/applications/${applicationId}/verify`,
   );
 
   return response.data || null;
 }
 
-export async function rejectOpportunityApplicant(applicationId) {
+export async function rejectOpportunityApplicant(applicationId, scope = "tpo") {
   const response = await apiClient.post(
-    `/tpo/application-tracking/applications/${applicationId}/reject`,
+    `${resolveApplicationTrackingBasePath(scope)}/applications/${applicationId}/reject`,
   );
 
   return response.data || null;
 }
 
-export async function upsertStageResults(stageId, results) {
+export async function upsertStageResults(stageId, results, scope = "tpo") {
   const response = await apiClient.post(
-    `/tpo/application-tracking/stages/${stageId}/results/upsert`,
+    `${resolveApplicationTrackingBasePath(scope)}/stages/${stageId}/results/upsert`,
     { results },
   );
 

@@ -433,6 +433,25 @@ function TpoPlacementsApp() {
   return <Placements onLogout={handleLogout} />;
 }
 
+function TpcPlacementsApp() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
+  };
+
+  return (
+    <Placements
+      onLogout={handleLogout}
+      panelScope="tpc"
+      pageTitle="Opportunity Management"
+    />
+  );
+}
+
 function TpoApplicationTrackingApp() {
   const navigate = useNavigate();
 
@@ -447,6 +466,23 @@ function TpoApplicationTrackingApp() {
     <TpoSidebar pageTitle="Application Tracking" onLogout={handleLogout}>
       <ApplicantsPage />
     </TpoSidebar>
+  );
+}
+
+function TpcApplicationTrackingApp() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logoutUser().finally(() => {
+      clearClientSessionState();
+      navigate("/login", { replace: true });
+    });
+  };
+
+  return (
+    <TpcSidebar pageTitle="Application Tracking" onLogout={handleLogout}>
+      <ApplicantsPage panelScope="tpc" />
+    </TpcSidebar>
   );
 }
 
@@ -827,10 +863,26 @@ function AppShell() {
           }
         />
         <Route
+          path="/tpc-dashboard/placements/:placementId/applicants"
+          element={
+            <ProtectedRoute allowedPanel="tpc">
+              <TpcApplicationTrackingApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/tpc-dashboard/notice-board"
           element={
             <ProtectedRoute allowedPanel="tpc">
               <TpcNoticeBoardApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tpc-dashboard/placements"
+          element={
+            <ProtectedRoute allowedPanel="tpc">
+              <TpcPlacementsApp />
             </ProtectedRoute>
           }
         />
