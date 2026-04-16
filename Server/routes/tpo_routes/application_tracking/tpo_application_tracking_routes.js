@@ -175,11 +175,138 @@ function departmentMatchesScope(studentDepartment, scopedDepartment) {
     return false;
   }
 
-  return (
-    normalizedStudentDepartment === normalizedScopedDepartment ||
-    normalizedStudentDepartment.includes(normalizedScopedDepartment) ||
-    normalizedScopedDepartment.includes(normalizedStudentDepartment)
+  return normalizedStudentDepartment === normalizedScopedDepartment;
+}
+
+async function resolveTpcDepartment(req) {
+  if (req.auth?.role !== 'tpc') {
+    return '';
+  }
+
+  const tpcId = String(req.auth?.prn || req.auth?.userId || '').trim();
+
+  if (!tpcId) {
+    return '';
+  }
+
+  const hasDepartmentColumn = await columnExists('TPC_Credentials', 'department').catch(() => false);
+  const hasDepartmentNameColumn = await columnExists('TPC_Credentials', 'department_name').catch(() => false);
+  const hasIdColumn = await columnExists('TPC_Credentials', 'id').catch(() => false);
+  const hasTpcIdColumn = await columnExists('TPC_Credentials', 'tpc_id').catch(() => false);
+
+  const departmentExpression = hasDepartmentColumn
+    ? 'department'
+    : hasDepartmentNameColumn
+      ? 'department_name'
+      : "''";
+  const idConditions = [];
+  const values = [];
+
+  if (hasIdColumn) {
+    idConditions.push('CAST(id AS CHAR) = ?');
+    values.push(tpcId);
+  }
+
+  if (hasTpcIdColumn) {
+    idConditions.push('CAST(tpc_id AS CHAR) = ?');
+    values.push(tpcId);
+  }
+
+  if (!idConditions.length) {
+    return '';
+  }
+
+  const rows = await query(
+    `
+      SELECT ${departmentExpression} AS department
+      FROM TPC_Credentials
+      WHERE ${idConditions.join(' OR ')}
+      LIMIT 1
+    `,
+    values
   );
+
+  return String(rows[0]?.department || '').trim();
+}
+
+async function getApplicationDepartmentContext(applicationId) {
+  const rows = await query(
+    `
+      SELECT
+        pa.id,
+        pa.opportunity_id,
+        pa.PRN,
+        se.department
+      FROM placement_applications pa
+      LEFT JOIN student_education se ON se.PRN = pa.PRN
+      WHERE pa.id = ?
+      LIMIT 1
+    `,
+    [applicationId]
+  );
+
+  return rows[0] || null;
+}
+
+async function getScopedApplicationIdsForOpportunity(opportunityId, scopedDepartment) {
+  const rows = await query(
+    `
+      SELECT
+        pa.id,
+        se.department
+      FROM placement_applications pa
+      LEFT JOIN student_education se ON se.PRN = pa.PRN
+      WHERE pa.opportunity_id = ?
+    `,
+    [opportunityId]
+  );
+
+  return rows
+    .filter((row) => departmentMatchesScope(row.department, scopedDepartment))
+    .map((row) => row.id);
+}
+
+function buildInClausePlaceholders(values) {
+  return values.map(() => '?').join(', ');
+}
+
+async function ensureTpcDepartmentAccessToApplication(req, applicationId) {
+  if (req.auth?.role !== 'tpc') {
+    return { allowed: true };
+  }
+
+  const scopedDepartment = await resolveTpcDepartment(req);
+
+  if (!scopedDepartment) {
+    return {
+      allowed: false,
+      statusCode: 403,
+      message: 'No department assigned.',
+    };
+  }
+
+  const application = await getApplicationDepartmentContext(applicationId);
+
+  if (!application) {
+    return {
+      allowed: false,
+      statusCode: 404,
+      message: 'Application not found.',
+    };
+  }
+
+  if (!departmentMatchesScope(application.department, scopedDepartment)) {
+    return {
+      allowed: false,
+      statusCode: 403,
+      message: 'You can only access applications for students from your assigned department.',
+    };
+  }
+
+  return {
+    allowed: true,
+    application,
+  };
 }
 
 function ensureTpoMutationAccess(req, res) {
@@ -472,10 +599,32 @@ tpoApplicationTrackingRoutes.get('/opportunities/:id/applicants', async (req, re
       return;
     }
 
+    const scopedDepartment = await resolveTpcDepartment(req);
+
+    if (req.auth?.role === 'tpc' && !scopedDepartment) {
+      res.json({
+        message: 'No department assigned.',
+        data: {
+          opportunity: {
+            id: opportunity.id,
+            company: opportunity.company_name || '',
+            title: opportunity.job_title || '',
+            location: opportunity.location || '',
+            type: opportunity.job_type || '',
+            deadline: toIsoString(opportunity.deadline),
+            status: opportunity.status || 'active',
+          },
+          summary: buildApplicantsSummary([]),
+          applicants: [],
+        },
+      });
+      return;
+    }
+
     await syncFinalRoundPlacementsForOpportunity(req.params.id, 'system');
     const applicants = await fetchApplicantsForOpportunity(req.params.id, {
       role: req.auth?.role || 'tpo',
-      department: req.auth?.department || '',
+      department: scopedDepartment,
     });
 
     res.json({
@@ -516,11 +665,19 @@ tpoApplicationTrackingRoutes.post('/applications/:applicationId/verify', async (
       return;
     }
 
-    const applicationRows = await query(
-      'SELECT id, opportunity_id, PRN, application_status FROM placement_applications WHERE id = ? LIMIT 1',
-      [applicationId]
-    );
-    const application = applicationRows[0];
+    const accessCheck = await ensureTpcDepartmentAccessToApplication(req, applicationId);
+
+    if (!accessCheck.allowed) {
+      res.status(accessCheck.statusCode).json({ message: accessCheck.message });
+      return;
+    }
+
+    const application = accessCheck.application || (
+      await query(
+        'SELECT id, opportunity_id, PRN, application_status FROM placement_applications WHERE id = ? LIMIT 1',
+        [applicationId]
+      )
+    )[0];
 
     if (!application) {
       res.status(404).json({ message: 'Application not found.' });
@@ -569,11 +726,19 @@ tpoApplicationTrackingRoutes.post('/applications/:applicationId/reject', async (
       return;
     }
 
-    const applicationRows = await query(
-      'SELECT id, opportunity_id, PRN, application_status FROM placement_applications WHERE id = ? LIMIT 1',
-      [applicationId]
-    );
-    const application = applicationRows[0];
+    const accessCheck = await ensureTpcDepartmentAccessToApplication(req, applicationId);
+
+    if (!accessCheck.allowed) {
+      res.status(accessCheck.statusCode).json({ message: accessCheck.message });
+      return;
+    }
+
+    const application = accessCheck.application || (
+      await query(
+        'SELECT id, opportunity_id, PRN, application_status FROM placement_applications WHERE id = ? LIMIT 1',
+        [applicationId]
+      )
+    )[0];
 
     if (!application) {
       res.status(404).json({ message: 'Application not found.' });
@@ -641,6 +806,13 @@ tpoApplicationTrackingRoutes.post('/stages/:stageId/results/upsert', async (req,
       return;
     }
 
+    const scopedDepartment = await resolveTpcDepartment(req);
+
+    if (req.auth?.role === 'tpc' && !scopedDepartment) {
+      res.status(403).json({ message: 'No department assigned.' });
+      return;
+    }
+
     const changedBy = String(req.auth?.prn || req.auth?.id || 'tpo').slice(0, 20);
     let updatedCount = 0;
     const missingPrns = [];
@@ -681,6 +853,16 @@ tpoApplicationTrackingRoutes.post('/stages/:stageId/results/upsert', async (req,
 
         if (!application) {
           missingPrns.push(prn);
+          continue;
+        }
+
+        const accessCheck = await ensureTpcDepartmentAccessToApplication(req, application.id);
+
+        if (!accessCheck.allowed) {
+          failedPrns.push({
+            prn,
+            reason: accessCheck.message,
+          });
           continue;
         }
 
@@ -742,30 +924,55 @@ tpoApplicationTrackingRoutes.post('/opportunities/:id/applicants/verify-all', as
 
     await ensurePlacementApplicationsTable();
     const opportunityId = Number(req.params.id);
+    const scopedDepartment = await resolveTpcDepartment(req);
 
-    const rows = await query(
-      `
-        SELECT id
-        FROM placement_applications
-        WHERE opportunity_id = ? AND application_status = 'pending_verification'
-      `,
-      [opportunityId]
-    );
-    const applicationIds = rows.map((row) => row.id);
+    if (req.auth?.role === 'tpc' && !scopedDepartment) {
+      res.status(403).json({ message: 'No department assigned.' });
+      return;
+    }
 
-    if (applicationIds.length) {
+    const applicationIds = req.auth?.role === 'tpc'
+      ? await getScopedApplicationIdsForOpportunity(opportunityId, scopedDepartment)
+      : [];
+    const pendingApplicationIds = req.auth?.role === 'tpc'
+      ? (
+        await query(
+          `
+            SELECT id
+            FROM placement_applications
+            WHERE opportunity_id = ?
+              AND application_status = 'pending_verification'
+          `,
+          [opportunityId]
+        )
+      )
+        .map((row) => row.id)
+        .filter((id) => applicationIds.includes(id))
+      : (
+        await query(
+          `
+            SELECT id
+            FROM placement_applications
+            WHERE opportunity_id = ? AND application_status = 'pending_verification'
+          `,
+          [opportunityId]
+        )
+      ).map((row) => row.id);
+
+    if (pendingApplicationIds.length) {
+      const placeholders = buildInClausePlaceholders(pendingApplicationIds);
       await query(
         `
           UPDATE placement_applications
           SET application_status = 'verified',
               final_outcome = 'in_process'
-          WHERE opportunity_id = ? AND application_status = 'pending_verification'
+          WHERE id IN (${placeholders})
         `,
-        [opportunityId]
+        pendingApplicationIds
       );
 
       await writeStatusHistory(
-        applicationIds,
+        pendingApplicationIds,
         'verified',
         req.auth?.prn || req.auth?.id || 'tpo',
         'All pending applications verified by TPO.'
@@ -774,7 +981,7 @@ tpoApplicationTrackingRoutes.post('/opportunities/:id/applicants/verify-all', as
 
     res.json({
       message: 'All pending applications verified successfully.',
-      updatedCount: applicationIds.length,
+      updatedCount: pendingApplicationIds.length,
     });
   } catch (error) {
     res.status(500).json({
@@ -792,30 +999,55 @@ tpoApplicationTrackingRoutes.post('/opportunities/:id/applicants/reject-all', as
 
     await ensurePlacementApplicationsTable();
     const opportunityId = Number(req.params.id);
+    const scopedDepartment = await resolveTpcDepartment(req);
 
-    const rows = await query(
-      `
-        SELECT id
-        FROM placement_applications
-        WHERE opportunity_id = ? AND application_status = 'pending_verification'
-      `,
-      [opportunityId]
-    );
-    const applicationIds = rows.map((row) => row.id);
+    if (req.auth?.role === 'tpc' && !scopedDepartment) {
+      res.status(403).json({ message: 'No department assigned.' });
+      return;
+    }
 
-    if (applicationIds.length) {
+    const applicationIds = req.auth?.role === 'tpc'
+      ? await getScopedApplicationIdsForOpportunity(opportunityId, scopedDepartment)
+      : [];
+    const pendingApplicationIds = req.auth?.role === 'tpc'
+      ? (
+        await query(
+          `
+            SELECT id
+            FROM placement_applications
+            WHERE opportunity_id = ?
+              AND application_status = 'pending_verification'
+          `,
+          [opportunityId]
+        )
+      )
+        .map((row) => row.id)
+        .filter((id) => applicationIds.includes(id))
+      : (
+        await query(
+          `
+            SELECT id
+            FROM placement_applications
+            WHERE opportunity_id = ? AND application_status = 'pending_verification'
+          `,
+          [opportunityId]
+        )
+      ).map((row) => row.id);
+
+    if (pendingApplicationIds.length) {
+      const placeholders = buildInClausePlaceholders(pendingApplicationIds);
       await query(
         `
           UPDATE placement_applications
           SET application_status = 'rejected_by_tpo',
               final_outcome = 'not_selected'
-          WHERE opportunity_id = ? AND application_status = 'pending_verification'
+          WHERE id IN (${placeholders})
         `,
-        [opportunityId]
+        pendingApplicationIds
       );
 
       await writeStatusHistory(
-        applicationIds,
+        pendingApplicationIds,
         'rejected_by_tpo',
         req.auth?.prn || req.auth?.id || 'tpo',
         'All pending applications rejected by TPO.'
@@ -824,7 +1056,7 @@ tpoApplicationTrackingRoutes.post('/opportunities/:id/applicants/reject-all', as
 
     res.json({
       message: 'All pending applications rejected successfully.',
-      updatedCount: applicationIds.length,
+      updatedCount: pendingApplicationIds.length,
     });
   } catch (error) {
     res.status(500).json({

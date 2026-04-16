@@ -5,6 +5,7 @@ import StudentTable from "../components/StudentTable";
 
 export default function StudentListPage({
   students,
+  tpcDepartment = "",
   isLoading = false,
   errorMessage = "",
   setSelectedStudent,
@@ -17,13 +18,18 @@ export default function StudentListPage({
   };
 
   const sortedStudents = useMemo(() => {
-    const unverified = students.filter((student) => student.status !== "Verified");
-    const verified = students.filter((student) => student.status === "Verified");
+    const departmentMatchedStudents = students.filter(
+      (student) =>
+        String(student?.department || "").trim().toLowerCase() ===
+        String(tpcDepartment || "").trim().toLowerCase(),
+    );
+    const unverified = departmentMatchedStudents.filter((student) => student.status !== "Verified");
+    const verified = departmentMatchedStudents.filter((student) => student.status === "Verified");
     return [...unverified, ...verified];
-  }, [students]);
+  }, [students, tpcDepartment]);
 
-  const verifiedCount = students.filter((student) => student.status === "Verified").length;
-  const remainingCount = students.length - verifiedCount;
+  const verifiedCount = sortedStudents.filter((student) => student.status === "Verified").length;
+  const remainingCount = sortedStudents.length - verifiedCount;
 
   if (isLoading) {
     return (
@@ -70,7 +76,7 @@ export default function StudentListPage({
                 <p className="text-sm text-white/70">Total students</p>
                 <Users className="h-5 w-5 text-white/70" />
               </div>
-              <p className="mt-2 text-3xl font-semibold">{students.length}</p>
+              <p className="mt-2 text-3xl font-semibold">{sortedStudents.length}</p>
             </div>
             <div className="rounded-2xl bg-emerald-50 p-5">
               <div className="flex items-center justify-between">
@@ -101,7 +107,7 @@ export default function StudentListPage({
               Department
             </p>
             <p className="mt-2 text-lg font-semibold text-slate-900">
-              Computer Engineering
+              {tpcDepartment || "Department not assigned"}
             </p>
           </div>
           <div className="rounded-2xl bg-slate-50 p-5">

@@ -46,6 +46,125 @@ function buildLocation(personal) {
     .join(', ');
 }
 
+function normalizeDepartmentValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+async function columnExists(tableName, columnName) {
+  const rows = await query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
+  return rows.length > 0;
+}
+
+function buildInClausePlaceholders(values) {
+  return values.map(() => '?').join(', ');
+}
+
+async function resolveTpcDepartment(req) {
+  if (req.auth?.role !== 'tpc') {
+    return '';
+  }
+
+  const tpcId = String(req.auth?.prn || req.auth?.userId || '').trim();
+  const tpcEmail = String(req.auth?.email || '').trim().toLowerCase();
+
+  if (!tpcId && !tpcEmail) {
+    return '';
+  }
+
+  const hasDepartmentColumn = await columnExists('TPC_Credentials', 'department').catch(() => false);
+  const hasDepartmentNameColumn = await columnExists('TPC_Credentials', 'department_name').catch(() => false);
+  const hasIdColumn = await columnExists('TPC_Credentials', 'id').catch(() => false);
+  const hasTpcIdColumn = await columnExists('TPC_Credentials', 'tpc_id').catch(() => false);
+  const hasEmailColumn = await columnExists('TPC_Credentials', 'email').catch(() => false);
+
+  const departmentExpression = hasDepartmentColumn
+    ? 'department'
+    : hasDepartmentNameColumn
+      ? 'department_name'
+      : "''";
+  const idConditions = [];
+  const values = [];
+
+  if (hasIdColumn) {
+    idConditions.push('CAST(id AS CHAR) = ?');
+    values.push(tpcId);
+  }
+
+  if (hasTpcIdColumn) {
+    idConditions.push('CAST(tpc_id AS CHAR) = ?');
+    values.push(tpcId);
+  }
+
+  if (hasEmailColumn && tpcEmail) {
+    idConditions.push('LOWER(TRIM(email)) = ?');
+    values.push(tpcEmail);
+  }
+
+  if (!idConditions.length) {
+    return '';
+  }
+
+  const rows = await query(
+    `
+      SELECT ${departmentExpression} AS department
+      FROM TPC_Credentials
+      WHERE ${idConditions.join(' OR ')}
+      LIMIT 1
+    `,
+    values
+  );
+
+  return String(rows[0]?.department || '').trim();
+}
+
+async function ensureStudentBelongsToScopedDepartment(prn, scopedDepartment) {
+  if (!String(scopedDepartment || '').trim()) {
+    return {
+      allowed: false,
+      reason: 'No department assigned.',
+    };
+  }
+
+  const educationRows = await query(
+    `
+      SELECT department
+      FROM student_education
+      WHERE PRN = ?
+        AND LOWER(TRIM(COALESCE(department, ''))) = ?
+      LIMIT 1
+    `,
+    [prn, normalizeDepartmentValue(scopedDepartment)]
+  );
+
+  if (!educationRows.length) {
+    const studentExistsRows = await query(
+      `
+        SELECT PRN
+        FROM student_education
+        WHERE PRN = ?
+        LIMIT 1
+      `,
+      [prn]
+    );
+
+    if (!studentExistsRows.length) {
+      return {
+        allowed: false,
+        reason: 'Student not found.',
+      };
+    }
+
+    return {
+      allowed: false,
+      reason: 'You can only access students from your assigned department.',
+    };
+  }
+
+  return {
+    allowed: true,
+  };
+}
+
 function createField(id, label, value, extra = {}) {
   return {
     id,
@@ -348,22 +467,62 @@ function createVerificationPayload(student) {
 
 tpcStudentVerificationRoutes.get('/students', async (req, res) => {
   try {
+    const scopedDepartment = await resolveTpcDepartment(req);
+    const normalizedDepartment = normalizeDepartmentValue(scopedDepartment);
+
+    if (!scopedDepartment) {
+      res.json({
+        message: 'No department assigned.',
+        data: [],
+      });
+      return;
+    }
+
     const personalRows = await query(`
       SELECT sp.*, COALESCE(sc.is_profile_verified, FALSE) AS is_profile_verified
       FROM student_personal sp
+      INNER JOIN student_education se ON se.PRN = sp.PRN
       LEFT JOIN student_credentials sc ON sc.PRN = sp.PRN
+      WHERE LOWER(TRIM(COALESCE(se.department, ''))) = ?
       ORDER BY sp.PRN ASC
-    `);
-    const educationRows = await query('SELECT * FROM student_education');
+    `, [normalizedDepartment]);
+
+    if (!personalRows.length) {
+      res.json({
+        message: 'Student verification records fetched successfully',
+        data: [],
+      });
+      return;
+    }
+
+    const scopedPrns = personalRows.map((row) => row.PRN);
+    const placeholders = buildInClausePlaceholders(scopedPrns);
+    const educationRows = await query(
+      `SELECT * FROM student_education WHERE PRN IN (${placeholders})`,
+      scopedPrns,
+    );
     const skillRows = await query(`
       SELECT PRN, skill_name, skill_type
       FROM student_skills
+      WHERE PRN IN (${placeholders})
       ORDER BY PRN ASC, skill_name ASC
-    `);
-    const projectRows = await query('SELECT * FROM student_projects ORDER BY PRN ASC, project_number ASC');
-    const experienceRows = await query('SELECT * FROM student_experience ORDER BY PRN ASC, exp_number ASC');
-    const certificationRows = await query('SELECT * FROM student_certifications ORDER BY PRN ASC, cert_number ASC');
-    const activityRows = await query('SELECT * FROM student_activities ORDER BY PRN ASC, act_number ASC');
+    `, scopedPrns);
+    const projectRows = await query(
+      `SELECT * FROM student_projects WHERE PRN IN (${placeholders}) ORDER BY PRN ASC, project_number ASC`,
+      scopedPrns,
+    );
+    const experienceRows = await query(
+      `SELECT * FROM student_experience WHERE PRN IN (${placeholders}) ORDER BY PRN ASC, exp_number ASC`,
+      scopedPrns,
+    );
+    const certificationRows = await query(
+      `SELECT * FROM student_certifications WHERE PRN IN (${placeholders}) ORDER BY PRN ASC, cert_number ASC`,
+      scopedPrns,
+    );
+    const activityRows = await query(
+      `SELECT * FROM student_activities WHERE PRN IN (${placeholders}) ORDER BY PRN ASC, act_number ASC`,
+      scopedPrns,
+    );
 
     const educationMap = new Map(educationRows.map((row) => [row.PRN, row]));
     const skillsMap = new Map();
@@ -519,6 +678,16 @@ tpcStudentVerificationRoutes.post('/students/:prn/verify-field', async (req, res
   const { fieldId } = req.body;
 
   try {
+    const scopedDepartment = await resolveTpcDepartment(req);
+    const accessCheck = await ensureStudentBelongsToScopedDepartment(prn, scopedDepartment);
+
+    if (!accessCheck.allowed) {
+      res.status(accessCheck.reason === 'Student not found.' ? 404 : 403).json({
+        message: accessCheck.reason,
+      });
+      return;
+    }
+
     const updateConfig = buildVerificationUpdate(fieldId);
 
     if (!updateConfig) {
@@ -545,6 +714,16 @@ tpcStudentVerificationRoutes.post('/students/:prn/verify-profile', async (req, r
   const { prn } = req.params;
 
   try {
+    const scopedDepartment = await resolveTpcDepartment(req);
+    const accessCheck = await ensureStudentBelongsToScopedDepartment(prn, scopedDepartment);
+
+    if (!accessCheck.allowed) {
+      res.status(accessCheck.reason === 'Student not found.' ? 404 : 403).json({
+        message: accessCheck.reason,
+      });
+      return;
+    }
+
     await query(
       'UPDATE student_credentials SET is_profile_verified = TRUE WHERE PRN = ?',
       [prn],

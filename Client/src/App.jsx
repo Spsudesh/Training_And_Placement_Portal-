@@ -112,6 +112,10 @@ function clearLegacyStudentBrowserCache() {
   });
 }
 
+function normalizeDepartment(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function ProtectedRoute({ allowedPanel, children }) {
   const activePanel = getActivePanel();
 
@@ -586,6 +590,7 @@ function TpoTPCManagementApp() {
 function TpcApp() {
   const navigate = useNavigate();
   const location = useLocation();
+  const authenticatedUser = getAuthenticatedUser();
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
@@ -610,9 +615,14 @@ function TpcApp() {
         setIsLoadingStudents(true);
         setStudentsError("");
         const records = await getStudentVerificationRecords();
+        const filteredRecords = records.filter(
+          (student) =>
+            normalizeDepartment(student?.department) ===
+            normalizeDepartment(authenticatedUser?.department),
+        );
 
         if (isMounted) {
-          setStudents(records);
+          setStudents(filteredRecords);
         }
       } catch (error) {
         if (isMounted) {
@@ -636,7 +646,7 @@ function TpcApp() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [authenticatedUser?.department]);
 
   return (
     <TpcSidebar
@@ -650,6 +660,7 @@ function TpcApp() {
           element={
             <StudentListPage
               students={students}
+              tpcDepartment={authenticatedUser?.department || ""}
               isLoading={isLoadingStudents}
               errorMessage={studentsError}
               setSelectedStudent={setSelectedStudent}
