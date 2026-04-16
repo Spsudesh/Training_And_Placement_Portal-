@@ -13,9 +13,9 @@ export default function PieChartBox({ data }) {
     <article className="rounded-[28px] border border-slate-200/70 bg-white p-6 shadow-lg shadow-slate-200/60">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-slate-900">Drive Readiness</p>
+          <p className="text-sm font-semibold text-slate-900">Verification Status</p>
           <p className="mt-1 text-sm text-slate-500">
-            Distribution of ready and pending coordination tasks
+            Verified versus pending student profiles in your department
           </p>
         </div>
       </div>

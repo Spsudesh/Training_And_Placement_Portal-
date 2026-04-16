@@ -1,4 +1,4 @@
-import { Bell, Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 
 function Header({
   pageTitle = "TPO Panel",
@@ -44,20 +44,6 @@ function Header({
           className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
         >
           Logout
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
-          aria-label="Search"
-        >
-          <Search className="h-[22px] w-[22px]" />
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg text-slate-500 transition hover:bg-slate-50"
-          aria-label="Notifications"
-        >
-          <Bell className="h-[22px] w-[22px]" />
         </button>
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-400 to-blue-500 text-sm font-bold text-white shadow-md">
           {profileInitials}

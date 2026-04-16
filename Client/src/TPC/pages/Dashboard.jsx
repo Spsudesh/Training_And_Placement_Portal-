@@ -13,25 +13,25 @@ import { useDashboardData } from "../hooks/useDashboardData";
 
 const statConfig = [
   {
-    key: "assignedStudents",
-    title: "Assigned Students",
-    subtitle: "Students currently managed by coordinator teams",
+    key: "departmentStudents",
+    title: "Department Students",
+    subtitle: "Students mapped to your assigned department",
     icon: Users,
     accent: "from-slate-900 via-slate-800 to-blue-700",
     iconBg: "bg-white/15",
   },
   {
-    key: "activeDrives",
-    title: "Active Drives",
-    subtitle: "Ongoing campus activities needing coordination",
+    key: "verifiedStudents",
+    title: "Verified Profiles",
+    subtitle: "Students already verified by the coordinator desk",
     icon: CalendarCheck2,
     accent: "from-blue-500 via-sky-500 to-cyan-500",
     iconBg: "bg-white/20",
   },
   {
-    key: "pendingReferrals",
-    title: "Pending Tasks",
-    subtitle: "Student follow-ups and execution items awaiting action",
+    key: "activeOpportunities",
+    title: "Active Opportunities",
+    subtitle: "Open drives relevant to your department",
     icon: ClipboardCheck,
     accent: "from-amber-500 via-orange-500 to-rose-500",
     iconBg: "bg-white/25",
@@ -110,12 +110,12 @@ export default function Dashboard() {
 
               <div className="mt-6 space-y-4">
                 <div className="rounded-2xl bg-slate-950 p-5 text-white">
-                  <p className="text-sm text-white/70">Task Closure Rate</p>
+                  <p className="text-sm text-white/70">Verification Rate</p>
                   <p className="mt-2 text-3xl font-semibold">
                     {data
                       ? `${Math.round(
-                          (data.overview.placedStudents /
-                            data.overview.assignedStudents) *
+                          ((data.overview.verifiedStudents || 0) /
+                            Math.max(data.overview.departmentStudents || 1, 1)) *
                             100
                         )}%`
                       : "--"}
@@ -126,13 +126,13 @@ export default function Dashboard() {
                   <div className="rounded-2xl bg-blue-50 p-4">
                     <p className="text-sm text-blue-700">Focus Department</p>
                     <p className="mt-2 text-xl font-semibold text-slate-900">
-                      CSE
+                      {data?.highlights?.departmentName || "--"}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-amber-50 p-4">
                     <p className="text-sm text-amber-700">Next Major Drive</p>
                     <p className="mt-2 text-xl font-semibold text-slate-900">
-                      Infosys
+                      {data?.highlights?.nextMajorDrive || "--"}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-emerald-50 p-4">

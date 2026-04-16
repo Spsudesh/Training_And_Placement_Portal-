@@ -13,10 +13,10 @@ export default function BarChartBox({ data }) {
     <article className="rounded-[28px] border border-slate-200/70 bg-white p-6 shadow-lg shadow-slate-200/60">
       <div className="mb-6">
         <p className="text-sm font-semibold text-slate-900">
-          Department-wise Coordination
+          Batch-wise Student Status
         </p>
         <p className="mt-1 text-sm text-slate-500">
-          Assigned tasks versus completed coordination across departments
+          Total students versus verified profiles across passing years
         </p>
       </div>
 
@@ -24,7 +24,7 @@ export default function BarChartBox({ data }) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} barGap={10}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-            <XAxis dataKey="department" tickLine={false} axisLine={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} />
             <YAxis tickLine={false} axisLine={false} />
             <Tooltip
               cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
@@ -36,14 +36,14 @@ export default function BarChartBox({ data }) {
             />
             <Bar
               dataKey="tasks"
-              name="Tasks"
+              name="Students"
               fill="#94a3b8"
               radius={[10, 10, 0, 0]}
               animationDuration={900}
             />
             <Bar
               dataKey="coordinated"
-              name="Coordinated"
+              name="Verified"
               fill="#2563eb"
               radius={[10, 10, 0, 0]}
               animationDuration={1100}

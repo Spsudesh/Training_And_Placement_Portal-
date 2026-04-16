@@ -13,10 +13,10 @@ export default function LineChartBox({ data }) {
     <article className="rounded-[28px] border border-slate-200/70 bg-white p-6 shadow-lg shadow-slate-200/60">
       <div className="mb-6">
         <p className="text-sm font-semibold text-slate-900">
-          Weekly Coordination Trend
+          Weekly Application Activity
         </p>
         <p className="mt-1 text-sm text-slate-500">
-          Team activity and operational updates through the current cycle
+          Department-level application and placement activity over recent weeks
         </p>
       </div>
 
