@@ -308,7 +308,7 @@ router.post('/refresh', async (req, res) => {
 
     const promiseDb = db.promise();
     const [rows] = await promiseDb.query(
-      `SELECT PRN, email, role, is_profile_verified, is_active
+      `SELECT PRN, email, is_profile_verified, is_active
        FROM Student_Credentials
        WHERE PRN = ? AND LOWER(email) = ?
        LIMIT 1`,
@@ -333,22 +333,19 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
-    let isProfileFormSubmitted = true;
+    let isProfileFormSubmitted = await getStudentFormSubmissionStatus(promiseDb, user.PRN);
     let profileFormNextStep = null;
     let profileFormLastCompletedStep = null;
 
-    if (user.role === 'student') {
-      isProfileFormSubmitted = await getStudentFormSubmissionStatus(promiseDb, user.PRN);
-
-      if (!isProfileFormSubmitted) {
-        const progressRow = await getStudentProfileProgressRow(promiseDb, user.PRN);
-        profileFormLastCompletedStep = progressRow?.last_completed_step || null;
-        profileFormNextStep = getNextProfileStepFromProgress(progressRow);
-      }
+    if (!isProfileFormSubmitted) {
+      const progressRow = await getStudentProfileProgressRow(promiseDb, user.PRN);
+      profileFormLastCompletedStep = progressRow?.last_completed_step || null;
+      profileFormNextStep = getNextProfileStepFromProgress(progressRow);
     }
 
     return res.json(buildLoginResponse(res, {
       ...user,
+      role: 'student',
       is_profile_form_submitted: isProfileFormSubmitted,
       profileFormLastCompletedStep,
       profileFormNextStep,

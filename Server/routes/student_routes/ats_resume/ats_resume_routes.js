@@ -68,6 +68,139 @@ function renderExternalLink(url, label) {
   return `<a class="external-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
 }
 
+function formatLinkLabel(url, fallback) {
+  const raw = String(url || '').trim();
+  if (!raw) return fallback;
+  return raw.replace(/^https?:\/\//i, '').replace(/\/+$/g, '');
+}
+
+function formatDurationValue(durationValue, durationUnit) {
+  const value = String(durationValue ?? '').trim();
+  const unit = String(durationUnit || '').trim().toLowerCase();
+
+  if (!value || !unit) {
+    return '';
+  }
+
+  if (unit === 'weeks') {
+    return `${value} ${value === '1' ? 'week' : 'weeks'}`;
+  }
+
+  if (unit === 'days') {
+    return `${value} ${value === '1' ? 'day' : 'days'}`;
+  }
+
+  return `${value} ${unit}`;
+}
+
+function formatCertificationDuration(item) {
+  const summary = String(item.durationSummary || item.duration || '').trim();
+  const quantity = formatDurationValue(item.durationValue, item.durationUnit);
+
+  if (!summary && !quantity) {
+    return '';
+  }
+
+  const normalizedSummary = summary.replace(/\s+/g, ' ').trim();
+
+  if (!quantity) {
+    return normalizedSummary.replace(/\s*\|\s*/g, ' ');
+  }
+
+  if (!normalizedSummary) {
+    return quantity;
+  }
+
+  const parts = normalizedSummary.split('|').map((part) => part.trim()).filter(Boolean);
+  const rangePart = parts.find((part) => /[A-Za-z]{3,9}\s+\d{4}\s*-\s*[A-Za-z]{3,9}\s+\d{4}/i.test(part));
+  if (rangePart) {
+    const prettyRange = rangePart.replace(/\s*-\s*/g, ' to ');
+    return `${quantity} (${prettyRange})`;
+  }
+
+  if (normalizedSummary.toLowerCase() === quantity.toLowerCase()) {
+    return quantity;
+  }
+
+  return normalizedSummary;
+}
+
+function buildCertificationLine(item) {
+  return [item.platform, formatCertificationDuration(item)].filter(Boolean).join(' | ');
+}
+
+function getInlineIconSvg(type) {
+  const icons = {
+    phone:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.6 3.2 3.9 5.5 7.1 7.1l2.4-2.4c.3-.3.7-.4 1-.3 1.1.4 2.2.6 3.4.6.6 0 1 .4 1 1V21c0 .6-.4 1-1 1C10.8 22 2 13.2 2 2c0-.6.4-1 1-1h4.2c.6 0 1 .4 1 1 0 1.2.2 2.3.6 3.4.1.4 0 .8-.3 1l-2.4 2.4Z" fill="currentColor"/></svg>',
+    email:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v.2l9 5.6 9-5.6V7H3Zm18 10V9.5l-8.5 5.3a1 1 0 0 1-1 0L3 9.5V17h18Z" fill="currentColor"/></svg>',
+    location:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Zm0-9a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" fill="currentColor"/></svg>',
+    linkedin:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.9 8.6A1.9 1.9 0 1 1 6.9 4.8a1.9 1.9 0 0 1 0 3.8ZM5.2 10h3.4v8.8H5.2V10Zm5.5 0h3.2v1.2h.1c.4-.8 1.5-1.6 3.1-1.6 3.3 0 3.9 2.1 3.9 4.9v4.3h-3.4V15c0-.9 0-2.1-1.3-2.1s-1.5 1-1.5 2V19h-3.4V10Z" fill="currentColor"/></svg>',
+    github:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .8a11.2 11.2 0 0 0-3.5 21.8c.6.1.8-.3.8-.6v-2.1c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.2-1.6-1.2-1.6-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 2.6 3.3 1.9.1-.7.4-1.2.7-1.5-2.6-.3-5.4-1.3-5.4-5.8 0-1.3.4-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.9 1.2 1.9 1.2 3.2 0 4.5-2.8 5.5-5.4 5.8.4.4.8 1 .8 2v2.9c0 .3.2.7.8.6A11.2 11.2 0 0 0 12 .8Z" fill="currentColor"/></svg>',
+  };
+
+  return icons[type] || '';
+}
+
+function renderContactChip(iconType, content) {
+  if (!content) {
+    return '';
+  }
+
+  return `
+    <span class="contact-chip">
+      <span class="contact-icon">${getInlineIconSvg(iconType)}</span>
+      <span class="contact-value">${content}</span>
+    </span>
+  `;
+}
+
+function renderAtsHeader(profile) {
+  const email = profile.personal.email || profile.personal.collegeEmail;
+  const location = joinNonEmpty([profile.personal.city, profile.personal.state], ', ');
+  const primaryContactChips = [
+    renderContactChip('phone', escapeHtml(profile.personal.mobile)),
+    renderContactChip(
+      'email',
+      email
+        ? `<a class="external-link" href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>`
+        : '',
+    ),
+    renderContactChip('location', escapeHtml(location)),
+  ].filter(Boolean);
+  const secondaryContactChips = [
+    renderContactChip(
+      'linkedin',
+      renderExternalLink(profile.personal.linkedin, formatLinkLabel(profile.personal.linkedin, 'LinkedIn')),
+    ),
+    renderContactChip(
+      'github',
+      renderExternalLink(profile.personal.github, formatLinkLabel(profile.personal.github, 'GitHub')),
+    ),
+  ].filter(Boolean);
+
+  return `
+    <div class="header">
+      <div class="header-shell">
+        ${
+          profile.personal.profilePhotoUrl
+            ? `<div class="header-photo-wrap"><img class="header-photo" src="${escapeHtml(profile.personal.profilePhotoUrl)}" alt="Profile Photo" /></div>`
+            : ''
+        }
+        <div class="header-content">
+          <h1>${escapeHtml(profile.personal.fullName || profile.prn)}</h1>
+          ${primaryContactChips.length ? `<div class="contact-grid primary">${primaryContactChips.join('')}</div>` : ''}
+          ${secondaryContactChips.length ? `<div class="contact-grid secondary">${secondaryContactChips.join('')}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function buildFullName(row) {
   return [row.first_name, row.middle_name, row.last_name].filter(Boolean).join(' ').trim();
 }
@@ -172,7 +305,7 @@ async function fetchStudentResumeProfile(prn) {
     hasCertifications
       ? safeQuery(
           `
-            SELECT cert_number, name, platform, link
+            SELECT cert_number, name, platform, link, duration_unit, duration_summary, duration_value, duration
             FROM student_certifications
             WHERE PRN = ?
             ORDER BY cert_number ASC
@@ -217,6 +350,7 @@ async function fetchStudentResumeProfile(prn) {
       state: personal.state || '',
       linkedin: personal.linkedin_url || personal.linkedin || '',
       github: personal.github_url || personal.github || '',
+      portfolio: personal.portfolio_url || personal.portfolio || '',
       profilePhotoUrl: personal.profile_photo_url || '',
     },
     summary,
@@ -279,6 +413,10 @@ async function fetchStudentResumeProfile(prn) {
       name: item.name || '',
       platform: item.platform || '',
       link: item.link || '',
+      durationUnit: item.duration_unit || '',
+      durationSummary: item.duration_summary || item.duration || '',
+      durationValue: item.duration_value ?? '',
+      duration: item.duration || item.duration_summary || '',
     })),
     activities: activityRows.map((item) => ({
       id: item.act_number,
@@ -437,7 +575,7 @@ function buildSectionMarkup(profile, selections, sectionKey) {
               ${escapeHtml(item.name)}
               ${item.link ? ` | ${renderExternalLink(item.link, 'Link')}` : ''}
             </h3>
-            ${item.platform ? `<p class="desc">${escapeHtml(item.platform)}</p>` : ''}
+            ${buildCertificationLine(item) ? `<p class="desc">${escapeHtml(buildCertificationLine(item))}</p>` : ''}
           </div>
         `);
     case 'activities':
@@ -465,15 +603,18 @@ function buildAtsTemplate(profile, selections) {
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #fff; margin: 0; padding: 22px 26px; color: #000; font-size: 10px; line-height: 1.26; }
         .page { width: 100%; max-width: 760px; margin: 0 auto; }
-        .header { display: flex; align-items: center; gap: 18px; margin-bottom: 10px; }
-        .header-photo-stack { width: 92px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
-        .header-photo-wrap { width: 82px; flex-shrink: 0; }
-        .header-photo { width: 82px; height: 82px; object-fit: cover; border: 1px solid #cfd6e2; display: block; }
-        .photo-label { margin-top: 6px; font-size: 8.4px; font-weight: 700; letter-spacing: 0.08em; color: #215da8; }
-        .header-content { flex: 1; min-height: 96px; display: flex; flex-direction: column; justify-content: center; text-align: center; }
-        h1 { margin: 0 0 8px 0; font-size: 18px; font-weight: 800; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
-        .contact { font-size: 9.4px; margin-bottom: 5px; font-weight: 600; line-height: 1.22; }
-        .contact.links { margin-bottom: 0; }
+        .header { display: flex; justify-content: center; margin-bottom: 12px; }
+        .header-shell { width: 100%; display: flex; align-items: center; justify-content: center; gap: 18px; }
+        .header-photo-wrap { width: 108px; height: 108px; flex-shrink: 0; }
+        .header-photo { width: 108px; height: 108px; object-fit: cover; border: 1px solid #cfd6e2; display: block; }
+        .header-content { min-height: 108px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        h1 { margin: 0 0 8px 0; font-size: 20px; font-weight: 800; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
+        .contact-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 12px; align-items: center; }
+        .contact-grid.secondary { margin-top: 6px; }
+        .contact-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 9.3px; font-weight: 600; line-height: 1.2; }
+        .contact-icon { width: 11px; height: 11px; display: inline-flex; color: #215da8; flex-shrink: 0; }
+        .contact-icon svg { width: 11px; height: 11px; display: block; }
+        .contact-value { display: inline-block; }
         .external-link { color: #0b51ff; text-decoration: underline; font-weight: 400; }
         .section { margin-top: 9px; }
         h2 { margin: 0 0 5px 0; font-size: 10.8px; font-weight: 800; color: #215da8; border-bottom: 1px solid #000; padding-bottom: 1px; }
@@ -493,30 +634,7 @@ function buildAtsTemplate(profile, selections) {
     </head>
     <body>
       <div class="page">
-        <div class="header">
-          ${
-            profile.personal.profilePhotoUrl
-              ? `<div class="header-photo-stack"><div class="header-photo-wrap"><img class="header-photo" src="${escapeHtml(profile.personal.profilePhotoUrl)}" alt="Profile Photo" /></div><div class="photo-label">PROFILE</div></div>`
-              : ''
-          }
-          <div class="header-content">
-            <h1>${escapeHtml(profile.personal.fullName || profile.prn)}</h1>
-            <div class="contact">
-              Phone: ${escapeHtml(profile.personal.mobile)} | Email:
-              <a href="mailto:${escapeHtml(profile.personal.email || profile.personal.collegeEmail)}">${escapeHtml(profile.personal.email || profile.personal.collegeEmail)}</a>
-              | ${escapeHtml(joinNonEmpty([profile.personal.city, profile.personal.state], ', '))}
-            </div>
-            <div class="contact links">
-              ${renderExternalLink(profile.personal.linkedin, profile.personal.linkedin || 'LinkedIn')}
-              ${
-                profile.personal.linkedin && profile.personal.github
-                  ? ' | '
-                  : ''
-              }
-              ${renderExternalLink(profile.personal.github, profile.personal.github || 'GitHub')}
-            </div>
-          </div>
-        </div>
+        ${renderAtsHeader(profile)}
 
         ${profile.summary ? `<div class="section"><h2>PROFILE</h2><p class="desc">${escapeHtml(profile.summary)}</p></div>` : ''}
 
@@ -567,9 +685,9 @@ function buildAtsTemplate(profile, selections) {
           <div class="entry">
             <h3>
               ${escapeHtml(item.name)}
-              ${item.link ? ` | <a href="${escapeHtml(item.link)}">Link</a>` : ''}
+              ${item.link ? ` | ${renderExternalLink(item.link, 'Link')}` : ''}
             </h3>
-            ${item.platform ? `<p class="desc">${escapeHtml(item.platform)}</p>` : ''}
+            ${buildCertificationLine(item) ? `<p class="desc">${escapeHtml(buildCertificationLine(item))}</p>` : ''}
           </div>
         `)}
 
@@ -597,15 +715,18 @@ function buildAtsTemplateOrdered(profile, selections, sectionOrder) {
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #fff; margin: 0; padding: 22px 26px; color: #000; font-size: 10px; line-height: 1.26; }
         .page { width: 100%; max-width: 760px; margin: 0 auto; }
-        .header { display: flex; align-items: center; gap: 18px; margin-bottom: 10px; }
-        .header-photo-stack { width: 92px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
-        .header-photo-wrap { width: 82px; flex-shrink: 0; }
-        .header-photo { width: 82px; height: 82px; object-fit: cover; border: 1px solid #cfd6e2; display: block; }
-        .photo-label { margin-top: 6px; font-size: 8.4px; font-weight: 700; letter-spacing: 0.08em; color: #215da8; }
-        .header-content { flex: 1; min-height: 96px; display: flex; flex-direction: column; justify-content: center; text-align: center; }
-        h1 { margin: 0 0 8px 0; font-size: 18px; font-weight: 800; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
-        .contact { font-size: 9.4px; margin-bottom: 5px; font-weight: 600; line-height: 1.22; }
-        .contact.links { margin-bottom: 0; }
+        .header { display: flex; justify-content: center; margin-bottom: 12px; }
+        .header-shell { width: 100%; display: flex; align-items: center; justify-content: center; gap: 18px; }
+        .header-photo-wrap { width: 108px; height: 108px; flex-shrink: 0; }
+        .header-photo { width: 108px; height: 108px; object-fit: cover; border: 1px solid #cfd6e2; display: block; }
+        .header-content { min-height: 108px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        h1 { margin: 0 0 8px 0; font-size: 20px; font-weight: 800; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
+        .contact-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 12px; align-items: center; }
+        .contact-grid.secondary { margin-top: 6px; }
+        .contact-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 9.3px; font-weight: 600; line-height: 1.2; }
+        .contact-icon { width: 11px; height: 11px; display: inline-flex; color: #215da8; flex-shrink: 0; }
+        .contact-icon svg { width: 11px; height: 11px; display: block; }
+        .contact-value { display: inline-block; }
         .external-link { color: #0b51ff; text-decoration: underline; font-weight: 400; }
         .section { margin-top: 9px; }
         h2 { margin: 0 0 5px 0; font-size: 10.8px; font-weight: 800; color: #215da8; border-bottom: 1px solid #000; padding-bottom: 1px; }
@@ -623,30 +744,7 @@ function buildAtsTemplateOrdered(profile, selections, sectionOrder) {
     </head>
     <body>
       <div class="page">
-        <div class="header">
-          ${
-            profile.personal.profilePhotoUrl
-              ? `<div class="header-photo-stack"><div class="header-photo-wrap"><img class="header-photo" src="${escapeHtml(profile.personal.profilePhotoUrl)}" alt="Profile Photo" /></div><div class="photo-label">PROFILE</div></div>`
-              : ''
-          }
-          <div class="header-content">
-            <h1>${escapeHtml(profile.personal.fullName || profile.prn)}</h1>
-            <div class="contact">
-              Phone: ${escapeHtml(profile.personal.mobile)} | Email:
-              <a href="mailto:${escapeHtml(profile.personal.email || profile.personal.collegeEmail)}">${escapeHtml(profile.personal.email || profile.personal.collegeEmail)}</a>
-              | ${escapeHtml(joinNonEmpty([profile.personal.city, profile.personal.state], ', '))}
-            </div>
-            <div class="contact links">
-              ${renderExternalLink(profile.personal.linkedin, profile.personal.linkedin || 'LinkedIn')}
-              ${
-                profile.personal.linkedin && profile.personal.github
-                  ? ' | '
-                  : ''
-              }
-              ${renderExternalLink(profile.personal.github, profile.personal.github || 'GitHub')}
-            </div>
-          </div>
-        </div>
+        ${renderAtsHeader(profile)}
 
         ${sectionOrder.map((sectionKey) => buildSectionMarkup(profile, selections, sectionKey)).join('')}
       </div>

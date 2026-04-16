@@ -400,6 +400,14 @@ function buildCenteredParagraphLine(parts, style = 'NormalWeb') {
   return items.length ? buildParagraph(items, { style, center: true }) : '';
 }
 
+function buildDelimitedRuns(values, formatter) {
+  const items = values
+    .map((value) => (typeof formatter === 'function' ? formatter(value) : value))
+    .filter(Boolean);
+
+  return items.flatMap((item, index) => (index === 0 ? [item] : [buildRun(' | '), item]));
+}
+
 function buildTemplateOneXml(model) {
   // Template 1 contract:
   // left column -> Profile, Education, Technical Skills
@@ -493,11 +501,17 @@ function buildTemplateOneXml(model) {
     ${buildParagraph(buildRun(model.fullName, { color: '1F3761' }), { style: 'Title' })}
     ${buildParagraph(buildRun(model.headline, { bold: true }), { style: 'BodyText' })}
     ${buildParagraph(
-      [
-        model.mobile ? buildRun(`Phone: ${model.mobile}`) : '',
-        model.email ? buildRun(model.mobile ? ' | ' : '') + buildRun(`Email: ${model.email}`, { underline: true, color: '1155CC' }) : '',
-        model.location ? buildRun(model.mobile || model.email ? ' | ' : '') + buildRun(model.location) : '',
-      ].filter(Boolean),
+      buildDelimitedRuns([
+        model.mobile,
+        model.email
+          ? { text: model.email, options: { underline: true, color: '1155CC' } }
+          : null,
+        model.location,
+      ], (item) =>
+        item && typeof item === 'object'
+          ? buildRun(item.text, item.options)
+          : buildRun(item)
+      ),
       { style: 'BodyText' }
     )}
     ${buildParagraph(
@@ -626,11 +640,19 @@ function buildTemplateTwoXml(model) {
   <w:body>
     ${buildParagraph(buildRun(model.fullName, { bold: true, size: 44 }), { style: 'Heading3', center: true })}
     ${buildParagraph(buildRun(model.headline), { style: 'NormalWeb', center: true })}
-    ${model.location ? buildCenteredParagraphLine([buildRun(`Location: ${model.location}`)]) : ''}
-    ${buildCenteredParagraphLine([
-      model.email ? buildRun(`Email: ${model.email}`, { underline: true, color: '1155CC' }) : '',
-      model.mobile ? buildRun(model.email ? ' | ' : '') + buildRun(`Phone: ${model.mobile}`) : '',
-    ])}
+    ${buildCenteredParagraphLine(
+      buildDelimitedRuns([
+        model.mobile,
+        model.email
+          ? { text: model.email, options: { underline: true, color: '1155CC' } }
+          : null,
+        model.location,
+      ], (item) =>
+        item && typeof item === 'object'
+          ? buildRun(item.text, item.options)
+          : buildRun(item)
+      )
+    )}
     ${model.linkedin ? buildCenteredParagraphLine([buildRun(`LinkedIn: ${formatLink(model.linkedin)}`)]) : ''}
     ${model.github ? buildCenteredParagraphLine([buildRun(`GitHub: ${formatLink(model.github)}`)]) : ''}
     ${model.portfolio ? buildCenteredParagraphLine([buildRun(`Portfolio: ${formatLink(model.portfolio)}`)]) : ''}
