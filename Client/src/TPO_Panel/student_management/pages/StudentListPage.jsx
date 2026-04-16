@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock3, ShieldBan, Users } from "lucide-react";
+import { CheckCircle2, Clock3, ShieldBan, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BlacklistModal from "../components/BlacklistModal";
@@ -158,7 +158,7 @@ export default function StudentListPage({
         onReset={handleResetFilters}
       />
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_300px]">
+      <section>
         <StudentTable
           students={filteredStudents}
           isLoading={isLoading}
@@ -166,21 +166,6 @@ export default function StudentListPage({
           onView={handleView}
           onBlacklist={setBlacklistTarget}
         />
-
-        <div className="rounded-[30px] border border-slate-200/80 bg-white p-6 shadow-lg shadow-slate-200/60">
-          <div className="flex items-start gap-3">
-            <span className="rounded-2xl bg-cyan-100 p-3 text-cyan-700">
-              <AlertTriangle className="h-5 w-5" />
-            </span>
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Management notes</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Student records on this page now come from the backend. The blacklist
-                badge is still handled locally until a dedicated backend action is added.
-              </p>
-            </div>
-          </div>
-        </div>
       </section>
 
       <BlacklistModal

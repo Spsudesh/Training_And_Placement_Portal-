@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { fetchNotices } from "../../TPO/services/noticeApi";
 
 const typeToneMap = {
@@ -94,6 +95,7 @@ function buildBadge(item) {
 }
 
 function StudentHome() {
+  const location = useLocation();
   const [notices, setNotices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -148,6 +150,21 @@ function StudentHome() {
       })),
     [notices],
   );
+
+  useEffect(() => {
+    if (location.hash !== "#notice-section") {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      const noticeSection = document.getElementById("notice-section");
+      noticeSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [location.hash, opportunityFeed.length]);
 
   function openAttachmentPreview(item) {
     if (!item?.attachmentUrl) {
@@ -206,7 +223,10 @@ function StudentHome() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+        <div
+          id="notice-section"
+          className="scroll-mt-28 rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
+        >
           <div className="flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
