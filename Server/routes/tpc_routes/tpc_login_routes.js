@@ -43,6 +43,22 @@ function sanitizeAuthPayload(authPayload) {
   return publicAuthPayload;
 }
 
+async function passwordsMatch(inputPassword, storedPassword) {
+  const normalizedStoredPassword = String(storedPassword || '').trim();
+
+  if (!normalizedStoredPassword) {
+    return false;
+  }
+
+  const looksHashed = normalizedStoredPassword.startsWith('$2');
+
+  if (looksHashed) {
+    return bcrypt.compare(inputPassword, normalizedStoredPassword);
+  }
+
+  return inputPassword === normalizedStoredPassword;
+}
+
 // TPC Login endpoint
 router.post('/login', async (req, res) => {
   const { email, password, role } = req.body;
@@ -75,7 +91,7 @@ router.post('/login', async (req, res) => {
   try {
     const promiseDb = db.promise();
     const [rows] = await promiseDb.query(
-      `SELECT id, email, password, department_name, is_active
+      `SELECT id, email, password, department, is_active
        FROM TPC_Credentials
        WHERE LOWER(email) = ?
        LIMIT 1`,
@@ -98,7 +114,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const passwordMatches = await bcrypt.compare(normalizedPassword, user.password);
+    const passwordMatches = await passwordsMatch(normalizedPassword, user.password);
 
     if (!passwordMatches) {
       return res.status(401).json({
@@ -112,7 +128,7 @@ router.post('/login', async (req, res) => {
       PRN: String(user.id || ''),
       email: user.email,
       role: 'tpc',
-      department: user.department_name,
+      department: user.department,
       is_profile_verified: 1,
       is_profile_form_submitted: true,
     };
@@ -151,7 +167,7 @@ router.post('/refresh', async (req, res) => {
 
     const promiseDb = db.promise();
     const [rows] = await promiseDb.query(
-      `SELECT id, email, department_name, is_active
+      `SELECT id, email, department, is_active
        FROM TPC_Credentials
        WHERE LOWER(email) = ? AND id = ?
        LIMIT 1`,
@@ -170,7 +186,7 @@ router.post('/refresh', async (req, res) => {
       PRN: String(user.id || ''),
       email: user.email,
       role: 'tpc',
-      department: user.department_name,
+      department: user.department,
       is_profile_verified: 1,
       is_profile_form_submitted: true,
     };

@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import {
   CircleHelp,
-  ClipboardCheck,
   FileText,
   Home,
   Layers3,
   UserRound,
-  Users,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import Header from "./student_header";
@@ -20,8 +18,6 @@ const navigationItems = [
   { label: "Job Profiles", icon: Layers3, to: "/student-panel/jobs" },
   { label: "My Profile", icon: UserRound, to: "/student-panel/profile" },
   { label: "ATS Resume", icon: FileText, to: "/student-panel/ats-resume" },
-  { label: "Interviews", icon: Users, to: "/student-panel", fallback: true, requiresVerified: true },
-  { label: "Assessments", icon: ClipboardCheck, to: "/student-panel", fallback: true, requiresVerified: true },
 ];
 
 function StudentSidebar({
