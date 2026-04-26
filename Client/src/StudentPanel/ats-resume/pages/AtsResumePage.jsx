@@ -543,7 +543,6 @@ export default function AtsResumePage() {
       return;
     }
 
-    const resumeWindow = window.open('', '_blank');
     setGenerating(true);
     setGenerationStatus('processing');
     try {
@@ -566,22 +565,12 @@ export default function AtsResumePage() {
 
       window.setTimeout(() => {
         if (fileUrl) {
-          if (resumeWindow && !resumeWindow.closed) {
-            resumeWindow.location.href = fileUrl;
-          } else {
-            window.open(fileUrl, '_blank', 'noopener,noreferrer');
-          }
-        } else if (resumeWindow && !resumeWindow.closed) {
-          resumeWindow.close();
+          window.open(fileUrl, '_blank', 'noopener,noreferrer');
         }
 
         setGenerationStatus('');
       }, 700);
     } catch (err) {
-      if (resumeWindow && !resumeWindow.closed) {
-        resumeWindow.close();
-      }
-
       const message =
         err?.response?.data?.message ||
         err?.response?.data?.error ||

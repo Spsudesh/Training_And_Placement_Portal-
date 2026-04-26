@@ -12,6 +12,15 @@ import {
   fetchNotices,
   updateNotice,
 } from "../services/noticeApi";
+import {
+  fetchNoticeAudienceEmails,
+  sendNoticeMail,
+} from "../mail/services/noticeMailApi";
+import {
+  getAttachmentSummary,
+  parsePassingYears,
+} from "../mail/utils/noticeMailHelpers";
+import { parseAllowedDepartments } from "../notice_compose/Compose/noticeTargetOptions";
 
 function createEmptyFormData(type = "") {
   return {
@@ -51,6 +60,7 @@ export function NoticeBoardWorkspace({
   const [editingPost, setEditingPost] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isMailing, setIsMailing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -186,6 +196,48 @@ export function NoticeBoardWorkspace({
         formData.role.trim() &&
         formData.deadline,
     );
+  }
+
+  async function handleCreateMail() {
+    if (!validateForm(createFormData) || isMailing) {
+      window.alert("Please fill the required fields before preparing the mail.");
+      return;
+    }
+
+    setIsMailing(true);
+
+    try {
+      const departments = parseAllowedDepartments(createFormData.department);
+      const years = parsePassingYears(createFormData.year);
+      const audience = await fetchNoticeAudienceEmails(panelScope, {
+        departments,
+        passingYears: years,
+      });
+
+      if (!audience.emails.length) {
+        window.alert("No student college emails were found for the selected department and year.");
+        return;
+      }
+
+      const attachmentLines = getAttachmentSummary(createFormData.files);
+      const result = await sendNoticeMail(panelScope, createFormData);
+      setErrorMessage("");
+      window.alert(
+        attachmentLines.length
+          ? `${result.message}\nAttached files: ${attachmentLines.join(", ")}`
+          : result.message
+      );
+    } catch (error) {
+      const message = error.response?.data?.message || "Failed to send notice email.";
+      setErrorMessage(message);
+      window.alert(message);
+    } finally {
+      setIsMailing(false);
+    }
+  }
+
+  function handleCreateWhatsapp() {
+    window.alert("WhatsApp sharing UI is added. Backend logic will be handled next.");
   }
 
   async function publishCreatePost() {
@@ -361,9 +413,12 @@ export function NoticeBoardWorkspace({
           onFieldChange={handleCreateFieldChange}
           onFileChange={handleCreateFileChange}
           onRemoveFile={removeCreateFile}
+          onMail={handleCreateMail}
+          onWhatsapp={handleCreateWhatsapp}
           onPublish={publishCreatePost}
           onCancelEdit={resetCreateComposer}
           isSaving={isSaving}
+          isMailing={isMailing}
           totalPosts={posts.length}
           title="Create Post"
           description="Select a format and only that form will appear below."

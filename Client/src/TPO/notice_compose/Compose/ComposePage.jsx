@@ -11,8 +11,11 @@ export default function ComposePage({
   onFileChange,
   onRemoveFile,
   onPublish,
+  onMail,
+  onWhatsapp,
   onCancelEdit,
   isSaving = false,
+  isMailing = false,
   totalPosts = 0,
   title = "Create Post",
   description = "Choose a post type and fill only the fields needed for that format.",
@@ -88,6 +91,22 @@ export default function ComposePage({
                 className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg"
               >
                 {isSaving ? "Saving..." : editMode ? "Update" : "Post"}
+              </button>
+              <button
+                type="button"
+                onClick={onMail}
+                disabled={isSaving || isMailing}
+                className="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-700 transition hover:-translate-y-0.5 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isMailing ? "Sending Mail..." : "Mail"}
+              </button>
+              <button
+                type="button"
+                onClick={onWhatsapp}
+                disabled={isSaving}
+                className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                WhatsApp
               </button>
               {editMode ? (
                 <button
