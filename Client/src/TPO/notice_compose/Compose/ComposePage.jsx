@@ -16,6 +16,8 @@ export default function ComposePage({
   onCancelEdit,
   isSaving = false,
   isMailing = false,
+  actionStatus = {},
+  actionMessages = [],
   totalPosts = 0,
   title = "Create Post",
   description = "Choose a post type and fill only the fields needed for that format.",
@@ -23,6 +25,7 @@ export default function ComposePage({
   const isAnnouncement = formData.type === "announcement";
   const isPlacement = formData.type === "placement";
   const hasSelection = Boolean(formData.type);
+  const hasActionMessages = actionMessages.length > 0;
 
   return (
     <section className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-6">
@@ -87,26 +90,26 @@ export default function ComposePage({
               <button
                 type="button"
                 onClick={onPublish}
-                disabled={isSaving}
+                disabled={isSaving || actionStatus.post}
                 className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg"
               >
-                {isSaving ? "Saving..." : editMode ? "Update" : "Post"}
+                {actionStatus.post ? "Posted" : isSaving ? "Saving..." : editMode ? "Update" : "Post"}
               </button>
               <button
                 type="button"
                 onClick={onMail}
-                disabled={isSaving || isMailing}
+                disabled={isSaving || isMailing || actionStatus.mail}
                 className="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-700 transition hover:-translate-y-0.5 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isMailing ? "Sending Mail..." : "Mail"}
+                {actionStatus.mail ? "Mail Sent" : isMailing ? "Sending Mail..." : "Mail"}
               </button>
               <button
                 type="button"
                 onClick={onWhatsapp}
-                disabled={isSaving}
+                disabled={isSaving || actionStatus.whatsapp}
                 className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                WhatsApp
+                {actionStatus.whatsapp ? "WhatsApp Ready" : "WhatsApp"}
               </button>
               {editMode ? (
                 <button
@@ -118,6 +121,23 @@ export default function ComposePage({
                 </button>
               ) : null}
             </div>
+
+            {hasActionMessages ? (
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-1 text-sm text-emerald-800">
+                  {actionMessages.map((message) => (
+                    <p key={message}>{message}</p>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={onCancelEdit}
+                  className="w-fit rounded-2xl border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                >
+                  Close
+                </button>
+              </div>
+            ) : null}
           </section>
         ) : (
           <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">

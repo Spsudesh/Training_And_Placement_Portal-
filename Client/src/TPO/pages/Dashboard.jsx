@@ -21,6 +21,10 @@ import {
   parsePassingYears,
 } from "../mail/utils/noticeMailHelpers";
 import { parseAllowedDepartments } from "../notice_compose/Compose/noticeTargetOptions";
+import {
+  buildWhatsAppMessage,
+  copyTextToClipboard,
+} from "../whatsapp/utils/noticeWhatsappHelpers";
 
 function createEmptyFormData(type = "") {
   return {
@@ -39,6 +43,14 @@ function createEmptyFormData(type = "") {
     minCgpa: "",
     maxBacklogs: "",
     deadline: "",
+  };
+}
+
+function createEmptyActionStatus() {
+  return {
+    post: false,
+    mail: false,
+    whatsapp: false,
   };
 }
 
@@ -62,6 +74,8 @@ export function NoticeBoardWorkspace({
   const [isSaving, setIsSaving] = useState(false);
   const [isMailing, setIsMailing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [createActionStatus, setCreateActionStatus] = useState(createEmptyActionStatus());
+  const [createActionMessages, setCreateActionMessages] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -99,6 +113,8 @@ export function NoticeBoardWorkspace({
 
   function resetCreateComposer() {
     setCreateFormData(createEmptyFormData(""));
+    setCreateActionStatus(createEmptyActionStatus());
+    setCreateActionMessages([]);
   }
 
   function resetEditComposer() {
@@ -119,6 +135,8 @@ export function NoticeBoardWorkspace({
   }
 
   function handleCreateTypeChange(type) {
+    setCreateActionStatus(createEmptyActionStatus());
+    setCreateActionMessages([]);
     updateFormData(setCreateFormData, type);
   }
 
@@ -127,6 +145,11 @@ export function NoticeBoardWorkspace({
   }
 
   function handleCreateFieldChange(field, value) {
+    if (createActionMessages.length) {
+      setCreateActionStatus(createEmptyActionStatus());
+      setCreateActionMessages([]);
+    }
+
     setCreateFormData((current) => ({
       ...current,
       [field]: value,
@@ -141,6 +164,11 @@ export function NoticeBoardWorkspace({
   }
 
   function handleCreateFileChange(files) {
+    if (createActionMessages.length) {
+      setCreateActionStatus(createEmptyActionStatus());
+      setCreateActionMessages([]);
+    }
+
     setCreateFormData((current) => ({
       ...current,
       files: [
@@ -169,6 +197,11 @@ export function NoticeBoardWorkspace({
   }
 
   function removeCreateFile(index) {
+    if (createActionMessages.length) {
+      setCreateActionStatus(createEmptyActionStatus());
+      setCreateActionMessages([]);
+    }
+
     setCreateFormData((current) => ({
       ...current,
       files: current.files.filter((_, fileIndex) => fileIndex !== index),
@@ -198,8 +231,14 @@ export function NoticeBoardWorkspace({
     );
   }
 
+  function appendCreateActionMessage(message) {
+    setCreateActionMessages((current) =>
+      current.includes(message) ? current : [...current, message]
+    );
+  }
+
   async function handleCreateMail() {
-    if (!validateForm(createFormData) || isMailing) {
+    if (!validateForm(createFormData) || isMailing || createActionStatus.mail) {
       window.alert("Please fill the required fields before preparing the mail.");
       return;
     }
@@ -222,9 +261,13 @@ export function NoticeBoardWorkspace({
       const attachmentLines = getAttachmentSummary(createFormData.files);
       const result = await sendNoticeMail(panelScope, createFormData);
       setErrorMessage("");
-      window.alert(
+      setCreateActionStatus((current) => ({
+        ...current,
+        mail: true,
+      }));
+      appendCreateActionMessage(
         attachmentLines.length
-          ? `${result.message}\nAttached files: ${attachmentLines.join(", ")}`
+          ? `${result.message} Attachments included: ${attachmentLines.join(", ")}`
           : result.message
       );
     } catch (error) {
@@ -237,11 +280,37 @@ export function NoticeBoardWorkspace({
   }
 
   function handleCreateWhatsapp() {
-    window.alert("WhatsApp sharing UI is added. Backend logic will be handled next.");
+    if (!validateForm(createFormData)) {
+      window.alert("Please fill the required fields before preparing the WhatsApp message.");
+      return;
+    }
+
+    if (createActionStatus.whatsapp) {
+      return;
+    }
+
+    const departments = parseAllowedDepartments(createFormData.department);
+    const years = parsePassingYears(createFormData.year);
+    const message = buildWhatsAppMessage(createFormData, { departments, years });
+
+    copyTextToClipboard(message)
+      .then(() => {
+        setCreateActionStatus((current) => ({
+          ...current,
+          whatsapp: true,
+        }));
+        appendCreateActionMessage("Structured WhatsApp message copied successfully. Paste it into your WhatsApp group.");
+        setErrorMessage("");
+      })
+      .catch((error) => {
+        const failureMessage = error?.message || "Failed to copy WhatsApp message.";
+        setErrorMessage(failureMessage);
+        window.alert(failureMessage);
+      });
   }
 
   async function publishCreatePost() {
-    if (!validateForm(createFormData) || isSaving) {
+    if (!validateForm(createFormData) || isSaving || createActionStatus.post) {
       window.alert("Please fill the required fields before saving.");
       return;
     }
@@ -252,7 +321,11 @@ export function NoticeBoardWorkspace({
       const createdPost = await createNotice(panelScope, createFormData, "published");
       setPosts((current) => [createdPost, ...current]);
       setErrorMessage("");
-      resetCreateComposer();
+      setCreateActionStatus((current) => ({
+        ...current,
+        post: true,
+      }));
+      appendCreateActionMessage("Post created successfully in portal.");
     } catch (error) {
       setErrorMessage(error.response?.data?.message || "Failed to create notice.");
     } finally {
@@ -419,6 +492,8 @@ export function NoticeBoardWorkspace({
           onCancelEdit={resetCreateComposer}
           isSaving={isSaving}
           isMailing={isMailing}
+          actionStatus={createActionStatus}
+          actionMessages={createActionMessages}
           totalPosts={posts.length}
           title="Create Post"
           description="Select a format and only that form will appear below."
