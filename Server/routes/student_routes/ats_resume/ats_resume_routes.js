@@ -193,53 +193,33 @@ function renderInlineContact(iconType, content) {
 function renderAtsHeader(profile) {
   const email = profile.personal.email || profile.personal.collegeEmail;
   const location = joinNonEmpty([profile.personal.city, profile.personal.state], ', ');
-  const primaryContactLine = joinNonEmpty(
-    [
-      renderInlineContact('phone', escapeHtml(formatPhoneNumber(profile.personal.mobile))),
-      renderInlineContact(
-        'email',
-        email
-          ? `<a class="external-link" href="mailto:${escapeHtml(email)}" target="_blank" rel="noopener noreferrer">${escapeHtml(email)}</a>`
-          : '',
-      ),
-      renderInlineContact('location', escapeHtml(location)),
-    ],
-    ' <span class="contact-separator">|</span> ',
-  );
-  const professionalLinksLine = joinNonEmpty(
-    [
-      renderInlineContact(
-        'linkedin',
-        renderExternalLink(
-          profile.personal.linkedin,
-          formatLinkLabel(profile.personal.linkedin, 'LinkedIn')
-        )
-      ),
-      renderInlineContact(
-        'github',
-        renderExternalLink(
-          profile.personal.github,
-          formatLinkLabel(profile.personal.github, 'GitHub')
-        )
-      ),
-    ],
-    ' <span class="contact-separator">|</span> ',
-  );
+  const primaryContactLine = joinNonEmpty([
+    escapeHtml(formatPhoneNumber(profile.personal.mobile)),
+    email
+      ? `<a class="external-link" href="mailto:${escapeHtml(email)}" target="_blank" rel="noopener noreferrer">${escapeHtml(email)}</a>`
+      : '',
+    escapeHtml(location),
+  ]);
+  const professionalLinksLine = joinNonEmpty([
+    renderExternalLink(
+      profile.personal.linkedin,
+      formatLinkLabel(profile.personal.linkedin, 'LinkedIn')
+    ),
+    renderExternalLink(
+      profile.personal.github,
+      formatLinkLabel(profile.personal.github, 'GitHub')
+    ),
+    renderExternalLink(
+      profile.personal.portfolio,
+      formatLinkLabel(profile.personal.portfolio, 'Portfolio')
+    ),
+  ]);
 
   return `
     <div class="header">
-      <div class="header-shell">
-        ${
-          profile.personal.profilePhotoUrl
-            ? `<div class="header-photo-wrap"><img class="header-photo" src="${escapeHtml(profile.personal.profilePhotoUrl)}" alt="Profile Photo" /></div>`
-            : ''
-        }
-        <div class="header-content">
-          <h1>${escapeHtml(profile.personal.fullName || profile.prn)}</h1>
-          ${primaryContactLine ? `<div class="contact-line primary">${primaryContactLine}</div>` : ''}
-          ${professionalLinksLine ? `<div class="contact-line secondary">${professionalLinksLine}</div>` : ''}
-        </div>
-      </div>
+      <h1>${escapeHtml(profile.personal.fullName || profile.prn)}</h1>
+      ${primaryContactLine ? `<div class="contact-line">${primaryContactLine}</div>` : ''}
+      ${professionalLinksLine ? `<div class="contact-line">${professionalLinksLine}</div>` : ''}
     </div>
   `;
 }
@@ -566,7 +546,7 @@ function buildSectionMarkup(profile, selections, sectionKey) {
   switch (sectionKey) {
     case 'summary':
       return hasMeaningfulText(profile.summary)
-        ? `<div class="section"><h2>PROFILE</h2><p class="desc">${escapeHtml(profile.summary)}</p></div>`
+        ? `<div class="section"><h2>PROFILE SUMMARY</h2><p class="desc">${escapeHtml(profile.summary)}</p></div>`
         : '';
     case 'education':
       return renderListSection('EDUCATION', selections.education, (item) => `
@@ -575,11 +555,11 @@ function buildSectionMarkup(profile, selections, sectionKey) {
               <h3>${escapeHtml(item.title)}</h3>
               <span class="education-period">${escapeHtml(item.period)}</span>
             </div>
-            ${item.detail ? `<p class="education-detail">- ${escapeHtml(item.detail)}</p>` : ''}
+            ${item.detail ? `<p class="education-detail">${escapeHtml(item.detail)}</p>` : ''}
           </div>
         `);
     case 'experience':
-      return renderListSection('PROFESSIONAL EXPERIENCE', selections.experience, (item) => `
+      return renderListSection('EXPERIENCE', selections.experience, (item) => `
           <div class="entry">
             <div class="flex-between">
               <h3>${escapeHtml(item.role || item.type)} - ${escapeHtml(item.companyName)}</h3>
@@ -603,7 +583,7 @@ function buildSectionMarkup(profile, selections, sectionKey) {
           </div>
         `);
     case 'skills':
-      return renderListSection('TECHNICAL SKILLS', [[profile.skills]], () => `
+      return renderListSection('SKILLS', [[profile.skills]], () => `
           <div>
             ${profile.skills.languages.length ? `<div class="skills-row"><strong>Programming:</strong> ${escapeHtml(profile.skills.languages.join(', '))}</div>` : ''}
             ${profile.skills.frameworks.length ? `<div class="skills-row"><strong>Frameworks:</strong> ${escapeHtml(profile.skills.frameworks.join(', '))}</div>` : ''}
@@ -622,7 +602,7 @@ function buildSectionMarkup(profile, selections, sectionKey) {
           </div>
         `);
     case 'activities':
-      return renderListSection('EXTRA CURRICULAR ACTIVITIES', selections.activities, (item) => `
+      return renderListSection('ACTIVITIES', selections.activities, (item) => `
           <div class="entry">
             <h3>
               ${escapeHtml(item.title)}
@@ -644,44 +624,31 @@ function buildAtsTemplate(profile, selections) {
       <title>${escapeHtml(profile.personal.fullName)} ATS Resume</title>
       <style>
         * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #fff; margin: 0; padding: 22px 26px; color: #000; font-size: 10px; line-height: 1.26; }
+        body { font-family: Calibri, Arial, Helvetica, sans-serif; background: #fff; margin: 0; padding: 0.75in; color: #000; font-size: 11pt; line-height: 1.15; }
         .page { width: 100%; max-width: 760px; margin: 0 auto; }
-        .header { display: flex; justify-content: center; margin-bottom: 12px; }
-        .header-shell { width: 100%; display: flex; align-items: center; justify-content: center; gap: 18px; }
-        .header-photo-wrap { width: 108px; height: 108px; flex-shrink: 0; }
-        .header-photo { width: 108px; height: 108px; object-fit: cover; border: 1px solid #cfd6e2; display: block; }
-        .header-content { min-height: 108px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        h1 { margin: 0 0 10px 0; font-size: 22px; font-weight: 800; font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
-        .contact-line { font-size: 10.1px; font-weight: 600; line-height: 1.45; text-align: center; word-break: break-word; }
-        .contact-line.secondary { margin-top: 10px; }
-        .contact-item { display: inline-flex; align-items: center; gap: 7px; vertical-align: middle; }
-        .contact-icon { width: 13px; height: 13px; display: inline-flex; color: #111827; flex-shrink: 0; }
-        .contact-icon svg { width: 13px; height: 13px; display: block; }
-        .contact-item-phone .contact-icon { color: #ef4444; }
-        .contact-text { display: inline-block; }
-        .contact-separator { color: #000; padding: 0 12px; font-weight: 700; }
-        .external-link { color: #0b51ff; text-decoration: none; font-weight: 700; }
-        .section { margin-top: 9px; }
-        h2 { margin: 0 0 5px 0; font-size: 10.8px; font-weight: 800; color: #215da8; border-bottom: 1px solid #000; padding-bottom: 1px; }
-        h3 { margin: 0 0 2px 0; font-size: 10.1px; font-weight: 800; }
+        .header { margin-bottom: 14px; text-align: left; }
+        h1 { margin: 0 0 6px 0; font-size: 18pt; font-weight: 700; font-family: Calibri, Arial, Helvetica, sans-serif; text-transform: uppercase; color: #000; letter-spacing: 0; }
+        .contact-line { font-size: 11pt; margin-bottom: 2px; word-break: break-word; }
+        .external-link { color: #000; text-decoration: none; font-weight: 400; }
+        .section { margin-top: 12px; }
+        h2 { margin: 0 0 6px 0; font-size: 12.5pt; font-weight: 700; color: #000; border-bottom: 1px solid #000; padding-bottom: 2px; }
+        h3 { margin: 0 0 2px 0; font-size: 11pt; font-weight: 700; }
         p { margin: 0 0 2px 0; }
-        .entry { margin-bottom: 6px; }
+        .entry { margin-bottom: 8px; }
         .flex-between { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-        .meta { font-size: 9.1px; font-weight: 700; white-space: nowrap; }
-        .desc { font-size: 9.35px; text-align: justify; line-height: 1.28; }
-        .skills-row { margin-bottom: 2px; font-size: 9.3px; line-height: 1.24; }
-        .education-row { margin-bottom: 4px; }
-        .education-period { font-size: 9.2px; font-weight: 800; white-space: nowrap; }
-        .education-detail { margin: 1px 0 0 0; font-size: 9.3px; line-height: 1.24; }
-        .bullet-list { margin: 1px 0 0 14px; padding: 0; }
-        .bullet-list li { margin: 0 0 2px 0; padding-left: 1px; font-size: 9.3px; line-height: 1.24; }
+        .meta { font-size: 11pt; font-weight: 700; white-space: nowrap; }
+        .desc { font-size: 11pt; text-align: left; line-height: 1.15; }
+        .skills-row { margin-bottom: 3px; font-size: 11pt; line-height: 1.15; }
+        .education-row { margin-bottom: 6px; }
+        .education-period { font-size: 11pt; font-weight: 700; white-space: nowrap; }
+        .education-detail { margin: 2px 0 0 0; font-size: 11pt; line-height: 1.15; }
       </style>
     </head>
     <body>
       <div class="page">
         ${renderAtsHeader(profile)}
 
-        ${profile.summary ? `<div class="section"><h2>PROFILE</h2><p class="desc">${escapeHtml(profile.summary)}</p></div>` : ''}
+        ${profile.summary ? `<div class="section"><h2>PROFILE SUMMARY</h2><p class="desc">${escapeHtml(profile.summary)}</p></div>` : ''}
 
         ${renderListSection('EDUCATION', selections.education, (item) => `
           <div class="education-row">
@@ -693,7 +660,7 @@ function buildAtsTemplate(profile, selections) {
           </div>
         `)}
 
-        ${renderListSection('PROFESSIONAL EXPERIENCE', selections.experience, (item) => `
+        ${renderListSection('EXPERIENCE', selections.experience, (item) => `
           <div class="entry">
             <div class="flex-between">
               <h3>${escapeHtml(item.role || item.type)} - ${escapeHtml(item.companyName)}</h3>
@@ -709,7 +676,7 @@ function buildAtsTemplate(profile, selections) {
               <h3>
                 ${escapeHtml(item.title)}
                 ${item.techStack ? ` | ${escapeHtml(item.techStack)}` : ''}
-                ${item.githubLink ? ` | ${renderExternalLink(item.githubLink, 'GITHUB-Link')}` : ''}
+                ${item.githubLink ? ` | ${renderExternalLink(item.githubLink, 'GitHub')}` : ''}
               </h3>
               <span class="meta">${escapeHtml(item.duration || '')}</span>
             </div>
@@ -717,7 +684,7 @@ function buildAtsTemplate(profile, selections) {
           </div>
         `)}
 
-        ${renderListSection('TECHNICAL SKILLS', [[profile.skills]], () => `
+        ${renderListSection('SKILLS', [[profile.skills]], () => `
           <div>
             ${profile.skills.languages.length ? `<div class="skills-row"><strong>Programming:</strong> ${escapeHtml(profile.skills.languages.join(', '))}</div>` : ''}
             ${profile.skills.frameworks.length ? `<div class="skills-row"><strong>Frameworks:</strong> ${escapeHtml(profile.skills.frameworks.join(', '))}</div>` : ''}
@@ -736,7 +703,7 @@ function buildAtsTemplate(profile, selections) {
           </div>
         `)}
 
-        ${renderListSection('EXTRA CURRICULAR ACTIVITIES', selections.activities, (item) => `
+        ${renderListSection('ACTIVITIES', selections.activities, (item) => `
           <div class="entry">
             <h3>
               ${escapeHtml(item.title)}
@@ -758,35 +725,24 @@ function buildAtsTemplateOrdered(profile, selections, sectionOrder) {
       <title>${escapeHtml(profile.personal.fullName)} ATS Resume</title>
       <style>
         * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #fff; margin: 0; padding: 22px 26px; color: #000; font-size: 10px; line-height: 1.26; }
+        body { font-family: Calibri, Arial, Helvetica, sans-serif; background: #fff; margin: 0; padding: 0.75in; color: #000; font-size: 11pt; line-height: 1.15; }
         .page { width: 100%; max-width: 760px; margin: 0 auto; }
-        .header { display: flex; justify-content: center; margin-bottom: 12px; }
-        .header-shell { width: 100%; display: flex; align-items: center; justify-content: center; gap: 18px; }
-        .header-photo-wrap { width: 108px; height: 108px; flex-shrink: 0; }
-        .header-photo { width: 108px; height: 108px; object-fit: cover; border: 1px solid #cfd6e2; display: block; }
-        .header-content { min-height: 108px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        h1 { margin: 0 0 10px 0; font-size: 22px; font-weight: 800; font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif; text-transform: uppercase; color: #233f72; letter-spacing: 0.2px; }
-        .contact-line { font-size: 10.1px; font-weight: 600; line-height: 1.45; text-align: center; word-break: break-word; }
-        .contact-line.secondary { margin-top: 10px; }
-        .contact-item { display: inline-flex; align-items: center; gap: 7px; vertical-align: middle; }
-        .contact-icon { width: 13px; height: 13px; display: inline-flex; color: #111827; flex-shrink: 0; }
-        .contact-icon svg { width: 13px; height: 13px; display: block; }
-        .contact-item-phone .contact-icon { color: #ef4444; }
-        .contact-text { display: inline-block; }
-        .contact-separator { color: #000; padding: 0 12px; font-weight: 700; }
-        .external-link { color: #0b51ff; text-decoration: none; font-weight: 700; }
-        .section { margin-top: 9px; }
-        h2 { margin: 0 0 5px 0; font-size: 10.8px; font-weight: 800; color: #215da8; border-bottom: 1px solid #000; padding-bottom: 1px; }
-        h3 { margin: 0 0 2px 0; font-size: 10.1px; font-weight: 800; }
+        .header { margin-bottom: 14px; text-align: left; }
+        h1 { margin: 0 0 6px 0; font-size: 18pt; font-weight: 700; font-family: Calibri, Arial, Helvetica, sans-serif; text-transform: uppercase; color: #000; letter-spacing: 0; }
+        .contact-line { font-size: 11pt; margin-bottom: 2px; word-break: break-word; }
+        .external-link { color: #000; text-decoration: none; font-weight: 400; }
+        .section { margin-top: 12px; }
+        h2 { margin: 0 0 6px 0; font-size: 12.5pt; font-weight: 700; color: #000; border-bottom: 1px solid #000; padding-bottom: 2px; }
+        h3 { margin: 0 0 2px 0; font-size: 11pt; font-weight: 700; }
         p { margin: 0 0 2px 0; }
-        .entry { margin-bottom: 6px; }
+        .entry { margin-bottom: 8px; }
         .flex-between { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-        .meta { font-size: 9.1px; font-weight: 700; white-space: nowrap; }
-        .desc { font-size: 9.35px; text-align: justify; line-height: 1.28; }
-        .skills-row { margin-bottom: 2px; font-size: 9.3px; line-height: 1.24; }
-        .education-row { margin-bottom: 4px; }
-        .education-period { font-size: 9.2px; font-weight: 800; white-space: nowrap; }
-        .education-detail { margin: 1px 0 0 0; font-size: 9.3px; line-height: 1.24; }
+        .meta { font-size: 11pt; font-weight: 700; white-space: nowrap; }
+        .desc { font-size: 11pt; text-align: left; line-height: 1.15; }
+        .skills-row { margin-bottom: 3px; font-size: 11pt; line-height: 1.15; }
+        .education-row { margin-bottom: 6px; }
+        .education-period { font-size: 11pt; font-weight: 700; white-space: nowrap; }
+        .education-detail { margin: 2px 0 0 0; font-size: 11pt; line-height: 1.15; }
       </style>
     </head>
     <body>

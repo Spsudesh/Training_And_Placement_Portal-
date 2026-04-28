@@ -37,3 +37,8 @@ export async function logoutUser() {
     clearAuthSession();
   }
 }
+
+export async function changeStudentPassword(payload) {
+  const response = await apiClient.post("/student/change-password", payload);
+  return response.data;
+}

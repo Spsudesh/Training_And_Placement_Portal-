@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  BarChart3,
   CircleHelp,
   FileText,
   Home,
@@ -18,6 +19,7 @@ const navigationItems = [
   { label: "Job Profiles", icon: Layers3, to: "/student-panel/jobs" },
   { label: "My Profile", icon: UserRound, to: "/student-panel/profile" },
   { label: "ATS Resume", icon: FileText, to: "/student-panel/ats-resume" },
+  { label: "SWOT", icon: BarChart3, to: "/student-panel/swot" },
 ];
 
 function StudentSidebar({

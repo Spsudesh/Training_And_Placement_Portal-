@@ -6,6 +6,7 @@ const studentLoginRoutes = require('./routes/student_routes/student_login_routes
 const studentProfileGetRoutes = require('./routes/student_routes/studentprofile_get_routes');
 const studentResumeRoutes = require('./routes/student_routes/resume/student_resume_routes');
 const atsResumeRoutes = require('./routes/student_routes/ats_resume/ats_resume_routes');
+const swotRoutes = require('./routes/student_routes/swot/swot_routes');
 const tpcLoginRoutes = require('./routes/tpc_routes/tpc_login_routes');
 const tpcDashboardRoutes = require('./routes/tpc_routes/tpc_dashboard_routes');
 const tpoLoginRoutes = require('./routes/tpo_routes/tpo_login_routes');
@@ -45,6 +46,7 @@ app.use('/student/form', requireAuth, requireRole('student'), studentFormRoutes)
 app.use('/student/profile', requireAuth, requireRole('student'), studentProfileGetRoutes);
 app.use('/student/resumes', requireAuth, requireRole('student'), studentResumeRoutes);
 app.use('/student/ats-resumes', requireAuth, requireRole('student'), atsResumeRoutes);
+app.use('/student/swot', requireAuth, requireRole('student'), swotRoutes);
 app.use('/student/placements', requireAuth, requireRole('student'), tpoPlacementsRoutes);
 app.use('/student/notices', requireAuth, requireRole('student'), noticeMailRoutes);
 app.use('/student/notices', requireAuth, requireRole('student'), tpoNoticeRoutes);

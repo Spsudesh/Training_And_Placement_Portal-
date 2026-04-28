@@ -368,4 +368,87 @@ router.post('/logout', (req, res) => {
   });
 });
 
+router.post('/change-password', async (req, res) => {
+  const prn = String(req.auth?.prn || '').trim();
+  const currentPassword = String(req.body?.currentPassword || '').trim();
+  const newPassword = String(req.body?.newPassword || '').trim();
+  const confirmNewPassword = String(req.body?.confirmNewPassword || '').trim();
+
+  if (!prn) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required.',
+    });
+  }
+
+  if (!currentPassword || !newPassword || !confirmNewPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'Current password, new password, and confirm password are required.',
+    });
+  }
+
+  if (newPassword !== confirmNewPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password and confirm password do not match.',
+    });
+  }
+
+  if (currentPassword === newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password must be different from the current password.',
+    });
+  }
+
+  try {
+    const promiseDb = db.promise();
+    const [rows] = await promiseDb.query(
+      `SELECT PRN, Password
+       FROM Student_Credentials
+       WHERE PRN = ?
+       LIMIT 1`,
+      [prn],
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student account not found.',
+      });
+    }
+
+    const student = rows[0];
+    const passwordMatches = await bcrypt.compare(currentPassword, student.Password);
+
+    if (!passwordMatches) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is wrong. Try again.',
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    await promiseDb.query(
+      `UPDATE Student_Credentials
+       SET Password = ?
+       WHERE PRN = ?`,
+      [hashedPassword, prn],
+    );
+
+    return res.json({
+      success: true,
+      message: 'Password updated successfully.',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update password.',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;

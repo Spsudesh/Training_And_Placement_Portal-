@@ -27,10 +27,12 @@ import TpcDashboard from "./TPC/pages/Dashboard";
 import TpcSidebar from "./TPC/pages/Tpc_sidebar";
 import JobProfiles from "./StudentPanel/pages/JobProfiles";
 import StudentHome from "./StudentPanel/pages/StudentHome";
+import StudentChangePasswordPage from "./StudentPanel/pages/StudentChangePasswordPage";
 import StudentProfilePage from "./StudentPanel/profile/pages/StudentProfilePage";
 import StudentResumePage from "./StudentPanel/resume/pages/StudentResumePage";
 import StudentResumePreviewPage from "./StudentPanel/resume/pages/StudentResumePreviewPage";
 import AtsResumePage from "./StudentPanel/ats-resume/pages/AtsResumePage";
+import SwotPage from "./StudentPanel/swot/pages/SwotPage";
 import StudentSidebar from "./StudentPanel/pages/Student_sidebar";
 import ProfileForm from "./StudentPanel/pages/ProfileForm";
 import StudentDetailsPage from "./TPC_Panel/student_verification/pages/StudentDetailsPage";
@@ -155,6 +157,10 @@ function getStudentPageTitle(pathname) {
     return "My Profile";
   }
 
+  if (pathname.startsWith("/student-panel/change-password")) {
+    return "Change Password";
+  }
+
   if (pathname.startsWith("/student-panel/profile-form")) {
     return "Profile Form";
   }
@@ -169,6 +175,10 @@ function getStudentPageTitle(pathname) {
 
   if (pathname.startsWith("/student-panel/resume")) {
     return "Resume";
+  }
+
+  if (pathname.startsWith("/student-panel/swot")) {
+    return "SWOT";
   }
 
   return "Student Panel";
@@ -292,6 +302,16 @@ function StudentApp() {
           }
         />
         <Route
+          path="change-password"
+          element={
+            hasSubmittedProfileForm ? (
+              <StudentChangePasswordPage />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
+          }
+        />
+        <Route
           path="profile-form"
           element={
             hasSubmittedProfileForm ? (
@@ -338,6 +358,16 @@ function StudentApp() {
           element={
             hasSubmittedProfileForm ? (
               <AtsResumePage />
+            ) : (
+              <Navigate to="/student-panel/profile-form" replace />
+            )
+          }
+        />
+        <Route
+          path="swot"
+          element={
+            hasSubmittedProfileForm ? (
+              <SwotPage />
             ) : (
               <Navigate to="/student-panel/profile-form" replace />
             )

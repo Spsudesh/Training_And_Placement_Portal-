@@ -66,17 +66,6 @@ function getNoticeLabel(item) {
   return item.companyName || item.title || "Notice";
 }
 
-function launchForgotPasswordSupport(user) {
-  const studentEmail = String(user?.email || "").trim();
-  const studentId = String(user?.PRN || user?.prn || "").trim();
-  const subject = encodeURIComponent("Student password reset request");
-  const body = encodeURIComponent(
-    `Hello TPO Team,\n\nI need help resetting my Training & Placement Portal password.\n\nPRN: ${studentId || "-"}\nRegistered Email: ${studentEmail || "-"}\n\nThank you.`
-  );
-
-  window.location.href = `mailto:tpo@ritindia.edu?subject=${subject}&body=${body}`;
-}
-
 function Header({
   pageTitle = "Student Panel",
   showMenuButton = false,
@@ -198,6 +187,11 @@ function Header({
     setIsSettingsOpen(false);
   }
 
+  function openChangePasswordPage() {
+    navigate("/student-panel/change-password");
+    setIsSettingsOpen(false);
+  }
+
   return (
     <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-slate-200 bg-white px-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:px-6 lg:px-8">
       <div className="flex items-center gap-4">
@@ -256,10 +250,7 @@ function Header({
               <div className="p-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    launchForgotPasswordSupport(authenticatedUser);
-                    setIsSettingsOpen(false);
-                  }}
+                  onClick={openChangePasswordPage}
                   className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition hover:bg-slate-50"
                 >
                   <span className="flex items-center gap-3">
