@@ -196,33 +196,6 @@ function StudentHome() {
           </p>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-3">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
-            <p className="text-sm font-semibold text-slate-500">Profile Status</p>
-            <p className="mt-3 text-2xl font-bold text-emerald-600">Submitted</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Your onboarding form has been completed successfully.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
-            <p className="text-sm font-semibold text-slate-500">Next Step</p>
-            <p className="mt-3 text-2xl font-bold text-slate-900">Explore Panel</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Use the sidebar to access interviews, assessments, resume tools,
-              and other student features.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
-            <p className="text-sm font-semibold text-slate-500">Published Notices</p>
-            <p className="mt-3 text-2xl font-bold text-slate-900">{opportunityFeed.length}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Live updates from the placement office and notice board.
-            </p>
-          </div>
-        </div>
-
         <div
           id="notice-section"
           className="scroll-mt-28 rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]"

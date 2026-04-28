@@ -3,6 +3,62 @@ import InternshipForm from "./InternshipForm";
 import JobForm from "./JobForm";
 import PostTypeSelector from "./PostTypeSelector";
 
+function GmailLogo(props) {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true" {...props}>
+      <path fill="#EA4335" d="M24 24.5 6 11v26h8V21.5l10 7.5 10-7.5V37h8V11z" />
+      <path fill="#FBBC04" d="M14 37V19l-8-8v26z" />
+      <path fill="#34A853" d="M34 37V19l8-8v26z" />
+      <path fill="#4285F4" d="M6 11l18 13.5L42 11l-3-3H9z" />
+    </svg>
+  );
+}
+
+function WhatsAppLogo(props) {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
+      <path
+        fill="#25D366"
+        d="M19.1 17.4c-.3-.2-1.7-.9-1.9-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1c-2-.9-3.3-2.9-3.4-3.1s0-.4.1-.6l.5-.6c.2-.2.2-.4.3-.6s0-.4 0-.6-.7-1.7-.9-2.4c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4s-1.1 1.1-1.1 2.6 1.1 3 1.3 3.2 2.2 3.4 5.4 4.8c.8.3 1.4.5 1.9.7.8.2 1.5.2 2.1.1.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.1-1.4s-.3-.2-.6-.4Z"
+      />
+      <path
+        fill="#25D366"
+        d="M27.3 4.6A15.2 15.2 0 0 0 3.4 23.1L2 30l7.1-1.9A15.2 15.2 0 1 0 27.3 4.6ZM16 28a12 12 0 0 1-6.1-1.7l-.4-.2-4.2 1.1 1.1-4.1-.3-.4A12 12 0 1 1 16 28Z"
+      />
+      <path
+        fill="#FFF"
+        d="M25.9 6.1A13.8 13.8 0 0 0 4.3 22.7l.2.3-1.4 5.1 5.2-1.4.3.2A13.8 13.8 0 1 0 25.9 6.1Zm-9.9 20a12 12 0 0 1-6.1-1.7l-.4-.2-4.2 1.1 1.1-4.1-.3-.4A12 12 0 1 1 16 26.1Z"
+      />
+    </svg>
+  );
+}
+
+function ActionButton({
+  onClick,
+  disabled,
+  className,
+  icon,
+  label,
+  subtitle,
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`group inline-flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{label}</span>
+        <span className="block text-xs opacity-80">{subtitle}</span>
+      </span>
+    </button>
+  );
+}
+
 export default function ComposePage({
   formData,
   editMode,
@@ -95,22 +151,22 @@ export default function ComposePage({
               >
                 {actionStatus.post ? "Posted" : isSaving ? "Saving..." : editMode ? "Update" : "Post"}
               </button>
-              <button
-                type="button"
+              <ActionButton
                 onClick={onMail}
                 disabled={isSaving || isMailing || actionStatus.mail}
-                className="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-700 transition hover:-translate-y-0.5 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {actionStatus.mail ? "Mail Sent" : isMailing ? "Sending Mail..." : "Mail"}
-              </button>
-              <button
-                type="button"
+                className="border-sky-200 bg-gradient-to-br from-sky-50 via-white to-blue-50 text-sky-800 hover:bg-sky-100 hover:shadow-lg"
+                icon={<GmailLogo className="h-6 w-6" />}
+                label={actionStatus.mail ? "Mail Sent" : isMailing ? "Sending Mail..." : "Post Mail"}
+                subtitle="Send to student inboxes"
+              />
+              <ActionButton
                 onClick={onWhatsapp}
                 disabled={isSaving || actionStatus.whatsapp}
-                className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {actionStatus.whatsapp ? "WhatsApp Ready" : "WhatsApp"}
-              </button>
+                className="border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-green-50 text-emerald-800 hover:bg-emerald-100 hover:shadow-lg"
+                icon={<WhatsAppLogo className="h-6 w-6" />}
+                label={actionStatus.whatsapp ? "WhatsApp Ready" : "Post WhatsApp"}
+                subtitle="Copy message for group sharing"
+              />
               {editMode ? (
                 <button
                   type="button"

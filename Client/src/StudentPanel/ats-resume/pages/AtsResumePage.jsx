@@ -79,6 +79,16 @@ function normalizeHistory(value) {
   return [];
 }
 
+function filterHistoryByStudent(items, prn) {
+  const normalizedPrn = String(prn || '').trim();
+
+  if (!normalizedPrn) {
+    return items;
+  }
+
+  return items.filter((item) => String(item?.PRN || item?.prn || '').trim() === normalizedPrn);
+}
+
 function getItemId(item, keys) {
   for (const key of keys) {
     const value = item?.[key];
@@ -468,6 +478,7 @@ export default function AtsResumePage() {
         setErrorMessage('');
         const [profData, histData] = await Promise.all([getStudentProfile('me'), getAtsResumeHistory()]);
         const selectableItems = buildSelectableItems(profData);
+        const studentPrn = String(profData?.prn || '').trim();
         const initialSelections = {
           projects: [],
           experience: [],
@@ -476,7 +487,7 @@ export default function AtsResumePage() {
         };
 
         setProfile(profData);
-        setHistory(normalizeHistory(histData));
+        setHistory(filterHistoryByStudent(normalizeHistory(histData), studentPrn));
         setSelections(initialSelections);
         setSectionOrder(buildInitialSectionOrder(profData, selectableItems, initialSelections));
         setResumeTitle(
@@ -558,7 +569,7 @@ export default function AtsResumePage() {
       });
 
       const newHistory = await getAtsResumeHistory();
-      setHistory(normalizeHistory(newHistory));
+      setHistory(filterHistoryByStudent(normalizeHistory(newHistory), profile?.prn));
 
       const fileUrl = resolveFileUrl(data?.fileUrl);
       setGenerationStatus('done');

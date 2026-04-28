@@ -820,7 +820,7 @@ atsResumeRoutes.get('/', async (req, res) => {
     await ensureStudentResumesTable();
     const prn = req.auth?.prn;
     const rows = await query(
-      `SELECT id, template_code, resume_title, file_name, file_url, preview_file_url, created_at
+      `SELECT id, PRN, template_code, resume_title, file_name, file_url, preview_file_url, created_at
        FROM student_resumes
        WHERE PRN = ? AND template_code LIKE 'ats_%'
        ORDER BY created_at DESC`,

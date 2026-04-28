@@ -149,13 +149,12 @@ async function getAudienceRecipients(req) {
   const values = [];
   let sql = `
     SELECT DISTINCT
-      COALESCE(NULLIF(TRIM(sp.college_email), ''), NULLIF(TRIM(sc.email), '')) AS email,
+      NULLIF(TRIM(sp.personal_email), '') AS email,
       se.department,
       se.passing_year
     FROM student_education se
     LEFT JOIN student_personal sp ON sp.PRN = se.PRN
-    LEFT JOIN student_credentials sc ON sc.PRN = se.PRN
-    WHERE COALESCE(NULLIF(TRIM(sp.college_email), ''), NULLIF(TRIM(sc.email), '')) IS NOT NULL
+    WHERE NULLIF(TRIM(sp.personal_email), '') IS NOT NULL
   `;
 
   if (departments.length) {
