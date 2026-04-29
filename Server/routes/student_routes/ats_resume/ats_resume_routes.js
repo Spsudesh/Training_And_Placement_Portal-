@@ -159,6 +159,8 @@ function getInlineIconSvg(type) {
       '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11v5" /><path d="M8 8v.01" /><path d="M12 16v-5" /><path d="M16 16v-3a2 2 0 1 0 -4 0" /><path d="M3 7a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v10a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4l0 -10" /></svg>',
     github:
       '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" /></svg>',
+    portfolio:
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M9 5v-1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v1" /><path d="M4 11h16" /></svg>',
   };
 
   return icons[type] || '';
@@ -193,31 +195,42 @@ function renderInlineContact(iconType, content) {
 function renderAtsHeader(profile) {
   const email = profile.personal.email || profile.personal.collegeEmail;
   const location = joinNonEmpty([profile.personal.city, profile.personal.state], ', ');
-  const primaryContactLine = joinNonEmpty([
-    escapeHtml(formatPhoneNumber(profile.personal.mobile)),
-    email
-      ? `<a class="external-link" href="mailto:${escapeHtml(email)}" target="_blank" rel="noopener noreferrer">${escapeHtml(email)}</a>`
-      : '',
-    escapeHtml(location),
-  ]);
-  const professionalLinksLine = joinNonEmpty([
-    renderExternalLink(
-      profile.personal.linkedin,
-      formatLinkLabel(profile.personal.linkedin, 'LinkedIn')
-    ),
-    renderExternalLink(
-      profile.personal.github,
-      formatLinkLabel(profile.personal.github, 'GitHub')
-    ),
-    renderExternalLink(
-      profile.personal.portfolio,
-      formatLinkLabel(profile.personal.portfolio, 'Portfolio')
-    ),
-  ]);
+  const departmentLine = escapeHtml(profile.education.department || profile.headline || '');
+  const primaryContactLine = joinNonEmpty(
+    [
+      renderInlineContact('phone', escapeHtml(formatPhoneNumber(profile.personal.mobile))),
+      email
+        ? renderInlineContact(
+            'email',
+            `<a class="external-link" href="mailto:${escapeHtml(email)}" target="_blank" rel="noopener noreferrer">${escapeHtml(email)}</a>`,
+          )
+        : '',
+      renderInlineContact('location', escapeHtml(location)),
+    ],
+    '<span class="contact-separator">|</span>',
+  );
+  const professionalLinksLine = joinNonEmpty(
+    [
+      renderInlineContact(
+        'linkedin',
+        renderExternalLink(profile.personal.linkedin, formatLinkLabel(profile.personal.linkedin, 'LinkedIn')),
+      ),
+      renderInlineContact(
+        'portfolio',
+        renderExternalLink(profile.personal.portfolio, formatLinkLabel(profile.personal.portfolio, 'Portfolio')),
+      ),
+      renderInlineContact(
+        'github',
+        renderExternalLink(profile.personal.github, formatLinkLabel(profile.personal.github, 'GitHub')),
+      ),
+    ],
+    '<span class="contact-separator">|</span>',
+  );
 
   return `
     <div class="header">
       <h1>${escapeHtml(profile.personal.fullName || profile.prn)}</h1>
+      ${departmentLine ? `<div class="department-line">${departmentLine}</div>` : ''}
       ${primaryContactLine ? `<div class="contact-line">${primaryContactLine}</div>` : ''}
       ${professionalLinksLine ? `<div class="contact-line">${professionalLinksLine}</div>` : ''}
     </div>
@@ -624,12 +637,18 @@ function buildAtsTemplate(profile, selections) {
       <title>${escapeHtml(profile.personal.fullName)} ATS Resume</title>
       <style>
         * { box-sizing: border-box; }
-        body { font-family: Calibri, Arial, Helvetica, sans-serif; background: #fff; margin: 0; padding: 0.75in; color: #000; font-size: 11pt; line-height: 1.15; }
-        .page { width: 100%; max-width: 760px; margin: 0 auto; }
-        .header { margin-bottom: 14px; text-align: left; }
-        h1 { margin: 0 0 6px 0; font-size: 18pt; font-weight: 700; font-family: Calibri, Arial, Helvetica, sans-serif; text-transform: uppercase; color: #000; letter-spacing: 0; }
-        .contact-line { font-size: 11pt; margin-bottom: 2px; word-break: break-word; }
-        .external-link { color: #000; text-decoration: none; font-weight: 400; }
+        body { font-family: Calibri, Arial, Helvetica, sans-serif; background: #fff; margin: 0; padding: 0.48in 0.52in; color: #000; font-size: 11pt; line-height: 1.15; }
+        .page { width: 100%; max-width: none; margin: 0 auto; }
+        .header { margin-bottom: 12px; text-align: center; }
+        h1 { margin: 0 0 4px 0; font-size: 18pt; font-weight: 700; font-family: Calibri, Arial, Helvetica, sans-serif; text-transform: uppercase; color: #000; letter-spacing: 0; }
+        .department-line { font-size: 11pt; font-weight: 600; margin-bottom: 4px; color: #222; }
+        .contact-line { font-size: 10.5pt; margin-bottom: 2px; word-break: break-word; color: #222; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+        .contact-item { display: inline-flex; align-items: center; gap: 4px; }
+        .contact-icon { display: inline-flex; width: 11px; height: 11px; color: #111827; flex-shrink: 0; }
+        .contact-icon svg { width: 100%; height: 100%; }
+        .contact-text { display: inline-flex; align-items: center; }
+        .contact-separator { color: #64748b; font-weight: 500; }
+        .external-link { color: #2563eb; text-decoration: none; font-weight: 400; }
         .section { margin-top: 12px; }
         h2 { margin: 0 0 6px 0; font-size: 12.5pt; font-weight: 700; color: #000; border-bottom: 1px solid #000; padding-bottom: 2px; }
         h3 { margin: 0 0 2px 0; font-size: 11pt; font-weight: 700; }
@@ -725,12 +744,18 @@ function buildAtsTemplateOrdered(profile, selections, sectionOrder) {
       <title>${escapeHtml(profile.personal.fullName)} ATS Resume</title>
       <style>
         * { box-sizing: border-box; }
-        body { font-family: Calibri, Arial, Helvetica, sans-serif; background: #fff; margin: 0; padding: 0.75in; color: #000; font-size: 11pt; line-height: 1.15; }
-        .page { width: 100%; max-width: 760px; margin: 0 auto; }
-        .header { margin-bottom: 14px; text-align: left; }
-        h1 { margin: 0 0 6px 0; font-size: 18pt; font-weight: 700; font-family: Calibri, Arial, Helvetica, sans-serif; text-transform: uppercase; color: #000; letter-spacing: 0; }
-        .contact-line { font-size: 11pt; margin-bottom: 2px; word-break: break-word; }
-        .external-link { color: #000; text-decoration: none; font-weight: 400; }
+        body { font-family: Calibri, Arial, Helvetica, sans-serif; background: #fff; margin: 0; padding: 0.48in 0.52in; color: #000; font-size: 11pt; line-height: 1.15; }
+        .page { width: 100%; max-width: none; margin: 0 auto; }
+        .header { margin-bottom: 12px; text-align: center; }
+        h1 { margin: 0 0 4px 0; font-size: 18pt; font-weight: 700; font-family: Calibri, Arial, Helvetica, sans-serif; text-transform: uppercase; color: #000; letter-spacing: 0; }
+        .department-line { font-size: 11pt; font-weight: 600; margin-bottom: 4px; color: #222; }
+        .contact-line { font-size: 10.5pt; margin-bottom: 2px; word-break: break-word; color: #222; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+        .contact-item { display: inline-flex; align-items: center; gap: 4px; }
+        .contact-icon { display: inline-flex; width: 11px; height: 11px; color: #111827; flex-shrink: 0; }
+        .contact-icon svg { width: 100%; height: 100%; }
+        .contact-text { display: inline-flex; align-items: center; }
+        .contact-separator { color: #64748b; font-weight: 500; }
+        .external-link { color: #2563eb; text-decoration: none; font-weight: 400; }
         .section { margin-top: 12px; }
         h2 { margin: 0 0 6px 0; font-size: 12.5pt; font-weight: 700; color: #000; border-bottom: 1px solid #000; padding-bottom: 2px; }
         h3 { margin: 0 0 2px 0; font-size: 11pt; font-weight: 700; }
@@ -774,12 +799,18 @@ atsResumeRoutes.get('/templates', async (req, res) => {
 atsResumeRoutes.get('/', async (req, res) => {
   try {
     await ensureStudentResumesTable();
-    const prn = req.auth?.prn;
+    const prn = String(req.auth?.prn || '').trim();
+
+    if (!prn) {
+      return res.status(401).json({ error: 'Student identity missing in token.' });
+    }
+
     const rows = await query(
       `SELECT id, PRN, template_code, resume_title, file_name, file_url, preview_file_url, created_at
        FROM student_resumes
        WHERE PRN = ? AND template_code LIKE 'ats_%'
-       ORDER BY created_at DESC`,
+       ORDER BY created_at DESC
+       LIMIT 3`,
       [prn],
     );
     res.json(rows);

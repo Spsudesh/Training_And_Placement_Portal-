@@ -342,6 +342,7 @@ function getWorkflowIcon(status) {
 function HiringWorkflowMindmap({
   workflow = [],
   isActive = false,
+  panelScope = "tpo",
   onEditWorkflow,
   onImportRound,
   onTypePrn,
@@ -494,14 +495,35 @@ function HiringWorkflowMindmap({
 
                   {item.status === "completed" ? (
                     <div className="flex justify-start lg:justify-center">
-                      <div className="min-w-[108px] rounded-2xl border border-cyan-100 bg-white/95 px-4 py-3 text-center shadow-sm">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                          Cleared
-                        </p>
-                        <p className="mt-1 text-2xl font-semibold text-cyan-700">
-                          {item.selectedCount ?? 0}
-                        </p>
-                      </div>
+                      {panelScope === "tpc" ? (
+                        <div className="grid min-w-[216px] grid-cols-2 gap-3">
+                          <div className="rounded-2xl border border-cyan-100 bg-white/95 px-4 py-3 text-center shadow-sm">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              Total
+                            </p>
+                            <p className="mt-1 text-2xl font-semibold text-cyan-700">
+                              {item.selectedCount ?? 0}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-emerald-100 bg-white/95 px-4 py-3 text-center shadow-sm">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              Dept
+                            </p>
+                            <p className="mt-1 text-2xl font-semibold text-emerald-700">
+                              {item.departmentSelectedCount ?? 0}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="min-w-[108px] rounded-2xl border border-cyan-100 bg-white/95 px-4 py-3 text-center shadow-sm">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            Cleared
+                          </p>
+                          <p className="mt-1 text-2xl font-semibold text-cyan-700">
+                            {item.selectedCount ?? 0}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ) : null}
 
@@ -1248,6 +1270,7 @@ export default function Placements({
         <HiringWorkflowMindmap
           workflow={selectedJob.workflow}
           isActive={isPlacementActive(selectedJob)}
+          panelScope={panelScope}
           onEditWorkflow={handleEditWorkflow}
           onImportRound={handleImportRound}
           onTypePrn={handleTypePrn}

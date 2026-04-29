@@ -84,6 +84,74 @@ function arePromptsEqual(firstPrompt, secondPrompt) {
   return String(firstPrompt || '') === String(secondPrompt || '');
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeSecondPersonText(text, profile) {
+  let value = String(text || '').trim();
+
+  if (!value) {
+    return value;
+  }
+
+  const fullName = String(profile?.fullName || '').trim();
+  const firstName = fullName.split(/\s+/).filter(Boolean)[0] || '';
+  const replacements = [];
+
+  if (fullName) {
+    replacements.push([new RegExp(`\\b${escapeRegExp(fullName)}'s\\b`, 'gi'), 'your']);
+    replacements.push([new RegExp(`\\b${escapeRegExp(fullName)}\\b`, 'gi'), 'you']);
+  }
+
+  if (firstName && firstName.toLowerCase() !== fullName.toLowerCase()) {
+    replacements.push([new RegExp(`\\b${escapeRegExp(firstName)}'s\\b`, 'gi'), 'your']);
+    replacements.push([new RegExp(`\\b${escapeRegExp(firstName)}\\b`, 'gi'), 'you']);
+  }
+
+  replacements.push([/\bthe student\b/gi, 'you']);
+  replacements.push([/\bthis student\b/gi, 'you']);
+  replacements.push([/\bhe\/she\b/gi, 'you']);
+  replacements.push([/\bhis\/her\b/gi, 'your']);
+  replacements.push([/\bhis\b/gi, 'your']);
+  replacements.push([/\bher\b/gi, 'your']);
+
+  for (const [pattern, replacement] of replacements) {
+    value = value.replace(pattern, replacement);
+  }
+
+  value = value
+    .replace(/\byou has\b/gi, 'you have')
+    .replace(/\byou is\b/gi, 'you are')
+    .replace(/\byou shows\b/gi, 'you show')
+    .replace(/\byou needs\b/gi, 'you need')
+    .replace(/\byou shoulds\b/gi, 'you should')
+    .replace(/\byour are\b/gi, 'you are');
+
+  return value;
+}
+
+function normalizeSecondPersonAnalysis(value, profile) {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeSecondPersonAnalysis(item, profile));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entryValue]) => [
+        key,
+        normalizeSecondPersonAnalysis(entryValue, profile),
+      ]),
+    );
+  }
+
+  if (typeof value === 'string') {
+    return normalizeSecondPersonText(value, profile);
+  }
+
+  return value;
+}
+
 async function fetchStudentProfileSnapshot(prn) {
   const [
     personalRows,
@@ -258,6 +326,9 @@ You are an expert placement mentor, SWOT analyst, and career coach for engineeri
 
 Analyze the student profile below and create a practical, honest, motivating SWOT report.
 Base your reasoning only on the profile details provided, but you may infer likely patterns carefully.
+Write the entire response directly to the student in second-person voice using "you" and "your".
+Never refer to the student by name, PRN, or in third person such as "the student", "he", "she", or the student's name.
+Make the tone feel personal, supportive, and actionable, like a mentor speaking directly to the student.
 
 Student Profile:
 ${lines.join('\n')}
@@ -286,6 +357,7 @@ Return STRICT JSON only with this exact structure:
 
 Rules:
 - Keep the language professional, student-friendly, and actionable.
+- Every sentence in overview, SWOT details, role reasons, learning reasons, action steps, guidance, and encouragement must address the student as "you" or "your".
 - Mention future job roles based on current skills and profile depth.
 - Mention what topics the student should cover next.
 - Point out missing or weak areas clearly but respectfully.
@@ -440,7 +512,7 @@ swotRoutes.post('/analyze', async (req, res) => {
       });
     }
 
-    const analysis = await requestGroqAnalysis(prompt);
+    const analysis = normalizeSecondPersonAnalysis(await requestGroqAnalysis(prompt), profile);
     await saveCachedSwotAnalysis(prn, prompt, analysis);
 
     return res.json({

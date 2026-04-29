@@ -107,6 +107,10 @@ export function normalizePlacementWorkflow(workflow) {
         item?.selectedCount === null || item?.selectedCount === undefined || item?.selectedCount === ""
           ? null
           : Number(item.selectedCount),
+      departmentSelectedCount:
+        item?.departmentSelectedCount === null || item?.departmentSelectedCount === undefined || item?.departmentSelectedCount === ""
+          ? null
+          : Number(item.departmentSelectedCount),
       status: String(item?.status ?? item?.stageStatus ?? item?.stage_status ?? "").trim().toLowerCase(),
       studentStatus: String(item?.studentStatus ?? item?.student_status ?? "").trim().toLowerCase(),
       studentUpdatedAt: item?.studentUpdatedAt ?? item?.student_updated_at ?? null,
@@ -127,6 +131,7 @@ export function normalizePlacementWorkflow(workflow) {
     date: item.roundDate ? formatWorkflowDate(item.roundDate) : "Date not scheduled",
     rawDate: item.roundDate,
     selectedCount: item.selectedCount,
+    departmentSelectedCount: item.departmentSelectedCount,
     status: item.status || inferredStatuses[index],
     studentStatus: item.studentStatus || "pending",
     studentUpdatedAt: item.studentUpdatedAt,

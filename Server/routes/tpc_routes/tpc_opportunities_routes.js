@@ -399,6 +399,57 @@ function normalizeTextValue(value) {
   return normalizedValue ? normalizedValue : null;
 }
 
+async function resolveTpcDepartment(req) {
+  if (req.auth?.role !== 'tpc') {
+    return '';
+  }
+
+  const tpcId = String(req.auth?.prn || req.auth?.userId || '').trim();
+
+  if (!tpcId) {
+    return '';
+  }
+
+  const hasDepartmentColumn = await columnExists('TPC_Credentials', 'department').catch(() => false);
+  const hasDepartmentNameColumn = await columnExists('TPC_Credentials', 'department_name').catch(() => false);
+  const hasIdColumn = await columnExists('TPC_Credentials', 'id').catch(() => false);
+  const hasTpcIdColumn = await columnExists('TPC_Credentials', 'tpc_id').catch(() => false);
+
+  const departmentExpression = hasDepartmentColumn
+    ? 'department'
+    : hasDepartmentNameColumn
+      ? 'department_name'
+      : "''";
+  const idConditions = [];
+  const values = [];
+
+  if (hasIdColumn) {
+    idConditions.push('CAST(id AS CHAR) = ?');
+    values.push(tpcId);
+  }
+
+  if (hasTpcIdColumn) {
+    idConditions.push('CAST(tpc_id AS CHAR) = ?');
+    values.push(tpcId);
+  }
+
+  if (!idConditions.length) {
+    return '';
+  }
+
+  const rows = await query(
+    `
+      SELECT ${departmentExpression} AS department
+      FROM TPC_Credentials
+      WHERE ${idConditions.join(' OR ')}
+      LIMIT 1
+    `,
+    values
+  );
+
+  return String(rows[0]?.department || '').trim();
+}
+
 function toNullableNumber(value) {
   if (value === undefined || value === null || value === '') {
     return null;
@@ -747,6 +798,37 @@ async function getOpportunityById(id) {
   return rows[0] ?? null;
 }
 
+async function syncHiringStageLifecycleStatuses(opportunityIds) {
+  const normalizedOpportunityIds = Array.from(
+    new Set(
+      (Array.isArray(opportunityIds) ? opportunityIds : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    )
+  );
+
+  if (!normalizedOpportunityIds.length) {
+    return;
+  }
+
+  const placeholders = normalizedOpportunityIds.map(() => '?').join(', ');
+
+  await query(
+    `
+      UPDATE hiring_stages
+      SET lifecycle_status = CASE
+        WHEN DATE(planned_date) < CURDATE() THEN 'closed'
+        WHEN DATE(planned_date) = CURDATE() THEN 'open'
+        ELSE 'scheduled'
+      END
+      WHERE opportunity_id IN (${placeholders})
+        AND planned_date IS NOT NULL
+        AND lifecycle_status IN ('scheduled', 'open')
+    `,
+    normalizedOpportunityIds
+  );
+}
+
 async function getHiringStagesByOpportunityIds(opportunityIds) {
   if (!opportunityIds.length) {
     return new Map();
@@ -832,7 +914,7 @@ async function getStudentStageRecordsByOpportunityIds(opportunityIds, studentPrn
   return stageRecordsByOpportunityId;
 }
 
-async function getStageSelectionCountsByOpportunityIds(opportunityIds) {
+async function getStageSelectionCountsByOpportunityIds(opportunityIds, scopedDepartment = '') {
   if (!opportunityIds.length) {
     return new Map();
   }
@@ -883,6 +965,60 @@ async function getStageSelectionCountsByOpportunityIds(opportunityIds) {
   }
 
   const countsByOpportunityId = new Map();
+  const normalizedScopedDepartment = normalizeDepartmentKey(scopedDepartment);
+
+  let scopedRows = [];
+
+  if (normalizedScopedDepartment) {
+    if (await tableExists('application_stage_results')) {
+      scopedRows = await query(
+        `
+          SELECT
+            hs.opportunity_id,
+            asr.stage_id,
+            SUM(
+              CASE
+                WHEN LOWER(COALESCE(asr.stage_result, '')) IN ('cleared', 'shortlisted', 'qualified')
+                THEN 1
+                ELSE 0
+              END
+            ) AS selected_count
+          FROM application_stage_results asr
+          INNER JOIN placement_applications pa ON pa.id = asr.application_id
+          INNER JOIN student_education se ON se.PRN = pa.PRN
+          INNER JOIN hiring_stages hs ON hs.id = asr.stage_id
+          WHERE hs.opportunity_id IN (${placeholders})
+            AND LOWER(TRIM(COALESCE(se.department, ''))) = ?
+          GROUP BY hs.opportunity_id, asr.stage_id
+        `,
+        [...opportunityIds, normalizedScopedDepartment]
+      );
+    } else if (await tableExists('student_stage_records')) {
+      scopedRows = await query(
+        `
+          SELECT
+            hs.opportunity_id,
+            ssr.stage_id,
+            SUM(
+              CASE
+                WHEN LOWER(COALESCE(ssr.status, '')) IN ('qualified', 'cleared', 'shortlisted')
+                THEN 1
+                ELSE 0
+              END
+            ) AS selected_count
+          FROM student_stage_records ssr
+          INNER JOIN student_education se ON se.PRN = ssr.PRN
+          INNER JOIN hiring_stages hs ON hs.id = ssr.stage_id
+          WHERE hs.opportunity_id IN (${placeholders})
+            AND LOWER(TRIM(COALESCE(se.department, ''))) = ?
+          GROUP BY hs.opportunity_id, ssr.stage_id
+        `,
+        [...opportunityIds, normalizedScopedDepartment]
+      );
+    }
+  }
+
+  const scopedCountsByOpportunityId = new Map();
 
   for (const row of rows) {
     const currentCounts = countsByOpportunityId.get(row.opportunity_id) || new Map();
@@ -890,7 +1026,34 @@ async function getStageSelectionCountsByOpportunityIds(opportunityIds) {
     countsByOpportunityId.set(row.opportunity_id, currentCounts);
   }
 
-  return countsByOpportunityId;
+  for (const row of scopedRows) {
+    const currentCounts = scopedCountsByOpportunityId.get(row.opportunity_id) || new Map();
+    currentCounts.set(row.stage_id, Number(row.selected_count) || 0);
+    scopedCountsByOpportunityId.set(row.opportunity_id, currentCounts);
+  }
+
+  const combinedCountsByOpportunityId = new Map();
+
+  for (const opportunityId of opportunityIds) {
+    const totalStageCounts = countsByOpportunityId.get(opportunityId) || new Map();
+    const scopedStageCounts = scopedCountsByOpportunityId.get(opportunityId) || new Map();
+    const combinedStageCounts = new Map();
+    const stageIds = new Set([
+      ...totalStageCounts.keys(),
+      ...scopedStageCounts.keys(),
+    ]);
+
+    for (const stageId of stageIds) {
+      combinedStageCounts.set(stageId, {
+        totalCount: totalStageCounts.get(stageId) ?? 0,
+        departmentCount: scopedStageCounts.get(stageId) ?? 0,
+      });
+    }
+
+    combinedCountsByOpportunityId.set(opportunityId, combinedStageCounts);
+  }
+
+  return combinedCountsByOpportunityId;
 }
 
 function mapStudentStageStatus(value) {
@@ -1229,22 +1392,24 @@ async function attachHiringStages(rows, options = {}) {
     return [];
   }
 
-  const { studentPrn = '' } = options;
-  const stagesByOpportunityId = await getHiringStagesByOpportunityIds(
-    rows.map((row) => row.id).filter(Boolean)
-  );
+  const { studentPrn = '', scopedDepartment = '' } = options;
+  const opportunityIds = rows.map((row) => row.id).filter(Boolean);
+  await syncHiringStageLifecycleStatuses(opportunityIds);
+
+  const stagesByOpportunityId = await getHiringStagesByOpportunityIds(opportunityIds);
   const stageSelectionCountsByOpportunityId = await getStageSelectionCountsByOpportunityIds(
-    rows.map((row) => row.id).filter(Boolean)
+    opportunityIds,
+    scopedDepartment
   );
   const stageActivityCountsByOpportunityId = await getStageActivityCountsByOpportunityIds(
-    rows.map((row) => row.id).filter(Boolean)
+    opportunityIds
   );
   const studentStageRecordsByOpportunityId = await getStudentStageRecordsByOpportunityIds(
-    rows.map((row) => row.id).filter(Boolean),
+    opportunityIds,
     studentPrn
   );
   const placementApplicationsByOpportunityId = await getPlacementApplicationsByOpportunityIds(
-    rows.map((row) => row.id).filter(Boolean),
+    opportunityIds,
     studentPrn
   );
 
@@ -1263,11 +1428,20 @@ async function attachHiringStages(rows, options = {}) {
       student_application: placementApplicationsByOpportunityId.get(row.id) || null,
       workflow: stages.map((stage) => {
         const derivedStudentStatus = derivedStudentStatuses.get(stage.id);
-        const selectedCount = stageSelectionCountsByOpportunityId.get(row.id)?.get(stage.id) ?? 0;
+        const selectionCountRecord = stageSelectionCountsByOpportunityId.get(row.id)?.get(stage.id);
+        const selectedCount =
+          selectionCountRecord && typeof selectionCountRecord === 'object'
+            ? selectionCountRecord.totalCount ?? 0
+            : selectionCountRecord ?? 0;
+        const departmentSelectedCount =
+          selectionCountRecord && typeof selectionCountRecord === 'object'
+            ? selectionCountRecord.departmentCount ?? 0
+            : 0;
 
         return {
           ...stage,
           selectedCount,
+          departmentSelectedCount,
           studentStatus: derivedStudentStatus?.studentStatus || 'pending',
           studentUpdatedAt: derivedStudentStatus?.updatedAt || null,
         };
@@ -1494,6 +1668,7 @@ tpcOpportunitiesRoutes.get(
     const studentPrn = normalizeTextValue(
       req.query.studentPrn || (req.auth?.role === 'student' ? req.auth.prn : '')
     );
+    const scopedDepartment = req.auth?.role === 'tpc' ? await resolveTpcDepartment(req) : '';
     const values = [];
     let sql = 'SELECT * FROM tpo_opportunities';
 
@@ -1506,7 +1681,7 @@ tpcOpportunitiesRoutes.get(
 
     sql += ' ORDER BY created_at DESC, id DESC';
 
-    const rows = await attachHiringStages(await query(sql, values), { studentPrn });
+    const rows = await attachHiringStages(await query(sql, values), { studentPrn, scopedDepartment });
 
     res.json({
       success: true,
@@ -1523,10 +1698,12 @@ tpcOpportunitiesRoutes.get(
     const studentPrn = normalizeTextValue(
       req.query.studentPrn || (req.auth?.role === 'student' ? req.auth.prn : '')
     );
+    const scopedDepartment = req.auth?.role === 'tpc' ? await resolveTpcDepartment(req) : '';
     await syncStudentFinalRoundPlacements(studentPrn, 'system');
 
     const opportunities = await attachHiringStages([await getOpportunityById(req.params.id)].filter(Boolean), {
       studentPrn,
+      scopedDepartment,
     });
     const opportunity = opportunities[0] ?? null;
 

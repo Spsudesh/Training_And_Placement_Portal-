@@ -83,10 +83,12 @@ function filterHistoryByStudent(items, prn) {
   const normalizedPrn = String(prn || '').trim();
 
   if (!normalizedPrn) {
-    return items;
+    return [];
   }
 
-  return items.filter((item) => String(item?.PRN || item?.prn || '').trim() === normalizedPrn);
+  return items
+    .filter((item) => String(item?.PRN || item?.prn || '').trim() === normalizedPrn)
+    .slice(0, 3);
 }
 
 function getItemId(item, keys) {
@@ -478,7 +480,7 @@ export default function AtsResumePage() {
         setErrorMessage('');
         const [profData, histData] = await Promise.all([getStudentProfile('me'), getAtsResumeHistory()]);
         const selectableItems = buildSelectableItems(profData);
-        const studentPrn = String(profData?.prn || '').trim();
+        const studentPrn = String(profData?.prn || profData?.PRN || '').trim();
         const initialSelections = {
           projects: [],
           experience: [],
@@ -569,7 +571,7 @@ export default function AtsResumePage() {
       });
 
       const newHistory = await getAtsResumeHistory();
-      setHistory(filterHistoryByStudent(normalizeHistory(newHistory), profile?.prn));
+      setHistory(filterHistoryByStudent(normalizeHistory(newHistory), profile?.prn || profile?.PRN));
 
       const fileUrl = resolveFileUrl(data?.fileUrl);
       setGenerationStatus('done');
@@ -722,7 +724,7 @@ export default function AtsResumePage() {
           </div>
         ) : (
           <div className="mt-4 grid gap-3">
-            {history.slice(0, 5).map((item) => (
+            {history.map((item) => (
               <div
                 key={item.id}
                 className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"

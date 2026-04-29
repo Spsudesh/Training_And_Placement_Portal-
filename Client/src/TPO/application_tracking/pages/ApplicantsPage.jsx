@@ -62,8 +62,6 @@ function exportApplicantsToCsv(opportunity, applicants) {
       "Phone",
       "Department",
       "Passing Year",
-      "Status",
-      "Current Stage",
     ],
     ...applicants.map((applicant) => [
       applicant.prn || "",
@@ -71,8 +69,6 @@ function exportApplicantsToCsv(opportunity, applicants) {
       applicant.phone || "",
       applicant.department || "",
       applicant.passingYear || "",
-      applicant.applicationStatus || "",
-      applicant.currentStage || "TPO Verification",
     ]),
   ];
 
